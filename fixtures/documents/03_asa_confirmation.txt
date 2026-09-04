@@ -1,0 +1,17 @@
+HM Revenue & Customs — Agent Services Account (synthetic demo copy)
+
+Subject: Your agent services account details
+
+Dear Smith & Co Accountants Ltd,
+
+Your agent services account is set up. Keep these details safe.
+
+Agent Services Account reference (ARN): XARN0004471220
+Agent Government Gateway user ID: 4471 2200 9137
+Account status: Active
+Registered for: Self Assessment (Making Tax Digital for Income Tax), VAT
+
+You must obtain authorisation from each client before acting for them. Existing 64-8 authorisations
+have been copied to this account. New clients can authorise you through the digital handshake.
+
+This is a system-generated message. Do not reply.

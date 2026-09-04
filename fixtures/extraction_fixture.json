@@ -1,0 +1,39 @@
+{
+  "_comment": "Deterministic stand-in for the Gemini extraction. Same schema, same provenance shape. Used when EXTRACTION_MODE=fixture or when the API is unavailable.",
+  "firm": {
+    "name": {"value": "Smith & Co Accountants Ltd", "source_doc": "01_appointment_declaration.txt", "quote": "SMITH & CO ACCOUNTANTS LTD"},
+    "asa_reference": {"value": "XARN0004471220", "source_doc": "03_asa_confirmation.txt", "quote": "Agent Services Account reference (ARN): XARN0004471220"},
+    "gateway_id": {"value": "4471 2200 9137", "source_doc": "03_asa_confirmation.txt", "quote": "Agent Government Gateway user ID: 4471 2200 9137"},
+    "companies_house_number": {"value": "09482117", "source_doc": "01_appointment_declaration.txt", "quote": "Companies House number 09482117"}
+  },
+  "accountable_person": {
+    "name": {"value": "Jane Smith", "source_doc": "01_appointment_declaration.txt", "quote": "I, Jane Smith, Partner and Head of Tax"},
+    "role": {"value": "Partner, Head of Tax", "source_doc": "01_appointment_declaration.txt", "quote": "Role: Partner, Head of Tax"},
+    "professional_body": {"value": "ICAEW", "source_doc": "01_appointment_declaration.txt", "quote": "member of the Institute of Chartered Accountants in England and Wales (ICAEW)"},
+    "email": {"value": "jane.smith@smithco-accountants.example", "source_doc": "01_appointment_declaration.txt", "quote": "Contact: jane.smith@smithco-accountants.example"},
+    "declaration_accepted": {"value": true, "source_doc": "01_appointment_declaration.txt", "quote": "I accept responsibility for the actions taken by this agent"}
+  },
+  "compliance": {
+    "aml_supervisor": {"value": "ICAEW", "source_doc": "02_aml_supervision_certificate.txt", "quote": "is supervised by ICAEW"},
+    "aml_reference": {"value": "C0092331", "source_doc": "02_aml_supervision_certificate.txt", "quote": "AML registration reference: C0092331"}
+  },
+  "clients": [
+    {"name": "Maya Okafor", "utr": "1234567890", "authorisation_route": "digital_handshake", "authorisation_confirmed": true, "consent_automated_processing": true, "source_doc": "04_client_authorisation_register.txt", "quote": "Maya Okafor        1234567890   Digital handshake       Confirmed 12/05/2026   Yes"},
+    {"name": "Daniel Reyes", "utr": "2345678901", "authorisation_route": "64-8", "authorisation_confirmed": true, "consent_automated_processing": true, "source_doc": "04_client_authorisation_register.txt", "quote": "Daniel Reyes       2345678901   Form 64-8               Confirmed 03/02/2025   Yes"},
+    {"name": "Priya Nair", "utr": "3456789012", "authorisation_route": "digital_handshake", "authorisation_confirmed": false, "consent_automated_processing": true, "source_doc": "04_client_authorisation_register.txt", "quote": "Priya Nair         3456789012   Digital handshake       Pending"},
+    {"name": "Oliver Grant", "utr": "4567890123", "authorisation_route": "64-8", "authorisation_confirmed": true, "consent_automated_processing": false, "source_doc": "04_client_authorisation_register.txt", "quote": "Oliver Grant       4567890123   Form 64-8               Confirmed 21/11/2024   No response"}
+  ],
+  "requested_authority": {
+    "task": {"value": "submit_sa100", "source_doc": "05_agent_technical_description.txt", "quote": "Task:            submit Self Assessment (SA100) returns"},
+    "tax_year": {"value": "2025/26", "source_doc": "05_agent_technical_description.txt", "quote": "Tax year:        2025/26"},
+    "action_type": {"value": "submit_only", "source_doc": "05_agent_technical_description.txt", "quote": "Action type:     submit only (no amendment of submitted returns)"},
+    "escalation_threshold_gbp": {"value": 10000, "source_doc": "05_agent_technical_description.txt", "quote": "returns with tax due above GBP 10,000 to be held for human review"},
+    "valid_until": {"value": "2027-01-31", "source_doc": "05_agent_technical_description.txt", "quote": "requested until 31 January 2027"}
+  },
+  "agent": {
+    "agent_id": {"value": "smithco-sa-agent-01", "source_doc": "05_agent_technical_description.txt", "quote": "Agent identifier: smithco-sa-agent-01"},
+    "software": {"value": "FilerOne", "source_doc": "05_agent_technical_description.txt", "quote": "Software: FilerOne, version 3.2.1"},
+    "software_version": {"value": "3.2.1", "source_doc": "05_agent_technical_description.txt", "quote": "version 3.2.1"},
+    "model_provider": {"value": "Anthropic (Claude)", "source_doc": "05_agent_technical_description.txt", "quote": "Model provider: Anthropic (Claude)"}
+  }
+}

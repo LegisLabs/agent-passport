@@ -1,0 +1,12 @@
+# cdir.legislabs.uk — Agent Passport skeleton (C:\>DIR hackathon).
+# Drop-in for the shared Caddy owned by the Compass deploy (compass/DEPLOY.md §0).
+# One basic-auth gate covers the whole demo (keeps strangers from burning Gemini tokens).
+# publish.sh substitutes __PASSWORD_HASH__; rotate with DEMO_PASSWORD=... bash deploy/publish.sh
+cdir.legislabs.uk {
+	encode gzip zstd
+	header X-Robots-Tag "noindex"
+	basic_auth {
+		lexis __PASSWORD_HASH__
+	}
+	reverse_proxy cdir:8013
+}

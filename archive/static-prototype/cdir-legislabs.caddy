@@ -1,0 +1,15 @@
+# cdir.legislabs.uk — Agent Passport frontend prototype (C:\>DIR hackathon).
+# Static drop-in for the shared Caddy owned by the Compass deploy
+# (compass/DEPLOY.md §0). Files live in cdir-legislabs/ next to this file
+# (/opt/caddy-sites on the host, mounted read-only as /etc/caddy/sites.d).
+
+cdir.legislabs.uk {
+	encode gzip zstd
+	root * /etc/caddy/sites.d/cdir-legislabs
+	header {
+		X-Robots-Tag "noindex"
+		Cache-Control "no-cache"
+	}
+	try_files {path} {path}.html {path}/index.html
+	file_server
+}

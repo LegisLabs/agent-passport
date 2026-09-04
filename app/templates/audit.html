@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Audit{% endblock %}
+{% block content %}
+<span class="caption">Maintain · the record</span>
+<h1 class="h1">Audit trail</h1>
+<p class="lede">Every application step, check, decision, issuance, lifecycle change and verification is one line in a hash chain: <code>hash = sha256(prev_hash + entry)</code>. Verifications also carry a receipt signed by the authority. Any verification can be replayed from its stored inputs and must give the same answer.</p>
+<div class="strip">
+  <div><span class="strip__k">Entries</span><span class="strip__v" id="au-count">0</span></div>
+  <div><span class="strip__k">Chain</span><span class="strip__v" id="au-chain">—</span></div>
+  <div><span class="strip__k">Head</span><span class="strip__v mono small" id="au-head">—</span></div>
+  <div><span class="strip__k">Replays</span><span class="strip__v" id="au-replays">0 run · 0 identical</span></div>
+</div>
+<div class="actions"><button class="btn btn--secondary btn--small" id="btn-replay-all">Replay every verification</button><span class="actions__note" id="replay-note"></span></div>
+<table class="checks audit" id="au-table"><thead><tr><th>#</th><th>Time</th><th>Kind</th><th>Subject</th><th>Entry</th><th>Hash</th><th>Receipt / replay</th></tr></thead><tbody></tbody></table>
+{% endblock %}
+{% block scripts %}<script>AP.audit();</script>{% endblock %}

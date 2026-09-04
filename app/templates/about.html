@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}About{% endblock %}
+{% block content %}
+<div class="prose">
+  <h1 class="h1">What this skeleton shows</h1>
+  <p>An AI agent can be correctly identified and still act beyond what its principal allowed. <strong>Identity is not authority.</strong> The Agent Passport is the authority's own record of what a specific agent may do, checked at the moment it tries to do it, and revocable at that moment.</p>
+
+  <h2 class="h2">Four parties, one path</h2>
+  <ol>
+    <li><strong>Apply.</strong> The accounting firm submits its agent, its clients and the authority it is requesting. The model reads the evidence pack into structured facts, each with a source and a quote; the firm corrects them; the agent signs a one-off challenge to prove it holds its key.</li>
+    <li><strong>Review &amp; issue.</strong> Ten automated checks run over the reviewed facts and the authority's records, each citing a rule and its source. A named officer approves, requests information or rejects, with a written reason. On approval the authority signs a passport: agent, operator, granted scope, validity, the agent's public key. No client list, no personal data.</li>
+    <li><strong>Act &amp; check.</strong> The agent signs each request. The gateway checks, in order: passport signature, registry status, agent signature, scope, client authorisation by reference, escalation threshold. ALLOW, ESCALATE or DENY, with a reason code and a signed receipt.</li>
+    <li><strong>Maintain.</strong> Suspend, reinstate, revoke, renew, each with a reason. The relying party reads the registry in real time, so revocation bites on the very next action. Everything is hash-chained and replayable.</li>
+  </ol>
+
+  <h2 class="h2">Where the model sits, and where it does not</h2>
+  <p>Gemini is used twice, both at the edges: reading documents into a fixed schema, and phrasing the check results as a draft file note. It never checks, scores, approves or verifies. If the API is unavailable the system falls back to a deterministic fixture and says so. The consequential middle is plain rules in a versioned pack (<code>{{ pack.id }}</code>), each labelled CURRENT, PROTOTYPE or FUTURE with its source, so the same inputs always give the same decision.</p>
+
+  <h2 class="h2">Rules in this pack</h2>
+  <h3 class="h3">At application</h3>
+  <ul>{% for r in pack.application_rules %}<li><code>{{ r.id }}</code> {{ r.title }} <span class="tag tag--{{ 'green' if r.status == 'CURRENT' else 'amber' }}">{{ r.status }}</span> <span class="small">— {{ r.source }}</span></li>{% endfor %}</ul>
+  <h3 class="h3">At action time, in this order</h3>
+  <ul>{% for r in pack.runtime_rules %}<li><code>{{ r.id }}</code> {{ r.title }} → <code>{{ r.on_fail }}</code> <span class="tag tag--{{ 'green' if r.status == 'CURRENT' else 'amber' }}">{{ r.status }}</span> <span class="small">— {{ r.source }}</span></li>{% endfor %}</ul>
+
+  <h2 class="h2">What is real</h2>
+  <ul>
+    <li>Ed25519 signatures on the passport, the agent's requests and the receipts (RFC 8037; keys generated on this server).</li>
+    <li>Proof of possession: the agent signs the authority's nonce at application and every request afterwards (RFC 7800 pattern, <code>cnf</code>).</li>
+    <li>Scope as structured <code>authorization_details</code> (RFC 9396 shape).</li>
+    <li>Registry-based status checked at action time; hash-chained audit with exact replay.</li>
+    <li>Live document extraction with per-fact provenance.</li>
+  </ul>
+  <h2 class="h2">What is not</h2>
+  <ul>
+    <li>The registers are synthetic. HMRC is not involved; the demo says "UK Tax Authority (demo)".</li>
+    <li>The agent is simulated inside this server so the demo can show a copied passport failing.</li>
+    <li>Renewal is recorded, not minted. Sanctions screening, delegation, attestation of the running software are roadmap.</li>
+  </ul>
+  <h2 class="h2">What we do not claim</h2>
+  <p>That HMRC issues agent passports today; that the passport replaces tax-adviser registration or client authorisation; that a signature proves an agent is safe or correct; that a valid passport compels a relying party to accept an action; that this is production cryptographic infrastructure.</p>
+  <p class="small">Lexis Labs · C:\&gt;DIR Global 'Agentic Regulator' Hackathon · Know Your Agent problem space · synthetic data only.</p>
+</div>
+{% endblock %}

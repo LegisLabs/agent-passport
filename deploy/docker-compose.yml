@@ -1,0 +1,25 @@
+# Agent Passport skeleton (cdir.legislabs.uk). Ports 80/443 on the box belong to
+# the Compass Caddy (/opt/compass/deploy); this app joins that compose network so
+# Caddy can reverse_proxy to it by container name. Site config is the drop-in
+# /opt/caddy-sites/cdir-legislabs.caddy.
+services:
+  cdir:
+    build:
+      context: ..
+      dockerfile: deploy/Dockerfile
+    container_name: cdir
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      EXTRACTION_MODE: ${EXTRACTION_MODE:-gemini}
+    volumes:
+      - cdir_data:/data
+    restart: unless-stopped
+
+volumes:
+  cdir_data:
+
+networks:
+  default:
+    name: deploy_default
+    external: true

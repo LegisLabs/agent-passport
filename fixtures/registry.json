@@ -1,0 +1,19 @@
+{
+  "_comment": "Synthetic authority records. What the regulator already knows before the application arrives. Not HMRC data.",
+  "asa": {
+    "XARN0004471220": {"firm": "Smith & Co Accountants Ltd", "status": "active", "gateway_id": "4471 2200 9137"}
+  },
+  "companies_house": {
+    "09482117": {"name": "SMITH & CO ACCOUNTANTS LTD", "status": "active", "address": "14 Quayside, Cambridge CB5 8AB"}
+  },
+  "aml_supervision": {
+    "C0092331": {"firm": "Smith & Co Accountants Ltd", "supervisor": "ICAEW", "status": "active", "valid_until": "2026-12-31"}
+  },
+  "client_authorisations": {
+    "1234567890": {"name": "Maya Okafor", "firm_arn": "XARN0004471220", "route": "digital_handshake", "status": "confirmed", "taxes": ["SA"]},
+    "2345678901": {"name": "Daniel Reyes", "firm_arn": "XARN0004471220", "route": "64-8", "status": "confirmed", "taxes": ["SA"]},
+    "3456789012": {"name": "Priya Nair", "firm_arn": "XARN0004471220", "route": "digital_handshake", "status": "pending", "taxes": ["SA"]},
+    "4567890123": {"name": "Oliver Grant", "firm_arn": "XARN0004471220", "route": "64-8", "status": "confirmed", "taxes": ["SA"]},
+    "9988776655": {"name": "Tom Hale", "firm_arn": "XARN0009911223", "route": "64-8", "status": "confirmed", "taxes": ["SA"]}
+  }
+}

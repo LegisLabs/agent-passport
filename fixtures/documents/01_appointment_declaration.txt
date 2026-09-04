@@ -1,0 +1,22 @@
+SMITH & CO ACCOUNTANTS LTD
+14 Quayside, Cambridge CB5 8AB
+Companies House number 09482117
+
+DECLARATION OF RESPONSIBILITY FOR AN AUTONOMOUS FILING AGENT
+
+Date: 18 August 2026
+
+I, Jane Smith, Partner and Head of Tax at Smith & Co Accountants Ltd, confirm that I am the named
+responsible individual for the software agent identified as "smithco-sa-agent-01".
+
+I accept responsibility for the actions taken by this agent when it acts for the firm's clients in
+relation to Self Assessment, and I confirm that the firm's internal controls require any return with
+tax due above GBP 10,000 to be reviewed by a qualified member of staff before submission.
+
+I am a member of the Institute of Chartered Accountants in England and Wales (ICAEW), membership
+number 4471220.
+
+Contact: jane.smith@smithco-accountants.example
+
+Signed: J. Smith
+Role: Partner, Head of Tax

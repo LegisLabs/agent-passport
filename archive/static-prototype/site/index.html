@@ -1,0 +1,240 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Agent Passport — verification prototype</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="app.css">
+</head>
+<body>
+<a href="#main" class="skip">Skip to main content</a>
+
+<header class="masthead" role="banner">
+  <div class="wrap masthead__row">
+    <a class="masthead__brand" href="#" aria-label="Agent Passport home">
+      <span class="masthead__crest" aria-hidden="true"></span>
+      <span class="masthead__name">UK Tax Authority <span class="masthead__sep">·</span> Agent Passport</span>
+    </a>
+    <span class="masthead__tag">Prototype</span>
+  </div>
+</header>
+
+<div class="phase" role="note">
+  <div class="wrap">
+    <strong class="tag tag--blue">Prototype</strong>
+    <span>Internal baseline, synthetic data only. Not an HMRC service. The passport is a fourth trust layer that <em>references</em> AML supervision, HMRC agent registration and client authorisation; it does not replace them.</span>
+  </div>
+</div>
+
+<nav class="tabs" aria-label="Views">
+  <div class="wrap tabs__row" role="tablist">
+    <button class="tabs__tab" role="tab" data-view="operator" aria-selected="true" id="tab-operator" aria-controls="view-operator">1 · Operator <span class="tabs__sub">accounting firm</span></button>
+    <button class="tabs__tab" role="tab" data-view="regulator" aria-selected="false" id="tab-regulator" aria-controls="view-regulator">2 · Regulator <span class="tabs__sub">case officer</span></button>
+    <button class="tabs__tab" role="tab" data-view="relying" aria-selected="false" id="tab-relying" aria-controls="view-relying">3 · Verification console <span class="tabs__sub">authority gateway</span></button>
+    <button class="tabs__tab" role="tab" data-view="about" aria-selected="false" id="tab-about" aria-controls="view-about">About</button>
+  </div>
+</nav>
+
+<main id="main" class="wrap">
+
+<!-- ═══════════════════ 1 · OPERATOR ═══════════════════ -->
+<section class="view" id="view-operator" role="tabpanel" aria-labelledby="tab-operator">
+  <div class="grid">
+    <div class="col-main">
+      <span class="caption">Apply for an Agent Passport</span>
+      <h1 class="h1">Register an autonomous filing agent</h1>
+      <p class="lede">Use this service to apply for recognition of a specific software agent that will file on behalf of your clients. Your firm must already be registered with HMRC and supervised for anti-money-laundering.</p>
+
+      <h2 class="h2">Firm and accountability</h2>
+      <dl class="summary" id="op-firm"></dl>
+
+      <h2 class="h2">The agent</h2>
+      <dl class="summary" id="op-agent"></dl>
+
+      <h2 class="h2">Requested authority</h2>
+      <p class="hint">Expressed as RFC 9396 <code>authorization_details</code>. Limits are ceilings the authority may lower; the running totals are held by the authority, not the agent.</p>
+      <dl class="summary" id="op-scope"></dl>
+
+      <div class="actions">
+        <button class="btn btn--start" id="op-submit">Submit application <span class="btn__arrow" aria-hidden="true"></span></button>
+        <span class="actions__note" id="op-note"></span>
+      </div>
+
+      <div class="panel panel--confirm" id="op-confirm" hidden>
+        <h2 class="panel__title">Application submitted</h2>
+        <p class="panel__ref">Your reference<br><strong id="op-ref"></strong></p>
+        <p>A case officer will run automated checks against the registers and make a decision. Switch to the <button class="link" data-goto="regulator">Regulator view</button> to continue.</p>
+      </div>
+    </div>
+    <aside class="col-side">
+      <h2 class="h3">What already exists</h2>
+      <p class="small">Three trust layers the passport builds on, none of which it replaces:</p>
+      <ol class="layers">
+        <li><strong>AML supervision</strong><span>ICAEW · professional body</span></li>
+        <li><strong>HMRC agent registration</strong><span>Agent Services Account, ARN; MMTAR from May 2026</span></li>
+        <li><strong>Client authorisation</strong><span>64-8 / MTD digital handshake, per client, per tax</span></li>
+        <li class="layers__new"><strong>Agent Passport</strong><span>recognises <em>this</em> agent, for <em>these</em> actions, within <em>these</em> limits. Revocable at action level</span></li>
+      </ol>
+    </aside>
+  </div>
+</section>
+
+<!-- ═══════════════════ 2 · REGULATOR ═══════════════════ -->
+<section class="view" id="view-regulator" role="tabpanel" aria-labelledby="tab-regulator" hidden>
+  <div class="grid">
+    <div class="col-main">
+      <span class="caption">Case officer · M. Whitcombe</span>
+      <h1 class="h1">Application <span id="rg-ref" class="mono">—</span></h1>
+
+      <div class="empty" id="rg-empty">
+        <p>No application in the queue. Submit one from the <button class="link" data-goto="operator">Operator view</button>.</p>
+      </div>
+
+      <div id="rg-case" hidden>
+        <h2 class="h2">Automated checks <span class="h2__meta">rule pack <span class="mono" id="rg-pack"></span></span></h2>
+        <p class="hint">Each check is a plain rule evaluated against a named source. The engine drafts; it does not decide.</p>
+        <table class="checks" id="rg-checks">
+          <thead><tr><th scope="col">Rule</th><th scope="col">Check</th><th scope="col">Source</th><th scope="col">Result</th></tr></thead>
+          <tbody></tbody>
+        </table>
+
+        <div id="rg-decide">
+          <h2 class="h2">Decision</h2>
+          <p>All automated checks passed. The decision is yours and will be recorded against your name.</p>
+          <div class="actions">
+            <button class="btn" id="rg-approve">Approve and issue passport</button>
+            <button class="btn btn--warning" id="rg-reject">Reject with reasons</button>
+          </div>
+        </div>
+
+        <div id="rg-issued" hidden>
+          <h2 class="h2">Passport issued</h2>
+          <div class="passport" id="rg-passport">
+            <div class="passport__head">
+              <span class="passport__issuer">UK Tax Authority (demo)</span>
+              <span class="tag tag--green" id="rg-status">Active</span>
+            </div>
+            <div class="passport__body">
+              <div><span class="passport__k">Passport</span><span class="passport__v mono" id="pp-id"></span></div>
+              <div><span class="passport__k">Agent</span><span class="passport__v mono" id="pp-agent"></span></div>
+              <div><span class="passport__k">Operator</span><span class="passport__v" id="pp-firm"></span></div>
+              <div><span class="passport__k">Accountable person</span><span class="passport__v" id="pp-person"></span></div>
+              <div><span class="passport__k">Valid</span><span class="passport__v" id="pp-valid"></span></div>
+              <div><span class="passport__k">Actions</span><span class="passport__v mono" id="pp-actions"></span></div>
+              <div><span class="passport__k">Per filing</span><span class="passport__v" id="pp-perfiling"></span></div>
+              <div><span class="passport__k">Cumulative · 30 days</span><span class="passport__v" id="pp-cum"></span></div>
+              <div><span class="passport__k">Human review above</span><span class="passport__v" id="pp-esc"></span></div>
+              <div><span class="passport__k">Signature</span><span class="passport__v" id="pp-sig"></span></div>
+            </div>
+          </div>
+
+          <div class="actions">
+            <button class="btn btn--warning" id="rg-revoke">Revoke passport</button>
+            <button class="btn btn--secondary" id="rg-reactivate" hidden>Reactivate (demo only)</button>
+            <button class="btn btn--secondary" data-goto="relying">Open verification console</button>
+          </div>
+
+          <details class="jwt">
+            <summary>Decoded credential (JWT, EdDSA / Ed25519)</summary>
+            <div class="jwt__grid">
+              <div><h3 class="h4">Header</h3><pre class="code" id="jwt-header"></pre></div>
+              <div><h3 class="h4">Payload</h3><pre class="code" id="jwt-payload"></pre></div>
+            </div>
+            <h3 class="h4">Compact token</h3>
+            <pre class="code code--wrap" id="jwt-compact"></pre>
+            <p class="small">Signature verified in this browser against the authority's public key using WebCrypto Ed25519. The token carries the <em>limits</em>; the running totals and the revocation status live in the authority's registry, never in the token.</p>
+          </details>
+        </div>
+      </div>
+
+      <h2 class="h2">Supervisory actions</h2>
+      <ol class="log" id="rg-log"><li class="log__empty">No actions recorded.</li></ol>
+    </div>
+    <aside class="col-side">
+      <h2 class="h3">Registry status</h2>
+      <dl class="kv">
+        <div><dt>Passport</dt><dd class="mono" id="side-id">—</dd></div>
+        <div><dt>Status</dt><dd id="side-status">—</dd></div>
+        <div><dt>Rule pack</dt><dd class="mono" id="side-pack">—</dd></div>
+        <div><dt>Issuer key</dt><dd class="mono small" id="side-key">—</dd></div>
+      </dl>
+      <h2 class="h3">Why a human signs</h2>
+      <p class="small">A decision that cannot be reproduced cannot be defended. The rules cite their source; the officer's name is on the record; the whole file replays line by line.</p>
+    </aside>
+  </div>
+</section>
+
+<!-- ═══════════════════ 3 · RELYING / CONSOLE ═══════════════════ -->
+<section class="view" id="view-relying" role="tabpanel" aria-labelledby="tab-relying" hidden>
+  <span class="caption">Authority gateway</span>
+  <h1 class="h1">Verification console</h1>
+  <p class="lede">Each button is a proposed action by the agent. The gateway runs the ordered checks (signature, status, authorisation, scope, limits, escalation) and returns a verdict with its rule.</p>
+
+  <div class="strip" id="strip">
+    <div><span class="strip__k">Passport</span><span class="strip__v mono" id="st-id">none</span></div>
+    <div><span class="strip__k">Status</span><span class="strip__v" id="st-status">—</span></div>
+    <div><span class="strip__k">Filings</span><span class="strip__v" id="st-count">0</span></div>
+    <div class="strip__meter">
+      <span class="strip__k">Cumulative · 30-day window</span>
+      <span class="strip__v" id="st-cum">£0 of £20,000</span>
+      <span class="meter" aria-hidden="true"><span class="meter__fill" id="st-fill"></span></span>
+    </div>
+  </div>
+
+  <div class="console">
+    <div class="console__beats">
+      <h2 class="h3">Proposed actions</h2>
+      <ol class="beats" id="beats"></ol>
+      <button class="btn btn--secondary btn--small" id="rl-reset">Reset totals</button>
+    </div>
+    <div class="terminal" id="terminal" role="log" aria-live="polite" aria-label="Gateway decision log">
+      <div class="terminal__bar"><span>gateway · /api/verify</span><span id="term-pack" class="mono"></span></div>
+      <ol class="terminal__lines" id="term-lines"><li class="terminal__hint">Waiting for a proposed action.</li></ol>
+    </div>
+  </div>
+
+  <details class="jwt">
+    <summary>Ordered rule evaluation (deny by default)</summary>
+    <ol class="rules" id="rules"></ol>
+  </details>
+</section>
+
+<!-- ═══════════════════ ABOUT ═══════════════════ -->
+<section class="view" id="view-about" role="tabpanel" aria-labelledby="tab-about" hidden>
+  <div class="prose">
+    <h1 class="h1">What this prototype shows</h1>
+    <p>An AI agent can be correctly identified and still act beyond what its principal allowed. <strong>Identity is not authority.</strong> The Agent Passport is the authority's own record of what a specific agent may do, checked at the moment it tries to do it.</p>
+    <h2 class="h2">The demo in seven beats</h2>
+    <ol>
+      <li>The firm submits a pre-filled application (Operator).</li>
+      <li>Seven automated checks pass, each citing a rule and a source (Regulator).</li>
+      <li>A named officer approves; an Ed25519-signed credential is minted in the browser and verified against the public key.</li>
+      <li>The console allows a £1,400 VAT return, escalates a £4,200 quarterly update, denies a client not on the 64-8 list, denies a £9,400 filing over the per-filing cap.</li>
+      <li>Repeated allowed filings breach the £20,000 rolling cap: structuring caught by state the token cannot hold.</li>
+      <li>The officer revokes. The next action is denied on status, before any other rule runs.</li>
+      <li>Every line of the log is hash-chained to the previous one and names the rule-pack version. Not a blockchain: a tamper-evident file.</li>
+    </ol>
+    <h2 class="h2">What is real here, and what is not</h2>
+    <ul>
+      <li><strong>Real:</strong> the signature (WebCrypto Ed25519), the ordered deterministic rules, the stateful cumulative counter, revocation via registry lookup, the SHA-256 audit chain.</li>
+      <li><strong>Not real:</strong> the registers (synthetic), HMRC involvement (none), persistence (page state only), holder binding (<code>cnf</code> left null; Rung 2), sanctions screening.</li>
+    </ul>
+    <h2 class="h2">Standards used</h2>
+    <p>JWT (RFC 7519) · EdDSA / Ed25519 (RFC 8037) · <code>authorization_details</code> (RFC 9396) · <code>cnf</code> reserved for DPoP binding (RFC 7800 / 9449) · registry status lookup in the shape of a status list.</p>
+    <p class="small">Lexis Labs · C:\&gt;DIR Global 'Agentic Regulator' Hackathon · Know Your Agent problem space · synthetic data only.</p>
+  </div>
+</section>
+
+</main>
+
+<footer class="footer">
+  <div class="wrap footer__row">
+    <span>Lexis Labs · Agent Passport prototype · <span id="foot-pack" class="mono"></span></span>
+    <span class="mono small" id="foot-key"></span>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

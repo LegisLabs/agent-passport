@@ -1,0 +1,18 @@
+{
+  "_comment": "Jean's deterministic test oracle for the runtime verifier. Each case: passport state + signed request -> expected decision and reason code. tests/test_rules.py runs every case.",
+  "cases": [
+    {"id": "T01", "passport_status": "active", "signer": "agent", "action": "submit_sa100", "utr": "1234567890", "tax_year": "2025/26", "tax_due": 2100, "expected_decision": "ALLOW", "expected_rule": "R.6", "expected_code": "WITHIN_SCOPE"},
+    {"id": "T02", "passport_status": "active", "signer": "agent", "action": "submit_sa100", "utr": "2345678901", "tax_year": "2025/26", "tax_due": 14800, "expected_decision": "ESCALATE", "expected_rule": "R.6", "expected_code": "HUMAN_APPROVAL_REQUIRED"},
+    {"id": "T03", "passport_status": "active", "signer": "agent", "action": "amend_sa100", "utr": "1234567890", "tax_year": "2025/26", "tax_due": 2100, "expected_decision": "DENY", "expected_rule": "R.4", "expected_code": "OUT_OF_SCOPE"},
+    {"id": "T04", "passport_status": "active", "signer": "agent", "action": "submit_sa100", "utr": "9988776655", "tax_year": "2025/26", "tax_due": 900, "expected_decision": "DENY", "expected_rule": "R.5", "expected_code": "CLIENT_NOT_AUTHORISED"},
+    {"id": "T05", "passport_status": "active", "signer": "agent", "action": "submit_sa100", "utr": "1234567890", "tax_year": "2024/25", "tax_due": 2100, "expected_decision": "DENY", "expected_rule": "R.4", "expected_code": "OUT_OF_SCOPE"},
+    {"id": "T06", "passport_status": "active", "signer": "rogue", "action": "submit_sa100", "utr": "1234567890", "tax_year": "2025/26", "tax_due": 2100, "expected_decision": "DENY", "expected_rule": "R.3", "expected_code": "AGENT_SIGNATURE_INVALID"},
+    {"id": "T07", "passport_status": "suspended", "signer": "agent", "action": "submit_sa100", "utr": "1234567890", "tax_year": "2025/26", "tax_due": 2100, "expected_decision": "DENY", "expected_rule": "R.2", "expected_code": "PASSPORT_NOT_ACTIVE"},
+    {"id": "T08", "passport_status": "revoked", "signer": "agent", "action": "submit_sa100", "utr": "1234567890", "tax_year": "2025/26", "tax_due": 2100, "expected_decision": "DENY", "expected_rule": "R.2", "expected_code": "PASSPORT_NOT_ACTIVE"},
+    {"id": "T09", "passport_status": "active", "signer": "agent", "action": "submit_sa100", "utr": "3456789012", "tax_year": "2025/26", "tax_due": 500, "expected_decision": "DENY", "expected_rule": "R.5", "expected_code": "CLIENT_NOT_AUTHORISED"},
+    {"id": "T10", "passport_status": "active", "signer": "agent", "action": "view_client_records", "utr": "1234567890", "tax_year": "2025/26", "tax_due": 0, "expected_decision": "DENY", "expected_rule": "R.4", "expected_code": "OUT_OF_SCOPE"},
+    {"id": "T11", "passport_status": "active", "signer": "agent", "action": "submit_sa100", "utr": "1234567890", "tax_year": "2025/26", "tax_due": 10000, "expected_decision": "ALLOW", "expected_rule": "R.6", "expected_code": "WITHIN_SCOPE"},
+    {"id": "T12", "passport_status": "active", "signer": "agent", "action": "submit_sa100", "utr": "1234567890", "tax_year": "2025/26", "tax_due": 10001, "expected_decision": "ESCALATE", "expected_rule": "R.6", "expected_code": "HUMAN_APPROVAL_REQUIRED"},
+    {"id": "T13", "passport_status": "active", "signer": "agent", "tamper_passport": true, "action": "submit_sa100", "utr": "1234567890", "tax_year": "2025/26", "tax_due": 2100, "expected_decision": "DENY", "expected_rule": "R.1", "expected_code": "PASSPORT_SIGNATURE_INVALID"}
+  ]
+}

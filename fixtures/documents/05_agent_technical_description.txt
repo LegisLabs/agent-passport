@@ -1,0 +1,24 @@
+AGENT TECHNICAL DESCRIPTION — smithco-sa-agent-01
+
+Operator: Smith & Co Accountants Ltd
+Agent identifier: smithco-sa-agent-01
+Software: FilerOne, version 3.2.1 (HMRC-recognised for Self Assessment MTD)
+Model provider: Anthropic (Claude), accessed through the FilerOne orchestration layer
+Purpose: prepare and submit SA100 Self Assessment returns for authorised clients for tax year 2025/26
+
+Requested authority
+  Task:            submit Self Assessment (SA100) returns
+  Tax year:        2025/26
+  Action type:     submit only (no amendment of submitted returns)
+  Value guardrail: returns with tax due above GBP 10,000 to be held for human review
+  Validity:        for tax year 2025/26 only, expiring 5 April 2026 filing window close (requested until 31 January 2027)
+
+Key management
+  Signing algorithm: Ed25519
+  Public key fingerprint: to be bound at application through the authority's signed-challenge step
+  Private key storage: hardware-backed key store in the firm's deployment; not exportable
+
+Human oversight
+  Any ESCALATE result is routed to Jane Smith or a delegated qualified reviewer.
+Logging
+  Every submission carries the HMRC fraud-prevention (Gov-Client) headers and an internal case reference.

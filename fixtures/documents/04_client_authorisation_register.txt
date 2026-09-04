@@ -1,0 +1,12 @@
+SMITH & CO ACCOUNTANTS LTD — CLIENT AUTHORISATION REGISTER (extract)
+Prepared for the Agent Passport application, 20 August 2026
+Scope: clients the autonomous agent smithco-sa-agent-01 will act for, tax year 2025/26
+
+Client name        UTR          Authorisation route     Authorisation status   Consent to automated processing
+Maya Okafor        1234567890   Digital handshake       Confirmed 12/05/2026   Yes (signed 14/08/2026)
+Daniel Reyes       2345678901   Form 64-8               Confirmed 03/02/2025   Yes (signed 14/08/2026)
+Priya Nair         3456789012   Digital handshake       Pending                Yes (signed 15/08/2026)
+Oliver Grant       4567890123   Form 64-8               Confirmed 21/11/2024   No response
+
+Notes: Priya Nair's handshake invitation was sent on 19/08/2026 and has not yet been accepted.
+Oliver Grant has not returned the automated-processing notice.

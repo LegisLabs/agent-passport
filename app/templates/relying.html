@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% block title %}Act and check{% endblock %}
+{% block content %}
+<span class="caption">Relying party · the filing gateway the agent submits to</span>
+<h1 class="h1">Act &amp; check</h1>
+<p class="lede">Each proposed action is signed by the agent and presented with its passport. The gateway runs the ordered checks and returns ALLOW, ESCALATE or DENY with the rule, a reason, and a signed receipt. A copied passport, a wrong client, an out-of-scope action, or a suspended credential all stop here.</p>
+
+<div class="grid grid--wide">
+  <div class="col-main">
+    <h2 class="h3">What the gateway sees on the passport</h2>
+    <p class="hint">Permission, not personal data. No client list, no accountable person. Client authorisation is confirmed against the authority's records by reference.</p>
+    <dl class="kv kv--passport" id="rp-passport"><div><dt>Passport</dt><dd>none issued yet</dd></div></dl>
+
+    <h2 class="h3">Proposed actions</h2>
+    <ol class="beats" id="beats"></ol>
+    <p class="hint">Lifecycle beat: in <a href="/regulator">Review &amp; issue</a>, suspend the passport, retry action 1 (DENY R.2), reinstate (ALLOW), revoke (DENY R.2).</p>
+  </div>
+  <div class="col-side col-side--terminal">
+    <div class="terminal" id="terminal" role="log" aria-live="polite" aria-label="Gateway decision log">
+      <div class="terminal__bar"><span>gateway · POST /api/verify</span><span class="mono">{{ rule_pack }}</span></div>
+      <ol class="terminal__lines" id="term-lines"><li class="terminal__hint">Waiting for a proposed action.</li></ol>
+    </div>
+    <details class="jwt">
+      <summary>Ordered rule evaluation (deny by default)</summary>
+      <ol class="rules" id="rules"></ol>
+    </details>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>AP.relying();</script>{% endblock %}

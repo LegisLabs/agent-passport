@@ -1,0 +1,37 @@
+{
+  "id": "hmrc-sa-2026.09",
+  "title": "Agent Passport rule pack — UK Self Assessment (prototype)",
+  "jurisdiction": "GB",
+  "issuer": "uk-tax-authority-demo",
+  "agent_class": "sa_filing_agent",
+  "policy": {
+    "task": "submit_sa100",
+    "tax_years_open": ["2025/26"],
+    "action_types": ["submit_only", "submit_and_amend"],
+    "max_validity": "2026-04-05",
+    "escalation_threshold_gbp": 10000,
+    "escalation_basis": "tax_due",
+    "professional_bodies": ["ICAEW", "ACCA", "CIOT", "ATT", "AAT", "ICAS", "STEP", "none"],
+    "recognised_software": ["FilerOne", "TaxPilot", "SA Assist"]
+  },
+  "application_rules": [
+    {"id": "A.1", "title": "Agent Services Account reference is real and active", "status": "CURRENT", "source": "HMRC Agent Services Account; MMTAR10100", "check": "asa_active", "fail": "flag"},
+    {"id": "A.2", "title": "Agent Government Gateway ID present", "status": "CURRENT", "source": "Government Gateway agent credentials", "check": "gateway_id_present", "fail": "flag"},
+    {"id": "A.3", "title": "Companies House number resolves to the firm", "status": "CURRENT", "source": "Companies House register", "check": "companies_house_match", "fail": "flag"},
+    {"id": "A.4", "title": "Accountable person named, with role, professional body and signed declaration", "status": "PROTOTYPE", "source": "MMTAR relevant individuals; SM&CR analogy", "check": "accountable_person", "fail": "flag"},
+    {"id": "A.5", "title": "AML supervision confirmed", "status": "CURRENT", "source": "MLR 2017 supervision register (HMRC or professional body)", "check": "aml_supervised", "fail": "flag"},
+    {"id": "A.6", "title": "Each client's 64-8 / digital-handshake authorisation confirmed", "status": "CURRENT", "source": "HMRC client authorisation records", "check": "clients_authorised", "fail": "flag"},
+    {"id": "A.7", "title": "Each client has consented to automated processing", "status": "PROTOTYPE", "source": "UK GDPR art. 13/22 transparency (prototype condition)", "check": "clients_consented", "fail": "flag"},
+    {"id": "A.8", "title": "Requested scope within policy ceilings", "status": "PROTOTYPE", "source": "Rule pack policy table", "check": "scope_within_policy", "fail": "flag"},
+    {"id": "A.9", "title": "Agent controls the submitted public key (signed challenge)", "status": "PROTOTYPE", "source": "RFC 7800 proof-of-possession pattern", "check": "proof_of_possession", "fail": "flag"},
+    {"id": "A.10", "title": "Software on the recognised list", "status": "PROTOTYPE", "source": "HMRC recognised-software listing (technical recognition only)", "check": "software_recognised", "fail": "flag"}
+  ],
+  "runtime_rules": [
+    {"id": "R.1", "title": "Passport signature genuine", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "token", "on_fail": "DENY", "code": "PASSPORT_SIGNATURE_INVALID"},
+    {"id": "R.2", "title": "Passport active and unexpired", "status": "PROTOTYPE", "source": "Authority status registry (real-time lookup)", "data": "registry", "on_fail": "DENY", "code": "PASSPORT_NOT_ACTIVE"},
+    {"id": "R.3", "title": "Request signed by the passport's agent key", "status": "PROTOTYPE", "source": "RFC 7800 cnf / DPoP-style proof-of-possession", "data": "token + request", "on_fail": "DENY", "code": "AGENT_SIGNATURE_INVALID"},
+    {"id": "R.4", "title": "Action within granted scope (task, tax year, action type)", "status": "PROTOTYPE", "source": "authorization_details (RFC 9396)", "data": "token", "on_fail": "DENY", "code": "OUT_OF_SCOPE"},
+    {"id": "R.5", "title": "Client authorised for this firm (by UTR reference)", "status": "CURRENT", "source": "HMRC client authorisation records (64-8 / handshake)", "data": "registry", "on_fail": "DENY", "code": "CLIENT_NOT_AUTHORISED"},
+    {"id": "R.6", "title": "Value above escalation threshold is held for a named human", "status": "PROTOTYPE", "source": "Passport condition; HMRC 'appropriate safeguards' expectation", "data": "token", "on_fail": "ESCALATE", "code": "HUMAN_APPROVAL_REQUIRED"}
+  ]
+}

@@ -1,0 +1,70 @@
+{% extends "base.html" %}
+{% block title %}Apply{% endblock %}
+{% block content %}
+<div class="grid">
+  <div class="col-main">
+    <span class="caption">Apply for an Agent Passport</span>
+    <h1 class="h1">Register an autonomous filing agent</h1>
+    <p class="lede">The firm submits its evidence pack. The authority's system reads the documents into structured facts, shows you exactly where each fact came from, and lets you correct them before anything is checked. Then the agent proves it holds its own key.</p>
+
+    <ol class="steps" id="steps">
+      <li class="step" data-step="1">
+        <h2 class="h2">1 · Evidence pack</h2>
+        <p class="hint">Five synthetic documents the firm would already hold. Click a name to read it.</p>
+        <ul class="docs" id="docs"></ul>
+        <div class="actions">
+          <button class="btn" id="btn-new">Start application</button>
+          <button class="btn" id="btn-extract" hidden>Read documents into facts <span class="btn__sub" id="extract-mode-label"></span></button>
+          <span class="actions__note" id="extract-note"></span>
+        </div>
+        <pre class="code code--wrap" id="doc-view" hidden></pre>
+      </li>
+
+      <li class="step" data-step="2" hidden>
+        <h2 class="h2">2 · Extracted facts <span class="h2__meta" id="facts-meta"></span></h2>
+        <p class="hint">Every value carries its source document and the words it came from. Edit anything that was read wrongly; the rules only ever see this reviewed version.</p>
+        <div id="facts"></div>
+        <div class="actions"><button class="btn btn--secondary" id="btn-save-fields">Save corrections</button><span class="actions__note" id="save-note"></span></div>
+      </li>
+
+      <li class="step" data-step="3" hidden>
+        <h2 class="h2">3 · The agent's key</h2>
+        <p class="hint">A public key can be copied by anyone. The authority sends a one-off challenge; only the true holder of the private key can sign it. That is what makes "agent-bound" real later.</p>
+        <dl class="kv" id="agent-kv"></dl>
+        <div class="actions">
+          <button class="btn" id="btn-key">Generate agent key and request challenge</button>
+          <button class="btn" id="btn-sign" hidden>Agent signs the challenge</button>
+        </div>
+      </li>
+
+      <li class="step" data-step="4" hidden>
+        <h2 class="h2">4 · Submit</h2>
+        <div class="actions">
+          <button class="btn btn--start" id="btn-submit">Submit application <span class="btn__arrow" aria-hidden="true"></span></button>
+        </div>
+        <div class="panel panel--confirm" id="confirm" hidden>
+          <h2 class="panel__title">Application submitted</h2>
+          <p class="panel__ref">Your reference<br><strong id="confirm-ref"></strong></p>
+          <p>Automated checks have run. A case officer will review and decide. Continue in <a href="/regulator">Review &amp; issue</a>.</p>
+        </div>
+      </li>
+    </ol>
+  </div>
+
+  <aside class="col-side">
+    <h2 class="h3">What already exists</h2>
+    <p class="small">Three trust layers the passport builds on, none of which it replaces:</p>
+    <ol class="layers">
+      <li><strong>AML supervision</strong><span>ICAEW or HMRC · MLR 2017</span></li>
+      <li><strong>HMRC agent registration</strong><span>Agent Services Account, Government Gateway ID; MMTAR from May 2026</span></li>
+      <li><strong>Client authorisation</strong><span>64-8 or digital handshake, per client, per tax</span></li>
+      <li class="layers__new"><strong>Agent Passport</strong><span>recognises <em>this</em> agent, for <em>this</em> task, <em>this</em> tax year, <em>this</em> action type. Revocable at action level</span></li>
+    </ol>
+    <h2 class="h3">Where the model sits</h2>
+    <p class="small">Gemini reads the documents into a fixed schema with a quote per fact. It never checks, decides or scores. Rules decide over the reviewed facts; an officer signs.</p>
+    <h2 class="h3">Applications</h2>
+    <ul class="applist" id="applist"></ul>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}<script>AP.operator();</script>{% endblock %}

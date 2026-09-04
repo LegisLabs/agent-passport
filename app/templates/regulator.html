@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+{% block title %}Review and issue{% endblock %}
+{% block content %}
+<div class="grid">
+  <div class="col-main">
+    <span class="caption">Case officer · {{ officer }}</span>
+    <h1 class="h1">Application <span id="rg-ref" class="mono">—</span> <span id="rg-status"></span></h1>
+
+    <div class="empty" id="rg-empty"><p>No application in the queue. Submit one from <a href="/operator">Apply</a>.</p></div>
+
+    <div id="rg-case" hidden>
+      <h2 class="h2">What was applied for</h2>
+      <dl class="summary" id="rg-summary"></dl>
+
+      <h2 class="h2">Clients the agent will act for</h2>
+      <table class="checks" id="rg-clients"><thead><tr><th>Client</th><th>UTR</th><th>Authorisation</th><th>Automated processing</th></tr></thead><tbody></tbody></table>
+
+      <h2 class="h2">Automated checks <span class="h2__meta">rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
+      <p class="hint">Each check is a plain rule over the reviewed facts and the authority's own records. Labels say whether the rule reflects current practice or a prototype assumption. The engine drafts; it does not decide.</p>
+      <table class="checks" id="rg-checks"><thead><tr><th>Rule</th><th>Check</th><th>Source</th><th>Result</th></tr></thead><tbody></tbody></table>
+
+      <details class="jwt" id="rg-note-wrap">
+        <summary>File note (draft phrased by the model from the check results; not a decision)</summary>
+        <div class="actions"><button class="btn btn--secondary btn--small" id="btn-note">Draft file note</button><span class="actions__note" id="note-mode"></span></div>
+        <textarea class="textarea" id="rg-filenote" rows="5" placeholder="No draft yet."></textarea>
+      </details>
+
+      <div id="rg-decide">
+        <h2 class="h2">Decision</h2>
+        <p>The decision is yours and will be recorded against your name. A note is required.</p>
+        <label class="label" for="rg-officer-note">Officer note or reason</label>
+        <textarea class="textarea" id="rg-officer-note" rows="3" placeholder="e.g. Flags A.6 and A.7 noted: Priya Nair and Oliver Grant will be refused at action time by the client-authorisation rule; approval limited to submit only."></textarea>
+        <div class="actions">
+          <button class="btn" id="btn-approve">Approve and issue passport</button>
+          <button class="btn btn--secondary" id="btn-info">Request more information</button>
+          <button class="btn btn--warning" id="btn-reject">Reject</button>
+        </div>
+        <p class="error" id="decide-error" hidden></p>
+      </div>
+
+      <div id="rg-issued" hidden>
+        <h2 class="h2">Passport issued</h2>
+        <div class="passport" id="rg-passport">
+          <div class="passport__head"><span class="passport__issuer">{{ issuer }}</span><span id="pp-status"></span></div>
+          <div class="passport__body" id="pp-body"></div>
+        </div>
+        <h3 class="h3">Lifecycle</h3>
+        <p class="hint">Suspend to freeze during review; reinstate when cleared; revoke permanently. Each change needs a reason and takes effect on the agent's next action, because the relying party checks the registry in real time.</p>
+        <label class="label" for="rg-reason">Reason</label>
+        <input class="input" id="rg-reason" placeholder="e.g. Suspected key compromise reported by the firm">
+        <div class="actions">
+          <button class="btn btn--secondary" id="btn-suspend">Suspend</button>
+          <button class="btn btn--secondary" id="btn-reinstate" hidden>Reinstate</button>
+          <button class="btn btn--warning" id="btn-revoke">Revoke</button>
+          <button class="btn btn--secondary" id="btn-renew">Renew for next tax year</button>
+          <a class="btn btn--secondary" href="/relying">Open the filing gateway</a>
+        </div>
+        <p class="error" id="life-error" hidden></p>
+        <details class="jwt">
+          <summary>Decoded credential (JWT, EdDSA / Ed25519)</summary>
+          <div class="jwt__grid"><div><h4 class="h4">Header</h4><pre class="code" id="jwt-header"></pre></div><div><h4 class="h4">Payload</h4><pre class="code" id="jwt-payload"></pre></div></div>
+          <h4 class="h4">Compact token</h4><pre class="code code--wrap" id="jwt-compact"></pre>
+          <p class="small">Signed by the authority's Ed25519 key. The token carries the permission and the agent's public key (<code>cnf</code>). It carries no client list and no personal data; client authorisation is checked by reference at action time.</p>
+        </details>
+      </div>
+
+      <h2 class="h2">History</h2>
+      <ol class="log" id="rg-history"></ol>
+    </div>
+  </div>
+
+  <aside class="col-side">
+    <h2 class="h3">Queue</h2>
+    <ul class="applist" id="applist"></ul>
+    <h2 class="h3">Why a human signs</h2>
+    <p class="small">A decision that cannot be reproduced cannot be defended. The rules cite their source; the officer's name and reason are on the record; the whole file replays line by line.</p>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}<script>AP.regulator();</script>{% endblock %}
