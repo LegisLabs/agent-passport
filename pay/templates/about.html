@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}About{% endblock %}
+{% block content %}
+<div class="prose">
+  <h1 class="h1">What this prototype shows</h1>
+  <p>An AI agent can be correctly identified and still act beyond what its principal allowed. <strong>Identity is not authority.</strong> The Agent Passport is a machine-verifiable record of who assured the provider, which agent key is acting, and what the customer permits, checked by the bank at the moment the agent tries to move money, and revocable at that moment.</p>
+
+  <h2 class="h2">Five parties, one path</h2>
+  <ol>
+    <li><strong>Apply.</strong> {{ operator }} submits its evidence pack. The model reads it into structured facts, each with a source and a quote; the provider corrects them; the agent signs a one-off challenge to prove it holds its key; the provider signs the agent's identity claim.</li>
+    <li><strong>Review &amp; issue.</strong> Eight automated checks run over the reviewed facts and the authority's records, each citing a rule and its source. A named officer approves with a condition, requests information or rejects, with a written reason. On approval the authority signs the assurance and mirrors the mandate on the vouch rail.</li>
+    <li><strong>Sign mandate.</strong> {{ customer }}'s finance director signs the supplier allowlist, the limits and the expiry with the company's own key. Only then is the envelope complete.</li>
+    <li><strong>Act &amp; check.</strong> The agent signs each instruction. The bank checks, in order: assurance signature, registry status, provider signature and binding, agent signature, customer signature, payee and action, per-payment cap, 30-day cap from its own ledger, supervisor condition. ALLOW, ESCALATE or DENY, with a reason code and a signed receipt.</li>
+    <li><strong>Maintain.</strong> Suspend, reinstate, revoke, each with a reason. The bank reads the registry in real time, so revocation bites on the very next instruction and the vouch rail refuses too. Three refusals raise an incident to the supervisor. Everything is hash-chained and replayable.</li>
+  </ol>
+
+  <h2 class="h2">Why an envelope of three signatures</h2>
+  <p>A single authority-signed token would have to carry claims the authority cannot stand behind: which supplier accounts a private company wants to pay, or which key a provider's agent holds today. So each party signs only what it is entitled to say. The <code>assurance</code> is bound to the exact <code>agent_identity</code> it was issued for, and the <code>mandate</code> names the passport it belongs to. Remove any one signature and the bank refuses.</p>
+
+  <h2 class="h2">Where the model sits, and where it does not</h2>
+  <p>Gemini is used twice, both at the edges: reading documents into a fixed schema, and phrasing the check results as a draft file note. It never checks, scores, approves or verifies. If the API is unavailable the system falls back to a deterministic fixture and says so. The consequential middle is plain rules in a versioned pack (<code>{{ pack.id }}</code>), each labelled CURRENT, PROTOTYPE or FUTURE with its source, so the same inputs always give the same decision.</p>
+
+  <h2 class="h2">Rules in this pack</h2>
+  <h3 class="h3">At application</h3>
+  <ul>{% for r in pack.application_rules %}<li><code>{{ r.id }}</code> {{ r.title }} <span class="tag tag--{{ 'green' if r.status == 'CURRENT' else 'amber' }}">{{ r.status }}</span> <span class="small">— {{ r.source }}</span></li>{% endfor %}</ul>
+  <h3 class="h3">At the bank, in this order</h3>
+  <ul>{% for r in pack.runtime_rules %}<li><code>{{ r.id }}</code> {{ r.title }} → <code>{{ r.on_fail }}</code> <span class="tag tag--{{ 'green' if r.status == 'CURRENT' else 'amber' }}">{{ r.status }}</span> <span class="small">— {{ r.source }}</span></li>{% endfor %}</ul>
+  <p class="small">Unknown action types are refused at R.6. The limit lives in the mandate; the running 30-day total lives at the bank, because a signed credential cannot carry a running balance.</p>
+
+  <h2 class="h2">The vouch rail</h2>
+  <p>On approval the mandate is mirrored as an AI Voucher on the vouch.finance sandbox: the passport id goes into the voucher's metadata and the voucher id into the envelope. On revocation the voucher is deleted, so one supervisory action makes two rails refuse. <code>VOUCH_MODE=fixture</code> (the default) records deterministic voucher ids without a network call; <code>VOUCH_MODE=live</code> calls the sandbox and falls back visibly on any failure; <code>PAYMENT_RAIL=vouch</code> additionally settles each allowed instruction there. The field mapping is a proposed compatibility profile in <code>docs/KYA_extension_for_purpose_bound_value.md</code>. This deployment runs vouch in <strong>{{ vouch_mode }}</strong> mode on the <strong>{{ payment_rail }}</strong> rail.</p>
+
+  <h2 class="h2">What is real</h2>
+  <ul>
+    <li>Ed25519 signatures by three separate keys on the three claims, on every agent instruction and on every receipt (RFC 8037; keys generated on this server).</li>
+    <li>Proof of possession: the agent signs the authority's nonce at application and every instruction afterwards (RFC 7800 pattern, <code>cnf</code> inside <code>agent_identity</code>).</li>
+    <li>Scope as structured <code>authorization_details</code> (RFC 9396 shape) inside the customer-signed mandate.</li>
+    <li>Registry-based status checked at action time; a bank-held ledger for the cumulative limit; hash-chained audit with exact replay; status-list-style revocation by registry flag.</li>
+    <li>Live document extraction with per-fact provenance; a live vouch.finance sandbox adapter with a fixture fallback.</li>
+  </ul>
+  <h2 class="h2">What is not</h2>
+  <ul>
+    <li>The registers, the firms, the bank and the accounts are synthetic. The authority is "the national payments supervisor (demo)"; no FCA process is implied.</li>
+    <li>The agent and the customer's signing ceremony are simulated inside this server so the demo can show a copied passport and an unsigned mandate failing.</li>
+    <li>Sub-agent delegation, multi-bank cumulative totals, an incident workflow beyond the log row, and attestation of the running software are roadmap. The verifiable-credentials pattern is used in its JWT profile; there is no JSON-LD wrapper.</li>
+  </ul>
+  <h2 class="h2">What we do not claim</h2>
+  <p>That any supervisor issues agent passports today; that the passport replaces the provider's licence, the customer's contract or the bank's own mandate; that a signature proves an agent is safe or correct; that a valid passport compels a bank to execute; that this is production cryptographic infrastructure.</p>
+  <p class="small">Lexis Labs · C:\&gt;DIR Global 'Agentic Regulator' Hackathon · Know Your Agent problem space · synthetic data only. The same engine runs the <a href="https://cdir.legislabs.uk">UK Self Assessment vertical</a> with a different rule pack.</p>
+</div>
+{% endblock %}

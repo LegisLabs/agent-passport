@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}Agent Passport{% endblock %} — Agent Passport · payments</title>
+<meta name="robots" content="noindex">
+<link rel="stylesheet" href="/static/app.css">
+<link rel="icon" href="data:,">
+</head>
+<body data-view="{{ view }}">
+<a href="#main" class="skip">Skip to main content</a>
+
+<header class="masthead" role="banner">
+  <div class="wrap masthead__row">
+    <a class="masthead__brand" href="/provider" aria-label="Agent Passport home">
+      <span class="masthead__crest" aria-hidden="true"></span>
+      <span class="masthead__name">{{ issuer }} <span class="masthead__sep">·</span> Agent Passport</span>
+    </a>
+    <span class="masthead__tag">Prototype v{{ version }} · payments</span>
+  </div>
+</header>
+
+<div class="phase" role="note">
+  <div class="wrap">
+    <span class="tag tag--blue">Prototype</span>
+    <p class="phase__text">A proposed Know-Your-Agent assurance framework, shown on synthetic data. No supervisor requires this today; no real firm, bank or account appears anywhere.</p>
+  </div>
+</div>
+
+<nav class="tabs" aria-label="Views">
+  <div class="wrap tabs__row">
+    <a class="tabs__tab" href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}>1 · Apply <span class="tabs__sub">provider · {{ operator }}</span></a>
+    <a class="tabs__tab" href="/regulator" {% if view == 'regulator' %}aria-current="page"{% endif %}>2 · Review &amp; issue <span class="tabs__sub">authority · case officer</span></a>
+    <a class="tabs__tab" href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>3 · Sign mandate <span class="tabs__sub">customer · {{ customer }}</span></a>
+    <a class="tabs__tab" href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>4 · Act &amp; check <span class="tabs__sub">bank · verification console</span></a>
+    <a class="tabs__tab" href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>5 · Audit <span class="tabs__sub">replayable record</span></a>
+    <a class="tabs__tab" href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>About</a>
+  </div>
+</nav>
+
+<main id="main" class="wrap">
+{% block content %}{% endblock %}
+</main>
+
+<footer class="footer">
+  <div class="wrap footer__row">
+    <span>Lexis Labs · Agent Passport · <span class="mono">rule pack {{ rule_pack }}</span> · extraction <span class="mono">{{ extraction_mode }}</span> · vouch <span class="mono">{{ vouch_mode }}</span> · rail <span class="mono">{{ payment_rail }}</span></span>
+    <span class="mono small">keys: authority {{ kids.authority }} · provider {{ kids.payrail }} · customer {{ kids.northgate }} · <button class="link" id="demo-reset" type="button">reset demo</button> · <a href="https://cdir.legislabs.uk">tax vertical</a></span>
+  </div>
+</footer>
+
+<script src="/static/app.js"></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

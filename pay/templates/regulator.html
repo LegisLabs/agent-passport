@@ -1,0 +1,88 @@
+{% extends "base.html" %}
+{% block title %}Review and issue{% endblock %}
+{% block content %}
+<div class="grid">
+  <div class="col-main">
+    <h1 class="h1">Application <span id="rg-ref" class="mono">—</span> <span id="rg-status"></span></h1>
+    <p class="lede lede--tight">Case officer {{ officer }}, {{ issuer }}.</p>
+
+    <div class="empty" id="rg-empty"><p>No application in the queue. Submit one from <a href="/provider">Apply</a>.</p></div>
+
+    <div id="rg-case" hidden>
+      <h2 class="h2">What was applied for</h2>
+      <dl class="summary" id="rg-summary"></dl>
+
+      <h2 class="h2">Supplier allowlist the customer will sign</h2>
+      <table class="suppliers" id="rg-suppliers"><thead><tr><th>Supplier</th><th>Account</th><th>Source</th></tr></thead><tbody></tbody></table>
+
+      <h2 class="h2">Automated checks <span class="h2__meta">rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
+      <p class="hint">Each check is a plain rule over the reviewed facts and the authority's own records. Labels say whether the rule reflects current practice or a prototype assumption. The engine drafts; it does not decide.</p>
+      <table class="checks" id="rg-checks"><thead><tr><th>Rule</th><th>Check</th><th>Source</th><th>Result</th></tr></thead><tbody></tbody></table>
+
+      <details class="jwt" id="rg-note-wrap">
+        <summary>File note (draft phrased by the model from the check results; not a decision)</summary>
+        <div class="actions"><button class="btn btn--secondary btn--small" id="btn-note">Draft file note</button><span class="actions__note" id="note-mode"></span></div>
+        <textarea class="textarea" id="rg-filenote" rows="5" placeholder="No draft yet."></textarea>
+      </details>
+
+      <div id="rg-decide">
+        <h2 class="h2">Decision</h2>
+        <p>The decision is yours and will be recorded against your name. A note is required. Approval signs the assurance and attaches your condition.</p>
+        <label class="label" for="rg-condition">Condition: hold instructions above (£)</label>
+        <div class="condition"><input class="input" id="rg-condition" type="number" min="0" step="100" value="5000"> <span class="small">The bank returns ESCALATE above this amount, even inside the customer's limits.</span></div>
+        <label class="label" for="rg-officer-note">Officer note or reason</label>
+        <textarea class="textarea" id="rg-officer-note" rows="3" placeholder="e.g. All eight checks pass. Assurance granted with the £5,000 confirmation condition; mandate to be signed by the customer."></textarea>
+        <div class="actions">
+          <button class="btn" id="btn-approve">Approve with condition and sign assurance</button>
+          <button class="btn btn--secondary" id="btn-info">Request more information</button>
+          <button class="btn btn--warning" id="btn-reject">Reject</button>
+        </div>
+        <p class="error" id="decide-error" hidden></p>
+      </div>
+
+      <div id="rg-issued" hidden>
+        <h2 class="h2">Passport <span class="mono" id="pp-id"></span> <span id="pp-status"></span></h2>
+        <p class="hint">Three claims, three signers, one envelope. Each panel shows who signed it and whether the signature verifies right now.</p>
+        <div class="envelope" id="envelope"></div>
+
+        <h3 class="h3">Lifecycle</h3>
+        <p class="hint">Suspend to freeze during review; reinstate when cleared; revoke permanently. Each change needs a reason and takes effect on the agent's next instruction, because the bank checks the registry in real time. Revocation also revokes the mirrored mandate on the vouch rail.</p>
+        <label class="label" for="rg-reason">Reason</label>
+        <input class="input" id="rg-reason" placeholder="e.g. Provider reported a suspected key compromise">
+        <div class="actions">
+          <button class="btn btn--secondary" id="btn-suspend">Suspend</button>
+          <button class="btn btn--secondary" id="btn-reinstate" hidden>Reinstate</button>
+          <button class="btn btn--warning" id="btn-revoke">Revoke</button>
+          <a class="btn btn--secondary" href="/bank">Open the bank console</a>
+        </div>
+        <p class="error" id="life-error" hidden></p>
+
+        <h3 class="h3">Mandate on the vouch rail</h3>
+        <div class="rail" id="rail"></div>
+
+        <details class="jwt">
+          <summary>Decoded envelope (three JWTs, EdDSA / Ed25519)</summary>
+          <div id="jwt-panels"></div>
+        </details>
+      </div>
+
+      <h2 class="h2">Incident feed</h2>
+      <p class="hint">The bank raises an incident after three refused instructions on one passport. It is a log row, not a workflow.</p>
+      <ol class="incidents" id="rg-incidents"><li class="log__empty">No incidents.</li></ol>
+
+      <h2 class="h2">History</h2>
+      <ol class="log" id="rg-history"></ol>
+    </div>
+  </div>
+
+  <aside class="col-side">
+    <h2 class="h3">Queue</h2>
+    <ul class="applist" id="applist"></ul>
+    <h2 class="h3">Why three signatures</h2>
+    <p class="small">The authority can only vouch for the provider. The provider can only vouch for its agent's key. The customer alone can say which payees and how much. Each signs what it is entitled to say; the bank checks all three.</p>
+    <h2 class="h3">Why a human signs</h2>
+    <p class="small">A decision that cannot be reproduced cannot be defended. The rules cite their source; the officer's name, condition and reason are on the record; the whole file replays line by line.</p>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}<script>AP.regulator();</script>{% endblock %}

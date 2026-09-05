@@ -1,0 +1,178 @@
+{
+ "_comment": "Deterministic stand-in for the Gemini extraction of the PayRail evidence pack. Same schema, same provenance shape. Used when EXTRACTION_MODE=fixture or when the API is unavailable.",
+ "provider": {
+  "legal_name": {
+   "value": "PayRail Ltd",
+   "source_doc": "01_licence_register_extract.txt",
+   "quote": "Firm name:                 PayRail Ltd"
+  },
+  "licence_ref": {
+   "value": "PSP-4471",
+   "source_doc": "01_licence_register_extract.txt",
+   "quote": "Licence reference:         PSP-4471"
+  },
+  "companies_house_number": {
+   "value": "10987654",
+   "source_doc": "01_licence_register_extract.txt",
+   "quote": "Companies House number:    10987654"
+  },
+  "permissions": {
+   "value": "Payment initiation services; account information services",
+   "source_doc": "01_licence_register_extract.txt",
+   "quote": "Permissions:               Payment initiation services; account information services"
+  }
+ },
+ "accountable_person": {
+  "name": {
+   "value": "Daniel Okoye",
+   "source_doc": "04_accountable_person_appointment.txt",
+   "quote": "I, Daniel Okoye, Head of Compliance at PayRail Ltd"
+  },
+  "role": {
+   "value": "Head of Compliance",
+   "source_doc": "04_accountable_person_appointment.txt",
+   "quote": "Role: Head of Compliance"
+  },
+  "email": {
+   "value": "daniel.okoye@payrail.example",
+   "source_doc": "04_accountable_person_appointment.txt",
+   "quote": "Contact: daniel.okoye@payrail.example"
+  },
+  "declaration_ref": {
+   "value": "DEC-2026-017",
+   "source_doc": "04_accountable_person_appointment.txt",
+   "quote": "Declaration reference: DEC-2026-017"
+  },
+  "declaration_accepted": {
+   "value": true,
+   "source_doc": "04_accountable_person_appointment.txt",
+   "quote": "I accept responsibility for the actions taken by this agent"
+  }
+ },
+ "insurance": {
+  "provider": {
+   "value": "Demo Mutual Insurance Association",
+   "source_doc": "03_insurance_summary.txt",
+   "quote": "DEMO MUTUAL INSURANCE ASSOCIATION"
+  },
+  "policy_ref": {
+   "value": "PI-2026-88213",
+   "source_doc": "03_insurance_summary.txt",
+   "quote": "Policy reference:          PI-2026-88213"
+  },
+  "cover_gbp": {
+   "value": 2000000,
+   "source_doc": "03_insurance_summary.txt",
+   "quote": "Limit of indemnity:        GBP 2,000,000 any one claim"
+  },
+  "valid_until": {
+   "value": "2027-03-31",
+   "source_doc": "03_insurance_summary.txt",
+   "quote": "Period of insurance:       1 April 2026 to 31 March 2027"
+  }
+ },
+ "agent": {
+  "agent_name": {
+   "value": "Agent 247",
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "Agent name:              Agent 247"
+  },
+  "agent_id": {
+   "value": "payrail-agent-247",
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "Agent identifier:        payrail-agent-247"
+  },
+  "software": {
+   "value": "RailPay AP Agent",
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "Software:                RailPay AP Agent, version 2.4.0"
+  },
+  "software_version": {
+   "value": "2.4.0",
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "version 2.4.0"
+  },
+  "model_provider": {
+   "value": "Anthropic (Claude)",
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "Model provider:          Anthropic (Claude)"
+  },
+  "config_hash": {
+   "value": "3461e119a630aec53b47b3cc7777d99b1fcfb89c03a075938519896148df628b",
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "SHA-256:               3461e119a630aec53b47b3cc7777d99b1fcfb89c03a075938519896148df628b"
+  }
+ },
+ "customer": {
+  "legal_name": {
+   "value": "Northgate Joinery Ltd",
+   "source_doc": "05_northgate_service_agreement.txt",
+   "quote": "Northgate Joinery Ltd, Companies House number 11223344"
+  },
+  "companies_house_number": {
+   "value": "11223344",
+   "source_doc": "05_northgate_service_agreement.txt",
+   "quote": "Companies House number 11223344"
+  },
+  "authorising_officer": {
+   "value": "Helen Marsh",
+   "source_doc": "05_northgate_service_agreement.txt",
+   "quote": "Authorising officer for the Customer: Helen Marsh, Finance Director."
+  },
+  "officer_role": {
+   "value": "Finance Director",
+   "source_doc": "05_northgate_service_agreement.txt",
+   "quote": "Helen Marsh, Finance Director"
+  }
+ },
+ "mandate": {
+  "action_type": {
+   "value": "pay_invoice",
+   "source_doc": "05_northgate_service_agreement.txt",
+   "quote": "Action:                           pay_invoice only; no amendments, refunds or new payees"
+  },
+  "per_payment_limit_gbp": {
+   "value": 10000,
+   "source_doc": "05_northgate_service_agreement.txt",
+   "quote": "Per payment:                      not more than GBP 10,000"
+  },
+  "monthly_limit_per_account_gbp": {
+   "value": 20000,
+   "source_doc": "05_northgate_service_agreement.txt",
+   "quote": "Per supplier account, 30 days:    not more than GBP 20,000 in any rolling 30-day period"
+  },
+  "valid_until": {
+   "value": "2027-03-31",
+   "source_doc": "05_northgate_service_agreement.txt",
+   "quote": "This mandate expires on 31 March 2027"
+  },
+  "human_confirm_above_gbp": {
+   "value": 5000,
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "instructions above GBP 5,000 are held for confirmation by the customer's authorising officer"
+  }
+ },
+ "suppliers": [
+  {
+   "supplier_id": "SUP-001",
+   "name": "Fenwick Timber Ltd",
+   "account_ref": "60-11-22 44556677",
+   "source_doc": "05_northgate_service_agreement.txt",
+   "quote": "SUP-001       Fenwick Timber Ltd       60-11-22    44556677"
+  },
+  {
+   "supplier_id": "SUP-002",
+   "name": "Ashby Ironmongery Ltd",
+   "account_ref": "30-98-76 22334455",
+   "source_doc": "05_northgate_service_agreement.txt",
+   "quote": "SUP-002       Ashby Ironmongery Ltd    30-98-76    22334455"
+  },
+  {
+   "supplier_id": "SUP-003",
+   "name": "Coastline Glass Ltd",
+   "account_ref": "20-13-57 99887766",
+   "source_doc": "05_northgate_service_agreement.txt",
+   "quote": "SUP-003       Coastline Glass Ltd      20-13-57    99887766"
+  }
+ ]
+}

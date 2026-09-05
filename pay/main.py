@@ -1,0 +1,493 @@
+"""Agent Passport — payments vertical. FastAPI routes: server-rendered views + JSON API.
+
+Flow: Apply (/provider) → Review & issue (/regulator) → Customer signs the mandate (/customer)
+      → Act & check at the bank (/bank) → Maintain (lifecycle, incidents) → /audit.
+"""
+from __future__ import annotations
+
+from contextlib import asynccontextmanager
+from datetime import date, datetime
+from pathlib import Path
+
+from fastapi import FastAPI, HTTPException, Request
+from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.staticfiles import StaticFiles
+from fastapi.templating import Jinja2Templates
+from pydantic import BaseModel
+
+from . import audit, config, crypto, db, extraction, fixtures, rules, vouch
+
+HERE = Path(__file__).parent
+
+
+@asynccontextmanager
+async def lifespan(_app: FastAPI):
+    db.init()
+    crypto.all_signers()
+    yield
+
+
+app = FastAPI(title="Agent Passport · payments", version=config.APP_VERSION, docs_url="/api/docs", redoc_url=None, lifespan=lifespan)
+app.mount("/static", StaticFiles(directory=HERE / "static"), name="static")
+templates = Jinja2Templates(directory=HERE / "templates")
+
+
+def ctx(request: Request, **kw) -> dict:
+    s = crypto.all_signers()
+    return {"request": request, "rule_pack": rules.pack()["id"], "issuer": config.ISSUER_NAME, "officer": config.OFFICER,
+            "operator": config.OPERATOR, "customer": config.CUSTOMER, "bank": config.BANK, "agent_name": config.AGENT_NAME,
+            "kids": {n: v["kid"] for n, v in s.items()}, "version": config.APP_VERSION, "extraction_mode": config.EXTRACTION_MODE,
+            "vouch_mode": vouch.mode(), "payment_rail": vouch.rail(), **kw}
+
+
+# ── Views ──────────────────────────────────────────────────────────────────
+@app.get("/", include_in_schema=False)
+def home():
+    return RedirectResponse("/provider")
+
+
+for _name in ("provider", "regulator", "customer", "bank", "audit"):
+    def _make(name):
+        def view(request: Request):
+            return templates.TemplateResponse(request, f"{name}.html", ctx(request, view=name))
+        view.__name__ = f"view_{name}"
+        return view
+    app.get(f"/{_name}", response_class=HTMLResponse, include_in_schema=False)(_make(_name))
+
+
+@app.get("/about", response_class=HTMLResponse, include_in_schema=False)
+def view_about(request: Request):
+    return templates.TemplateResponse(request, "about.html", ctx(request, view="about", pack=rules.pack()))
+
+
+# ── API: meta ──────────────────────────────────────────────────────────────
+@app.get("/api/health")
+def health():
+    return {"ok": True, "version": config.APP_VERSION, "vertical": "payments", "rule_pack": rules.pack()["id"],
+            "extraction_mode": config.EXTRACTION_MODE, "vouch_mode": vouch.mode(), "payment_rail": vouch.rail()}
+
+
+@app.get("/api/rulepack")
+def rulepack():
+    return rules.pack()
+
+
+@app.get("/api/signers")
+def signers():
+    """The three public keys a relying party needs. Nothing private."""
+    return {n: {"kid": s["kid"], "jwk": s["jwk"], "alg": "EdDSA", "signs": {"authority": "assurance", "payrail": "agent_identity", "northgate": "mandate"}[n]}
+            for n, s in crypto.all_signers().items()}
+
+
+@app.get("/api/vouch")
+def vouch_info():
+    return {"mode": vouch.mode(), "payment_rail": vouch.rail(), "base_url": config.VOUCH_BASE_URL if vouch.mode() == "live" else None, **vouch.org_self()}
+
+
+@app.get("/api/state")
+def state():
+    """Everything the views need in one call."""
+    apps = db.list_applications()
+    pps = db.list_passports()
+    return {"applications": [public_app(a) for a in apps], "passports": [public_passport(p) for p in pps], "beats": fixtures.BEATS,
+            "incidents": db.list_audit(50, kind="incident"), "vouch_mode": vouch.mode(), "payment_rail": vouch.rail()}
+
+
+def public_app(a: dict) -> dict:
+    a = dict(a)
+    ag = a.get("agent") or {}
+    a["agent"] = {k: v for k, v in ag.items() if k != "private_pem"}
+    return a
+
+
+def public_passport(p: dict) -> dict:
+    p = dict(p)
+    p["envelope"] = envelope_of(p)
+    p["mandate_signed"] = bool(p.get("mandate_jwt"))
+    p["payments"] = db.count_payments(p["passport_id"])
+    p["ledger"] = db.ledger_totals(p["passport_id"])
+    return p
+
+
+def envelope_of(p: dict) -> dict:
+    """The composite passport as presented to a relying party."""
+    return {
+        "passport_id": p["passport_id"],
+        "assurance": p["assurance_jwt"],
+        "agent_identity": p["agent_identity_jwt"],
+        "mandate": p.get("mandate_jwt"),
+        "status_url": f"/api/status/{p['passport_id']}",
+        "vouch_voucher_id": p.get("vouch_voucher_id"),
+        "cnf": None,  # key binding lives inside agent_identity.cnf, signed by the provider
+    }
+
+
+# ── API: provider (operator) ───────────────────────────────────────────────
+@app.post("/api/applications")
+def create_application():
+    n = db.count_applications() + 107
+    ref = f"AP-2026-{n:04d}"
+    a = db.create_application(ref, fixtures.evidence_pack())
+    audit.record("application", ref, {"event": "draft created", "provider": config.OPERATOR, "documents": [d["name"] for d in a["documents"]]})
+    return public_app(a)
+
+
+@app.post("/api/applications/{app_id}/extract")
+def extract(app_id: int):
+    a = db.get_application(app_id) or _404()
+    facts, mode = extraction.extract(a["documents"])
+    a = db.update_application(app_id, extraction=facts, fields=facts, extraction_mode=mode)
+    n_fields = sum(len(v) for k, v in facts.items() if isinstance(v, dict) and not k.startswith("_")) + len(facts.get("suppliers", []))
+    audit.record("extraction", a["ref"], {"event": "documents read into structured facts", "mode": mode, "fields": n_fields, "model": config.GEMINI_MODEL if mode == "gemini" else None})
+    return public_app(a)
+
+
+class FieldsIn(BaseModel):
+    fields: dict
+
+
+@app.put("/api/applications/{app_id}/fields")
+def put_fields(app_id: int, body: FieldsIn):
+    a = db.get_application(app_id) or _404()
+    if a["status"] not in ("draft", "info_requested"):
+        raise HTTPException(409, "application is no longer editable")
+    a = db.update_application(app_id, fields=body.fields)
+    return public_app(a)
+
+
+@app.post("/api/applications/{app_id}/agent-key")
+def agent_key(app_id: int):
+    """PayRail provisions the agent's key pair and the authority issues a challenge."""
+    a = db.get_application(app_id) or _404()
+    priv, pub = crypto.generate_keypair()
+    jwk = crypto.public_jwk(pub)
+    agent_id = rules._v(a.get("fields") or {}, "agent", "agent_id") or "agent"
+    ag = {"agent_id": agent_id, "public_pem": pub, "private_pem": priv, "jwk": jwk, "kid": crypto.jwk_thumbprint(jwk)[:16],
+          "challenge": crypto.new_nonce(), "challenge_sig": None, "pop_verified": False}
+    a = db.update_application(app_id, agent=ag)
+    audit.record("application", a["ref"], {"event": "agent key registered, challenge issued", "agent_id": agent_id, "kid": ag["kid"]})
+    return public_app(a)
+
+
+@app.post("/api/applications/{app_id}/sign-challenge")
+def sign_challenge(app_id: int):
+    """Simulated agent: signs the authority's nonce with its private key; authority verifies."""
+    a = db.get_application(app_id) or _404()
+    ag = a.get("agent") or _400("no agent key yet")
+    sig = crypto.sign_bytes(ag["private_pem"], ag["challenge"].encode())
+    ok = crypto.verify_bytes(ag["public_pem"], ag["challenge"].encode(), sig)
+    ag.update({"challenge_sig": sig, "pop_verified": ok})
+    a = db.update_application(app_id, agent=ag)
+    audit.record("application", a["ref"], {"event": "challenge signed by agent", "kid": ag["kid"], "verified": ok})
+    return public_app(a)
+
+
+def agent_identity_payload(a: dict) -> dict:
+    f, ag = a["fields"], a["agent"]
+    return {
+        "iss": "payrail-ltd", "typ": "agent_identity", "sub": ag["agent_id"], "iat": crypto.now_ts(), "application": a["ref"],
+        "operator": {"legal_name": rules._v(f, "provider", "legal_name"), "licence_ref": rules._v(f, "provider", "licence_ref")},
+        "agent": {"name": rules._v(f, "agent", "agent_name"), "agent_id": ag["agent_id"], "software": rules._v(f, "agent", "software"),
+                  "software_version": rules._v(f, "agent", "software_version"), "model_provider": rules._v(f, "agent", "model_provider"),
+                  "config_sha256": rules._v(f, "agent", "config_hash")},
+        "cnf": {"jwk": ag["jwk"]},
+    }
+
+
+@app.post("/api/applications/{app_id}/submit")
+def submit(app_id: int):
+    a = db.get_application(app_id) or _404()
+    if not a.get("fields"):
+        _400("read the documents first")
+    checks = rules.run_application_checks(a["fields"], a.get("agent"))
+    ident_jwt = crypto.sign_jwt("payrail", agent_identity_payload(a), typ="agent-identity+jwt") if a.get("agent") else None
+    a = db.update_application(app_id, status="submitted", submitted_at=db.now_iso(), checks=checks, agent_identity_jwt=ident_jwt)
+    audit.record("check", a["ref"], {"event": "application submitted; agent_identity signed by the provider; automated checks run",
+                                     "passed": sum(c["result"] == "pass" for c in checks), "flagged": [c["id"] for c in checks if c["result"] != "pass"],
+                                     "agent_identity_sha256": crypto.sha256_hex(ident_jwt) if ident_jwt else None})
+    return public_app(a)
+
+
+# ── API: regulator ─────────────────────────────────────────────────────────
+class DecisionIn(BaseModel):
+    decision: str  # approve | request_info | reject
+    note: str
+    human_confirm_above: float | None = None
+
+
+@app.post("/api/applications/{app_id}/decision")
+def decide(app_id: int, body: DecisionIn):
+    a = db.get_application(app_id) or _404()
+    if a["status"] not in ("submitted", "info_requested"):
+        raise HTTPException(409, f"application is {a['status']}")
+    if not body.note.strip():
+        _400("an officer note is required")
+    if body.decision == "approve":
+        thr = float(body.human_confirm_above if body.human_confirm_above is not None else rules.pack()["policy"]["human_confirm_above_gbp"])
+        condition = {"human_confirm_above": {"amount": thr, "currency": "GBP"}}
+        p = issue_passport(a, body.note, condition)
+        a = db.update_application(app_id, status="approved", decided_at=db.now_iso(), officer=config.OFFICER, officer_note=body.note, condition=condition)
+        audit.record("decision", a["ref"], {"event": "approved with condition; assurance signed", "officer": config.OFFICER, "note": body.note, "condition": condition, "passport_id": p["passport_id"]})
+        p = mirror_on_vouch(p)
+        return {"application": public_app(a), "passport": public_passport(p)}
+    if body.decision == "request_info":
+        a = db.update_application(app_id, status="info_requested", officer=config.OFFICER, officer_note=body.note)
+        audit.record("decision", a["ref"], {"event": "further information requested", "officer": config.OFFICER, "note": body.note})
+        return {"application": public_app(a)}
+    if body.decision == "reject":
+        a = db.update_application(app_id, status="rejected", decided_at=db.now_iso(), officer=config.OFFICER, officer_note=body.note)
+        audit.record("decision", a["ref"], {"event": "rejected", "officer": config.OFFICER, "note": body.note})
+        return {"application": public_app(a)}
+    _400("unknown decision")
+
+
+def issue_passport(a: dict, note: str, condition: dict) -> dict:
+    f = a["fields"]
+    ag = a["agent"] or _400("agent key not registered")
+    if not ag.get("pop_verified"):
+        _400("agent has not proven possession of its key")
+    ident_jwt = a.get("agent_identity_jwt") or _400("agent identity not signed by the provider")
+    ident = crypto.verify_jwt("payrail", ident_jwt) or _400("agent identity signature does not verify")
+    pol = rules.pack()["policy"]
+    m = f["mandate"]
+    valid_until = min(str(rules._v(m, "valid_until") or pol["max_validity"]), pol["max_validity"])
+    exp = int(datetime.fromisoformat(valid_until + "T23:59:59+00:00").timestamp())
+    checks = a.get("checks") or []
+    assurance = {
+        "iss": config.ISSUER, "typ": "assurance", "jti": a["ref"], "iat": crypto.now_ts(), "nbf": crypto.now_ts(), "exp": exp,
+        "valid_until": valid_until, "rule_pack_version": rules.pack()["id"],
+        "provider": {"legal_name": rules._v(f, "provider", "legal_name"), "licence_ref": rules._v(f, "provider", "licence_ref"), "companies_house_number": rules._v(f, "provider", "companies_house_number")},
+        "agent_id": ag["agent_id"],
+        "assurance": {"kya_status": "ASSURED", "checks_passed": sum(c["result"] == "pass" for c in checks), "checks_flagged": [c["id"] for c in checks if c["result"] != "pass"]},
+        "condition": condition,
+        "accountable_person": {"name": rules._v(f, "accountable_person", "name"), "role": rules._v(f, "accountable_person", "role"), "declaration_ref": rules._v(f, "accountable_person", "declaration_ref")},
+        "binds": {"agent_identity_sha256": crypto.sha256_hex(ident_jwt), "agent_kid": ag["kid"]},
+        "status": {"registry": f"/api/status/{a['ref']}"},
+        "issued_by": config.OFFICER,
+    }
+    mandate_proposed = {
+        "iss": "northgate-joinery-ltd", "typ": "mandate", "passport_id": a["ref"], "valid_until": valid_until, "exp": exp,
+        "customer": {"legal_name": rules._v(f, "customer", "legal_name"), "companies_house_number": rules._v(f, "customer", "companies_house_number")},
+        "authorising_officer": {"name": rules._v(f, "customer", "authorising_officer"), "role": rules._v(f, "customer", "officer_role")},
+        "provider": rules._v(f, "provider", "legal_name"), "agent_id": ag["agent_id"], "agent_kid": ag["kid"],
+        "authorization_details": [{
+            "type": "payment_initiation", "actions": [rules._v(m, "action_type") or "pay_invoice"], "currency": pol["currency"],
+            "supplier_allowlist": [{"supplier_id": s.get("supplier_id"), "name": s.get("name"), "account_ref": s.get("account_ref")} for s in f.get("suppliers", [])],
+            "per_payment_limit": {"amount": float(rules._v(m, "per_payment_limit_gbp") or 0), "currency": pol["currency"]},
+            "monthly_limit_per_account": {"amount": float(rules._v(m, "monthly_limit_per_account_gbp") or 0), "currency": pol["currency"], "window": pol["monthly_window"]},
+        }],
+    }
+    token = crypto.sign_jwt("authority", assurance, typ="assurance+jwt")
+    p = db.create_passport(a["ref"], a["id"], token, assurance, ident_jwt, ident, mandate_proposed, valid_until, config.OFFICER)
+    audit.record("issue", a["ref"], {"event": "assurance signed and entered in registry as ACTIVE; mandate awaiting the customer's signature",
+                                     "authority_kid": crypto.signer("authority")["kid"], "agent_kid": ag["kid"], "condition": condition,
+                                     "scope_proposed": mandate_proposed["authorization_details"][0]})
+    return p
+
+
+def mirror_on_vouch(p: dict) -> dict:
+    r = vouch.mint_mandate(p)
+    p = db.set_vouch(p["passport_id"], r["voucher_id"], r["mode"], r["status"])
+    audit.record("vouch", p["passport_id"], {"event": "mandate mirrored on the vouch rail", "mode": r["mode"], "voucher_id": r["voucher_id"], "detail": r["detail"]})
+    return p
+
+
+@app.post("/api/applications/{app_id}/file-note")
+def file_note(app_id: int):
+    a = db.get_application(app_id) or _404()
+    if not a.get("checks"):
+        _400("no checks yet")
+    note, mode = extraction.draft_file_note(a["ref"], a["fields"], a["checks"])
+    a = db.update_application(app_id, file_note=note)
+    audit.record("draft", a["ref"], {"event": "file note drafted (edge use of the model; not a decision)", "mode": mode})
+    return {"note": note, "mode": mode}
+
+
+class LifecycleIn(BaseModel):
+    status: str  # suspended | active | revoked
+    reason: str
+
+
+@app.post("/api/passports/{passport_id}/status")
+def lifecycle(passport_id: str, body: LifecycleIn):
+    p = db.get_passport(passport_id) or _404()
+    if body.status not in ("suspended", "active", "revoked"):
+        _400("status must be suspended, active or revoked")
+    if not body.reason.strip():
+        _400("an officer reason is required")
+    if p["status"] == "revoked":
+        _400("a revoked passport cannot change status; a fresh application is needed")
+    p = db.set_passport_status(passport_id, body.status, config.OFFICER, body.reason)
+    audit.record("lifecycle", passport_id, {"event": f"status changed to {body.status}", "officer": config.OFFICER, "reason": body.reason})
+    if body.status == "revoked":
+        r = vouch.revoke_mandate(p.get("vouch_voucher_id"))
+        p = db.set_vouch(passport_id, p.get("vouch_voucher_id"), r["mode"], r["status"])
+        audit.record("vouch", passport_id, {"event": "mandate revoked on the vouch rail", "mode": r["mode"], "voucher_id": p.get("vouch_voucher_id"), "detail": r["detail"]})
+    return public_passport(p)
+
+
+@app.get("/api/passports/{passport_id}/vouch")
+def passport_vouch(passport_id: str):
+    p = db.get_passport(passport_id) or _404()
+    return {"voucher_id": p.get("vouch_voucher_id"), "recorded": {"mode": p.get("vouch_mode"), "status": p.get("vouch_status")}, "live": vouch.mandate_status(p.get("vouch_voucher_id"))}
+
+
+# ── API: customer ──────────────────────────────────────────────────────────
+@app.post("/api/passports/{passport_id}/mandate/sign")
+def sign_mandate(passport_id: str):
+    """Northgate's finance director signs the proposed mandate with the customer's key. Completes the envelope."""
+    p = db.get_passport(passport_id) or _404()
+    if p.get("mandate_jwt"):
+        _400("mandate already signed")
+    payload = {**p["mandate_proposed"], "iat": crypto.now_ts(), "signed_by": p["mandate_proposed"]["authorising_officer"]}
+    token = crypto.sign_jwt("northgate", payload, typ="mandate+jwt")
+    p = db.set_mandate(passport_id, token, payload)
+    audit.record("mandate", passport_id, {"event": "mandate signed by the customer; envelope complete", "signer": payload["signed_by"], "customer_kid": crypto.signer("northgate")["kid"],
+                                          "suppliers": len(payload["authorization_details"][0]["supplier_allowlist"])})
+    return public_passport(p)
+
+
+# ── API: relying party (the bank) ──────────────────────────────────────────
+@app.get("/api/status/{passport_id}")
+def status(passport_id: str):
+    p = db.get_passport(passport_id) or _404()
+    return {"passport_id": passport_id, "status": p["status"], "mandate_signed": bool(p.get("mandate_jwt")), "expires_at": p["expires_at"], "checked_at": db.now_iso()}
+
+
+@app.get("/api/passports/{passport_id}")
+def get_passport(passport_id: str):
+    p = db.get_passport(passport_id) or _404()
+    env = envelope_of(p)
+    ver = crypto.verify_envelope(env)
+    parts = {"assurance": crypto.verify_jwt("authority", env["assurance"]) is not None,
+             "agent_identity": crypto.verify_jwt("payrail", env["agent_identity"]) is not None,
+             "mandate": (crypto.verify_jwt("northgate", env["mandate"]) is not None) if env.get("mandate") else None}
+    headers = {k: crypto.decode_unverified(env[k])[0] for k in ("assurance", "agent_identity", "mandate") if env.get(k)}
+    return {**public_passport(p), "verification": {"ok": ver["ok"], "failure": ver["failure"], "parts": parts}, "headers": headers, "minimal": minimal_passport(p)}
+
+
+def minimal_passport(p: dict) -> dict:
+    """What the bank sees: permission and keys, not personal data."""
+    a, i, m = p["assurance"], p["agent_identity"], p.get("mandate")
+    ad = (m or p["mandate_proposed"])["authorization_details"][0]
+    return {
+        "passport_id": p["passport_id"], "issuer": a["iss"], "provider": a["provider"]["legal_name"], "licence_ref": a["provider"]["licence_ref"],
+        "agent": i["agent"]["name"], "agent_id": i["agent"]["agent_id"], "agent_kid": crypto.jwk_thumbprint(i["cnf"]["jwk"])[:16],
+        "condition": a["condition"], "valid_until": a["valid_until"], "status": p["status"], "mandate_signed": bool(m),
+        "scope": {"actions": ad["actions"], "currency": ad["currency"], "suppliers": len(ad["supplier_allowlist"]), "per_payment_limit": ad["per_payment_limit"], "monthly_limit_per_account": ad["monthly_limit_per_account"]},
+        "signers": {"assurance": crypto.signer("authority")["kid"], "agent_identity": crypto.signer("payrail")["kid"], "mandate": crypto.signer("northgate")["kid"]},
+    }
+
+
+class ActIn(BaseModel):
+    passport_id: str
+    action_type: str = "pay_invoice"
+    payee_account_ref: str
+    supplier_name: str
+    amount: float
+    currency: str = "GBP"
+    invoice_ref: str | None = None
+    signer: str = "agent"  # agent | rogue
+
+
+_rogue: dict | None = None
+
+
+def rogue_key() -> dict:
+    global _rogue
+    if _rogue is None:
+        priv, pub = crypto.generate_keypair()
+        _rogue = {"private_pem": priv, "public_pem": pub}
+    return _rogue
+
+
+@app.post("/api/agent/act")
+def agent_act(body: ActIn):
+    """Simulated Agent 247: builds a payment instruction, signs it, presents it to the bank."""
+    p = db.get_passport(body.passport_id) or _404()
+    a = db.get_application(p["application_id"])
+    req = {"passport_id": body.passport_id, "action_type": body.action_type, "payee_account_ref": body.payee_account_ref, "supplier_name": body.supplier_name,
+           "amount": body.amount, "currency": body.currency, "invoice_ref": body.invoice_ref, "nonce": crypto.new_nonce()}
+    key = a["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
+    req["agent_signature"] = crypto.sign_bytes(key, rules.request_signing_input(req))
+    return verify(VerifyIn(passport_id=body.passport_id, instruction=req))
+
+
+class VerifyIn(BaseModel):
+    passport_id: str
+    instruction: dict          # signed payment instruction
+    passport: dict | None = None  # optional presented envelope; otherwise fetched from the registry by id
+
+
+@app.post("/api/verify")
+def verify(body: VerifyIn):
+    """The bank's gateway. Envelope (presented or fetched by id) + signed instruction + registry status +
+    the bank's own ledger total → decision + signed receipt. The audit entry stores every input the decision
+    depended on so /api/audit/{id}/replay can re-run the pure function later."""
+    p = db.get_passport(body.passport_id)
+    env = body.passport or (envelope_of(p) if p else {"passport_id": body.passport_id, "assurance": None, "agent_identity": None, "mandate": None})
+    reg_status = p["status"] if p else "unknown"
+    req = body.instruction
+    ledger_total = db.ledger_total(body.passport_id, str(req.get("payee_account_ref") or ""))
+    res = rules.verify_action(env, reg_status, req, ledger_total)
+    entry = {"event": "verification", "passport_id": body.passport_id, "instruction": req, "registry_status": reg_status, "presented_envelope": env,
+             "ledger_total_before": ledger_total, "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req)),
+             "decision": res["decision"], "rule": res["rule"], "code": res["code"], "reason": res["reason"], "trace": res["trace"], "rule_pack": res["rule_pack"]}
+    rec = audit.record("verify", body.passport_id, entry, receipt_for={"passport_id": body.passport_id, "decision": res["decision"], "rule": res["rule"], "code": res["code"], "instruction_hash": entry["instruction_hash"]})
+    out = {**res, "audit_id": rec["id"], "audit_hash": rec["hash"], "prev_hash": rec["prev_hash"], "receipt": rec["receipt"], "ledger_total_before": ledger_total, "settlement": None, "incident": None}
+    if res["decision"] == "ALLOW":
+        s = vouch.settle_payment(req)
+        pay = db.insert_payment(body.passport_id, str(req.get("payee_account_ref")), float(req.get("amount") or 0), str(req.get("currency") or "GBP"), req.get("invoice_ref"), rec["id"], s["rail"], s.get("ref"))
+        out["settlement"] = {**s, "ledger_total_after": ledger_total + float(req.get("amount") or 0), "payment_id": pay["id"]}
+    elif res["decision"] == "DENY" and p:
+        n = db.denies_since_last_incident(body.passport_id)
+        threshold = rules.pack()["policy"]["incident_deny_threshold"]
+        out["deny_count"] = n
+        if n >= threshold:
+            inc = audit.record("incident", body.passport_id, {"event": "escalated to supervisor", "reason": f"{n} refused instructions since the last incident", "denies": n,
+                                                              "last_rule": res["rule"], "last_code": res["code"], "provider": p["assurance"]["provider"]["legal_name"], "agent_id": p["assurance"]["agent_id"]})
+            out["incident"] = {"audit_id": inc["id"], "hash": inc["hash"], "denies": n}
+    return out
+
+
+# ── API: audit ─────────────────────────────────────────────────────────────
+@app.get("/api/audit")
+def audit_list():
+    rows = db.list_audit()
+    chain = audit.verify_chain(list(reversed(rows)))
+    return {"rows": rows, "chain": chain}
+
+
+@app.post("/api/audit/{audit_id}/replay")
+def replay(audit_id: int):
+    """Re-run a past verification from its stored inputs. Same inputs, same rule pack, same ledger total, same answer."""
+    r = db.get_audit(audit_id) or _404()
+    if r["kind"] != "verify":
+        _400("only verification entries can be replayed")
+    e = r["entry"]
+    day = date.fromisoformat(e["ts"][:10])
+    res = rules.verify_action(e["presented_envelope"], e["registry_status"], e["instruction"], e.get("ledger_total_before", 0.0), today=day)
+    same = res["decision"] == e["decision"] and res["rule"] == e["rule"] and res["code"] == e["code"]
+    return {"audit_id": audit_id, "original": {"decision": e["decision"], "rule": e["rule"], "code": e["code"]}, "replay": {"decision": res["decision"], "rule": res["rule"], "code": res["code"]}, "identical": same, "rule_pack": res["rule_pack"]}
+
+
+@app.get("/api/receipt/verify")
+def receipt_verify(token: str):
+    payload = crypto.verify_jwt("authority", token)
+    return {"verified": payload is not None, "payload": payload}
+
+
+# ── Demo control ───────────────────────────────────────────────────────────
+@app.post("/api/reset")
+def reset():
+    db.reset_all()
+    audit.record("system", None, {"event": "demo reset"})
+    return {"ok": True}
+
+
+def _404():
+    raise HTTPException(404, "not found")
+
+
+def _400(msg: str):
+    raise HTTPException(400, msg)

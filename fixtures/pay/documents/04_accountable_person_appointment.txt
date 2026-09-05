@@ -1,0 +1,20 @@
+PAYRAIL LTD
+Unit 9, Riverside Works, Norwich NR1 1QE
+Companies House number 10987654
+
+APPOINTMENT OF ACCOUNTABLE PERSON FOR AN AUTONOMOUS PAYMENTS AGENT
+
+Declaration reference: DEC-2026-017
+Date: 19 August 2026
+
+I, Daniel Okoye, Head of Compliance at PayRail Ltd, confirm that I am the named accountable person
+for the software agent known as "Agent 247" (identifier payrail-agent-247).
+
+I accept responsibility for the actions taken by this agent when it initiates payments on behalf of
+PayRail's customers, and I confirm that PayRail's internal controls route any held instruction to a
+qualified member of staff and to the customer's authorising officer before it is released.
+
+Contact: daniel.okoye@payrail.example
+
+Signed: D. Okoye
+Role: Head of Compliance

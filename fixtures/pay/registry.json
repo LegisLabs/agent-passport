@@ -1,0 +1,34 @@
+{
+ "_comment": "Synthetic authority records. What the payments supervisor already knows before the application arrives. No real firm.",
+ "psp_licences": {
+  "PSP-4471": {
+   "firm": "PayRail Ltd",
+   "status": "active",
+   "type": "Authorised payment institution",
+   "permissions": [
+    "payment_initiation",
+    "account_information"
+   ]
+  },
+  "PSP-3902": {
+   "firm": "Quickpay Bridge Ltd",
+   "status": "suspended",
+   "type": "Authorised payment institution",
+   "permissions": [
+    "payment_initiation"
+   ]
+  }
+ },
+ "companies_house": {
+  "10987654": {
+   "name": "PAYRAIL LTD",
+   "status": "active",
+   "address": "Unit 9, Riverside Works, Norwich NR1 1QE"
+  },
+  "11223344": {
+   "name": "NORTHGATE JOINERY LTD",
+   "status": "active",
+   "address": "3 Kiln Lane, King's Lynn PE30 4RT"
+  }
+ }
+}

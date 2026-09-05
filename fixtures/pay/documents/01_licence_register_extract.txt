@@ -1,0 +1,17 @@
+NATIONAL PAYMENTS SUPERVISOR — REGISTER OF PAYMENT INSTITUTIONS (synthetic demo extract)
+
+Register entry
+
+Firm name:                 PayRail Ltd
+Licence reference:         PSP-4471
+Licence type:              Authorised payment institution
+Permissions:               Payment initiation services; account information services
+Status:                    Active
+Authorised since:          14 March 2023
+Registered office:         Unit 9, Riverside Works, Norwich NR1 1QE
+Companies House number:    10987654
+
+Conditions on the licence: none recorded.
+
+This extract is generated from the register on 21 August 2026. It is a synthetic document for a
+demonstration and does not describe any real firm.

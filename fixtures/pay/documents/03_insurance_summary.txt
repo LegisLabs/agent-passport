@@ -1,0 +1,12 @@
+DEMO MUTUAL INSURANCE ASSOCIATION
+Professional Indemnity — Schedule Summary
+
+Insured:                   PayRail Ltd
+Policy reference:          PI-2026-88213
+Cover:                     Professional indemnity, including losses arising from automated
+                           payment initiation performed by software agents operated by the insured
+Limit of indemnity:        GBP 2,000,000 any one claim
+Period of insurance:       1 April 2026 to 31 March 2027
+Status:                    In force
+
+Issued 2 April 2026. Synthetic document for a demonstration; no real insurer or policy.

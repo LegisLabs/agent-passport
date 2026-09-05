@@ -1,57 +1,134 @@
-# Agent Passport — v1 skeleton
+# Agent Passport
 
-Regulator-issued, scoped, revocable credential for autonomous AI agents, demonstrated on a UK Self Assessment filing agent. Lexis Labs entry to the C:\>DIR Global 'Agentic Regulator' Hackathon, Know Your Agent problem space.
+Regulator-issued, scoped, revocable credentials for autonomous AI agents. Lexis Labs entry to the C:\>DIR Global 'Agentic Regulator' Hackathon, Know Your Agent problem space. One engine, two verticals, two rule packs:
 
-Live: **https://cdir.legislabs.uk** · API docs: `/api/docs` · Plan: `docs/PLAN.md` · Spec: `docs/Demo Vertical Alignment and Fields for Skeleton.pdf`
+| Vertical | Live | Code | What it shows |
+|---|---|---|---|
+| **B2B payments** (primary) | **https://pay.cdir.legislabs.uk** | `pay/` | A payment-initiation provider's AI agent pays a small business's suppliers. Three-signer passport envelope, bank-side verification, cumulative limits, incidents, vouch.finance rail. |
+| UK Self Assessment (transferability beat) | https://cdir.legislabs.uk | `app/` | The same engine, a tax rule pack: an accounting firm's filing agent, unchanged since the v1 skeleton (git tag `hmrc-v1`). |
+
+Both sites sit behind one basic-auth gate (user `lexis`; password supplied with the submission). API docs at `/api/docs` on each. Plan and briefs in `docs/`.
+
+**Identity is not authority.** The LLM only extracts facts from documents; versioned rule packs decide; a named human signs; every decision replays. Never the word "blockchain": signatures, a registry and a hash-chained log.
 
 ## Run
 
 ```bash
 python3 -m venv .venv && .venv/bin/pip install -r deploy/requirements.txt
-cp .env.example .env            # add GEMINI_API_KEY, or set EXTRACTION_MODE=fixture
-.venv/bin/uvicorn app.main:app --reload --port 8013
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest -q
+cp .env.example .env            # GEMINI_API_KEY, optional HACKATHON_ORG_API_KEY; or EXTRACTION_MODE=fixture
+.venv/bin/uvicorn pay.main:app --reload --port 8014     # payments vertical
+.venv/bin/uvicorn app.main:app --reload --port 8013     # tax vertical
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest -q   # 46 tests, fully offline
 ```
 
-Self-seeds on first run: the authority's Ed25519 key is generated into `data/keys/`, the SQLite database into `data/`. Nothing else to configure.
+Each app self-seeds on first run: signer keys into `data/pay/keys/` (or `data/keys/`), SQLite alongside. Nothing else to configure.
 
-## The path
+## The payments scenario
 
-1. **Apply** (`/operator`). Start an application: the firm's evidence pack (five synthetic documents) loads. "Read documents into facts" sends them to Gemini in JSON mode; every extracted value comes back with its source document and a verbatim quote. Correct anything, then generate the agent's key and have the agent sign the authority's challenge (proof of possession). Submit.
-2. **Review & issue** (`/regulator`). Ten automated checks (A.1–A.10) run over the reviewed facts and the authority's synthetic registers, each with rule id, source and CURRENT/PROTOTYPE label. Optional model-drafted file note. Officer approves, requests information or rejects, with a required note. Approval mints an Ed25519-signed JWT: agent, operator, granted scope (`authorization_details`), validity, the agent's public key in `cnf`. No client list, no personal data. Lifecycle: suspend, reinstate, revoke, renew, each with a reason.
-3. **Act & check** (`/relying`). Seven proposed actions. The simulated agent signs each request; the gateway runs R.1–R.6 in order and answers ALLOW / ESCALATE / DENY with rule, reason code and an authority-signed receipt. Beat 6 signs with a rogue key: a copied passport fails on R.3.
-4. **Audit** (`/audit`). Hash chain over every event. Replay re-runs any verification from its stored inputs and must match.
+**Northgate Joinery Ltd** (customer) pays suppliers through **PayRail Ltd** (licensed payment-initiation provider, the operator). PayRail runs an accounts-payable agent, **Agent 247**, that reads invoices and initiates payments. Before deployment PayRail submits evidence to the **national payments supervisor (demo)**. Automated KY-A checks run, an officer approves with a condition, and an assurance is issued. Northgate's finance director signs the mandate. **Northgate's bank** verifies the passport on every instruction before executing. The supervisor can suspend or revoke at any time; three refusals raise an incident.
 
-## Rules (rule pack `hmrc-sa-2026.09`, data not code)
+All names, registers, accounts and documents are synthetic. This is a proposed assurance framework, not a current legal requirement.
 
-| Runtime, in order | Fails to |
+### The path
+
+1. **Apply** (`/provider`). PayRail's evidence pack (five synthetic documents) loads. "Read documents into facts" sends them to Gemini in JSON mode; every value comes back with its source document and a verbatim quote. Correct anything, generate the agent's key, have the agent sign the authority's challenge (proof of possession). On submission PayRail signs the `agent_identity` claim with its own key and checks A.1–A.8 run.
+2. **Review & issue** (`/regulator`). Eight checks with rule id, source and CURRENT/PROTOTYPE label. Optional model-drafted file note. The officer sets the condition (hold above £5,000), writes a required note and approves, requests information or rejects. Approval signs the `assurance` with the authority key, enters the passport in the registry as ACTIVE and mirrors the mandate on the vouch rail. Lifecycle: suspend, reinstate, revoke, each with a reason. Incident feed.
+3. **Sign mandate** (`/customer`). Northgate's finance director sees the supplier allowlist, the limits and the expiry, and signs the `mandate` with the company key. Before that the envelope is incomplete and the bank refuses everything at R.5.
+4. **Act & check** (`/bank`). Eight proposed instructions. The simulated agent signs each; the bank runs R.1–R.9 in order and answers ALLOW / ESCALATE / DENY with rule, reason code, an authority-signed receipt and, on ALLOW, a settlement line. Per-account 30-day meters. Three refusals raise an incident.
+5. **Audit** (`/audit`). Hash chain over every event. Replay re-runs any verification from its stored inputs, including the bank's ledger total at the time, and must match.
+
+### The composite passport
+
+Not one JWT. An envelope of three independently signed Ed25519 JWTs, each signed by the party entitled to the claim:
+
+```json
+{
+  "passport_id": "AP-2026-0107",
+  "assurance":      "<JWT signed by the AUTHORITY>   provider, licence, KY-A status, condition, accountable person, validity, binds → agent_identity hash",
+  "agent_identity": "<JWT signed by PAYRAIL>         agent name, agent public key (cnf), software, config SHA-256",
+  "mandate":        "<JWT signed by NORTHGATE>       supplier allowlist by account, per-payment limit, 30-day limit per account, expiry",
+  "status_url": "/api/status/AP-2026-0107",
+  "vouch_voucher_id": "VCH-… or the live voucher id",
+  "cnf": null
+}
+```
+
+Public keys for all three signers: `GET /api/signers`. Remove any one signature and the bank refuses.
+
+### Rules (rule pack `payments-2026.09`, data not code)
+
+Application, authority side: A.1 licence resolves and active · A.2 Companies House resolves · A.3 accountable person with signed declaration · A.4 insurance evidenced · A.5 agent key proof-of-possession · A.6 customer agreement evidenced · A.7 limits within policy ceilings · A.8 software declared and config hash matches the deployed file.
+
+| Bank side, in order | Fails to |
 |---|---|
-| R.1 passport signature genuine | DENY `PASSPORT_SIGNATURE_INVALID` |
-| R.2 passport active and unexpired (registry lookup) | DENY `PASSPORT_NOT_ACTIVE` |
-| R.3 request signed by the passport's agent key | DENY `AGENT_SIGNATURE_INVALID` |
-| R.4 action within scope: task, tax year, action type | DENY `OUT_OF_SCOPE` |
-| R.5 client authorised for this firm, by UTR reference | DENY `CLIENT_NOT_AUTHORISED` |
-| R.6 tax due above threshold | ESCALATE `HUMAN_APPROVAL_REQUIRED` |
-| otherwise | ALLOW `WITHIN_SCOPE` |
+| R.1 assurance signature (authority key) | DENY `ASSURANCE_SIGNATURE_INVALID` |
+| R.2 assurance active and unexpired (registry lookup) | DENY `ASSURANCE_NOT_ACTIVE` |
+| R.3 agent identity signature (provider key), bound to this assurance | DENY `AGENT_IDENTITY_SIGNATURE_INVALID` |
+| R.4 instruction signed by the agent key in `agent_identity.cnf` | DENY `AGENT_SIGNATURE_INVALID` |
+| R.5 mandate present, signed by the customer, unexpired | DENY `MANDATE_NOT_SIGNED` / `MANDATE_SIGNATURE_INVALID` / `MANDATE_EXPIRED` |
+| R.6 action permitted and payee account on the allowlist | DENY `OUT_OF_SCOPE` / `PAYEE_NOT_ON_MANDATE` |
+| R.7 amount within per-payment limit | DENY `PER_PAYMENT_LIMIT_EXCEEDED` |
+| R.8 amount + 30-day total for this account within the monthly limit (bank ledger) | DENY `MONTHLY_LIMIT_EXCEEDED` |
+| R.9 amount above the supervisor condition | ESCALATE `HUMAN_CONFIRMATION_REQUIRED` |
+| otherwise | ALLOW `WITHIN_MANDATE` |
 
-Application checks A.1–A.10 are listed on `/about`. `fixtures/oracle.json` holds the deterministic test cases; `tests/test_rules.py` runs all of them offline.
+The limit lives in the mandate; the running total lives at the bank. `fixtures/pay/oracle.json` holds 18 deterministic cases; `tests/test_pay.py` runs them all offline.
 
-## API (the real deliverable)
+### Demo beats (the `/bank` console, in order; doubles as the video storyboard)
+
+| # | Instruction | Expected |
+|---|---|---|
+| 0 | Any instruction before the customer signs | DENY R.5 mandate not signed |
+| 1 | Fenwick Timber Ltd · £3,200 · on the allowlist | ALLOW, receipt, settled |
+| 2 | Fenwick Timber Ltd · £2,750 · account 60-11-22 10101010 | DENY R.6 · invoice redirection fraud stopped by the customer-signed allowlist |
+| 3 | Ashby Ironmongery Ltd · £11,400 | DENY R.7 · above the £10,000 cap |
+| 4 | Coastline Glass Ltd · £5,600 | ESCALATE R.9 · above the £5,000 supervisor condition |
+| 5 | Fenwick Timber Ltd · £4,900 · repeated | ALLOW ×3, then DENY R.8 when the 30-day total would pass £20,000 |
+| 6 | Fenwick Timber Ltd · £1,150 · signed with a rogue key | DENY R.4 · copied passport |
+| 7 | Refund Fenwick Timber Ltd · £3,200 | DENY R.6 · known payee, action never granted |
+| 8 | Ashby Ironmongery Ltd · £900 · lifecycle probe | ALLOW; after suspend DENY R.2; after reinstate ALLOW; after revoke DENY R.2 and the vouch voucher is revoked too |
+
+Three refusals raise "escalated to supervisor" in the terminal and in the regulator's incident feed.
+
+## vouch.finance integration
+
+`pay/vouch.py` mirrors the passport's mandate as an AI Voucher on the hackathon sandbox.
+
+| Env | Values | Effect |
+|---|---|---|
+| `VOUCH_MODE` | `fixture` (default) · `live` | fixture records deterministic voucher ids, no network; live calls `https://cdir.vouch.finance/api/v1` with `HACKATHON_ORG_API_KEY` and falls back to fixture, visibly labelled, on any failure |
+| `PAYMENT_RAIL` | `local` (default) · `vouch` | vouch additionally settles each ALLOW as intent → quote → authorize; a 403 is a rail-side decline, not an error. Needs `VOUCH_PROGRAM_ID`, `VOUCH_MERCHANT_ID`, `VOUCH_PRIVY_USER_ID` from a seeded kit |
+
+Approval → `POST /ai-vouchers` (passport id in metadata, voucher id in the envelope). Revoke → `DELETE /ai-vouchers/{id}`. "Re-check on rail" → `GET /ai-vouchers/{id}`. Verdicts come from HTTP responses, never the SSE stream. Verified live against the sandbox on 5 Sept 2026 (mint, status, revoke).
+
+**Kit replay.** `scripts/vouch_kit_replay.py` maps every scenario in the sponsor's `kya-licence` and `agent-mandate` kits to the Agent Passport rule that would fire, and scores against their `labels.jsonl` when given one:
+
+```bash
+.venv/bin/python scripts/vouch_kit_replay.py                              # offline, vendored manifests
+.venv/bin/python scripts/vouch_kit_replay.py --labels ../hackathon-kits/artifacts/runs/<runId>/labels.jsonl
+```
+
+Out-of-hours and delegation-depth scenarios are reported as out of scope for v1. The field mapping is a proposed compatibility profile: `docs/KYA_extension_for_purpose_bound_value.md`.
+
+## API (payments vertical)
 
 ```
-POST /api/applications                       start (loads the evidence pack)
-POST /api/applications/{id}/extract          Gemini → structured facts with provenance
-PUT  /api/applications/{id}/fields           operator corrections
-POST /api/applications/{id}/agent-key        agent key pair + authority challenge
-POST /api/applications/{id}/sign-challenge   agent signs; authority verifies possession
-POST /api/applications/{id}/submit           runs A.* checks
-POST /api/applications/{id}/decision         {decision: approve|request_info|reject, note}
-POST /api/applications/{id}/file-note        model-drafted note (never a decision)
-POST /api/passports/{jti}/status             {status: suspended|active|revoked, reason}
-GET  /api/passports/{jti}                    full + minimal (relying-party) view
-GET  /api/status/{jti}                       real-time status
-POST /api/agent/act                          simulated agent signs and presents a request
-POST /api/verify                             {passport, request} → decision + receipt
+POST /api/applications                        start (loads the evidence pack)
+POST /api/applications/{id}/extract           Gemini → structured facts with provenance
+PUT  /api/applications/{id}/fields            provider corrections
+POST /api/applications/{id}/agent-key         agent key pair + authority challenge
+POST /api/applications/{id}/sign-challenge    agent signs; authority verifies possession
+POST /api/applications/{id}/submit            provider signs agent_identity; runs A.*
+POST /api/applications/{id}/decision          {decision: approve|request_info|reject, note, human_confirm_above}
+POST /api/applications/{id}/file-note         model-drafted note (never a decision)
+POST /api/passports/{id}/mandate/sign         customer signs the mandate; envelope complete
+POST /api/passports/{id}/status               {status: suspended|active|revoked, reason}; revoke also revokes on the vouch rail
+GET  /api/passports/{id}                      envelope + per-part verification + minimal (bank) view
+GET  /api/passports/{id}/vouch                voucher status re-read from the rail
+GET  /api/status/{id}                         real-time registry status
+GET  /api/signers                             the three public keys
+POST /api/agent/act                           simulated agent signs and presents an instruction
+POST /api/verify                              {passport_id, instruction, passport?} → decision, receipt, settlement, incident
 GET  /api/audit · POST /api/audit/{id}/replay · GET /api/receipt/verify?token=
 ```
 
@@ -62,26 +139,28 @@ Gemini (JSON mode, temperature 0) reads documents into a fixed schema and drafts
 ## Deploy
 
 ```bash
-bash deploy/publish.sh     # Docker build on the shared Hetzner box, Caddy drop-in, reload
+bash deploy/publish.sh          # both containers on the shared Hetzner box, Caddy drop-ins, reload
+bash deploy/publish.sh pay      # payments only
 ```
 
 ## Layout
 
 ```
-app/          main.py (routes) · rules.py · crypto.py · audit.py · extraction.py · db.py · fixtures.py · templates/ · static/
-rulepacks/    hmrc-sa-2026.09.json
-fixtures/     documents/ (evidence pack) · registry.json (authority records) · extraction_fixture.json · oracle.json
-tests/        pytest, offline
-deploy/       Dockerfile · docker-compose.yml · cdir-legislabs.caddy · publish.sh · requirements.txt
-docs/         PLAN.md · Bernard's spec · BRIEF_v2 · tax research
-context/      hackathon documents (see context/README.md)
-archive/      static-prototype (the first frontend-only demo)
+pay/          payments vertical: main.py · rules.py · crypto.py (three signers, verify_envelope) · vouch.py · audit.py · extraction.py · db.py · fixtures.py · templates/ · static/
+app/          tax vertical (unchanged, tag hmrc-v1)
+rulepacks/    payments-2026.09.json · hmrc-sa-2026.09.json
+fixtures/pay/ documents/ (evidence pack) · registry.json · extraction_fixture.json · oracle.json · agent_config.json · vouch_kits/
+fixtures/     the tax vertical's fixtures
+scripts/      vouch_kit_replay.py
+tests/        test_pay.py · test_rules.py, offline
+deploy/       Dockerfile · pay.Dockerfile · docker-compose.yml · *.caddy · publish.sh · requirements.txt
+docs/         PLAN.md · BRIEF_v3_Payments_Conversion.md · KYA_extension_for_purpose_bound_value.md · Bernard's spec · earlier briefs
 ```
 
 ## Third-party components
 
-FastAPI, Uvicorn, Jinja2, Pydantic (MIT) · cryptography (Apache-2.0/BSD) · PyJWT (MIT) · google-genai (Apache-2.0). No real personal data anywhere; all registers and documents are synthetic.
+FastAPI, Uvicorn, Jinja2, Pydantic (MIT) · cryptography (Apache-2.0/BSD) · PyJWT (MIT) · google-genai (Apache-2.0) · vouch.finance hackathon kit manifests (MIT, vendored in `fixtures/pay/vouch_kits/`). No real personal data anywhere; all registers, firms, accounts and documents are synthetic.
 
 ## Not claimed
 
-That HMRC issues agent passports today; that the passport replaces tax-adviser registration or client authorisation; that a signature proves an agent is safe; that a valid passport compels a relying party; that this is production cryptographic infrastructure.
+That any supervisor issues agent passports today; that the passport replaces the provider's licence, the customer's contract or the bank's own mandate; that a signature proves an agent is safe or correct; that a valid passport compels a bank to execute; that this is production cryptographic infrastructure.

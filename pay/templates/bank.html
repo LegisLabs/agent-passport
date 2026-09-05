@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Act and check{% endblock %}
+{% block content %}
+<h1 class="h1">The bank checks every instruction</h1>
+<p class="lede">{{ agent_name }} signs each payment instruction and presents its passport. {{ bank }} runs nine checks in order and answers ALLOW, ESCALATE or DENY with the rule, a reason and an authority-signed receipt. A redirected invoice, an oversized payment, a structured run of payments, a copied passport or a revoked assurance all stop here.</p>
+
+<div class="strip strip--bank" id="strip">
+  <div><span class="strip__k">Passport</span><span class="strip__v mono" id="st-id">—</span></div>
+  <div><span class="strip__k">Assurance</span><span class="strip__v" id="st-assurance">—</span></div>
+  <div><span class="strip__k">Mandate</span><span class="strip__v" id="st-mandate">—</span></div>
+  <div><span class="strip__k">Payments executed</span><span class="strip__v" id="st-payments">0</span></div>
+  <div class="strip__meters"><span class="strip__k">30-day totals per supplier account</span><div class="meters" id="st-meters"></div></div>
+</div>
+
+<div class="grid grid--wide">
+  <div class="col-main">
+    <h2 class="h3">What the bank sees on the passport</h2>
+    <p class="hint">Permission and keys, not personal data. Three signatures, checked against three published keys. Status is read from the authority's registry at the moment of the instruction.</p>
+    <dl class="kv kv--passport" id="rp-passport"><div><dt>Passport</dt><dd>none issued yet</dd></div></dl>
+
+    <h2 class="h3">Proposed instructions</h2>
+    <p class="hint">Run them in order for the demo. Repeated ones keep going until the bank refuses.</p>
+    <ol class="beats" id="beats"></ol>
+    <p class="hint">Lifecycle beat: in <a href="/regulator">Review &amp; issue</a>, suspend the passport and rerun instruction 8 (DENY R.2), reinstate (ALLOW), revoke (DENY R.2, and the vouch rail refuses too).</p>
+  </div>
+  <div class="col-side col-side--terminal">
+    <div class="terminal" id="terminal" role="log" aria-live="polite" aria-label="Bank gateway decision log">
+      <div class="terminal__bar"><span>gateway · POST /api/verify</span><span class="mono">refusals <span class="denies" id="denies" aria-label="refusals since last incident"><i></i><i></i><i></i></span> · {{ rule_pack }}</span></div>
+      <ol class="terminal__lines" id="term-lines"><li class="terminal__hint">Waiting for an instruction.</li></ol>
+    </div>
+    <details class="jwt">
+      <summary>Ordered rule evaluation (deny by default)</summary>
+      <ol class="rules" id="rules"></ol>
+    </details>
+  </div>
+</div>
+{% endblock %}
+{% block scripts %}<script>AP.bank();</script>{% endblock %}

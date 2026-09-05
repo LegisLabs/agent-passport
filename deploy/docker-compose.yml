@@ -1,7 +1,9 @@
-# Agent Passport skeleton (cdir.legislabs.uk). Ports 80/443 on the box belong to
-# the Compass Caddy (/opt/compass/deploy); this app joins that compose network so
-# Caddy can reverse_proxy to it by container name. Site config is the drop-in
-# /opt/caddy-sites/cdir-legislabs.caddy.
+# Agent Passport: two verticals, two containers, one repo.
+#   cdir      HMRC Self Assessment (cdir.legislabs.uk)      untouched since v1
+#   cdir-pay  B2B payments + vouch rail (pay.cdir.legislabs.uk)
+# Ports 80/443 on the box belong to the Compass Caddy (/opt/compass/deploy); both apps join that
+# compose network so Caddy can reverse_proxy to them by container name. Site configs are the
+# drop-ins /opt/caddy-sites/cdir-legislabs.caddy and /opt/caddy-sites/pay-cdir-legislabs.caddy.
 services:
   cdir:
     build:
@@ -16,8 +18,26 @@ services:
       - cdir_data:/data
     restart: unless-stopped
 
+  cdir-pay:
+    build:
+      context: ..
+      dockerfile: deploy/pay.Dockerfile
+    container_name: cdir-pay
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      EXTRACTION_MODE: ${EXTRACTION_MODE:-gemini}
+      HACKATHON_ORG_API_KEY: ${HACKATHON_ORG_API_KEY:-}
+      API_BASE_URL: ${API_BASE_URL:-https://cdir.vouch.finance/api/v1}
+      VOUCH_MODE: ${VOUCH_MODE:-fixture}
+      PAYMENT_RAIL: ${PAYMENT_RAIL:-local}
+    volumes:
+      - cdir_pay_data:/data
+    restart: unless-stopped
+
 volumes:
   cdir_data:
+  cdir_pay_data:
 
 networks:
   default:

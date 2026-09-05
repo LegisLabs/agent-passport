@@ -1,0 +1,31 @@
+SERVICE AGREEMENT — AUTOMATED SUPPLIER PAYMENTS (extract)
+
+Between:   Northgate Joinery Ltd, Companies House number 11223344, 3 Kiln Lane, King's Lynn PE30 4RT
+           ("the Customer")
+and:       PayRail Ltd, licence PSP-4471 ("the Provider")
+
+Date: 20 August 2026
+
+1. The Customer engages the Provider to operate the software agent "Agent 247" to read the
+   Customer's supplier invoices and to initiate payments from the Customer's account.
+
+2. Authorising officer for the Customer: Helen Marsh, Finance Director.
+
+3. Supplier allowlist. The agent may initiate payments only to the following supplier accounts.
+
+   Supplier ID   Supplier name            Sort code   Account number
+   SUP-001       Fenwick Timber Ltd       60-11-22    44556677
+   SUP-002       Ashby Ironmongery Ltd    30-98-76    22334455
+   SUP-003       Coastline Glass Ltd      20-13-57    99887766
+
+4. Limits.
+   Per payment:                      not more than GBP 10,000
+   Per supplier account, 30 days:    not more than GBP 20,000 in any rolling 30-day period
+   Action:                           pay_invoice only; no amendments, refunds or new payees
+
+5. Validity. This mandate expires on 31 March 2027 unless withdrawn earlier by the Customer.
+
+6. The Customer will sign the mandate electronically with its own key before the agent may act,
+   and may withdraw it at any time.
+
+Signed for the Customer: H. Marsh, Finance Director        Signed for the Provider: D. Okoye

@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Sign mandate{% endblock %}
+{% block content %}
+<div class="grid">
+  <div class="col-main">
+    <h1 class="h1">{{ customer }} signs the mandate</h1>
+    <p class="lede">The finance director sees exactly what {{ agent_name }} will be allowed to do with the company's money, and signs it with the company's own key. Until then the envelope is incomplete and the bank refuses every instruction.</p>
+
+    <div class="empty" id="cu-empty"><p>Nothing to sign yet. The authority issues the assurance first, in <a href="/regulator">Review &amp; issue</a>.</p></div>
+
+    <div id="cu-mandate" hidden>
+      <div class="mandate" id="cu-card">
+        <div class="mandate__head"><span>Proposed mandate · <span class="mono" id="cu-id"></span></span><span id="cu-state"></span></div>
+        <div class="mandate__body">
+          <dl class="kv" id="cu-kv"></dl>
+          <h3 class="h3">Suppliers the agent may pay</h3>
+          <table class="suppliers" id="cu-suppliers"><thead><tr><th>Supplier</th><th>Account</th></tr></thead><tbody></tbody></table>
+        </div>
+        <div class="mandate__sig" id="cu-sig" hidden></div>
+      </div>
+      <div class="actions" id="cu-actions">
+        <button class="btn btn--start" id="btn-sign-mandate">Sign mandate <span class="btn__arrow" aria-hidden="true"></span></button>
+        <span class="actions__note" id="cu-signer"></span>
+      </div>
+      <p class="error" id="cu-error" hidden></p>
+      <div class="notice" id="cu-after" hidden><p>The envelope is complete. Open the <a href="/bank">bank console</a>: the same instruction that failed R.5 a moment ago now passes.</p></div>
+      <details class="jwt" id="cu-jwt-wrap" hidden>
+        <summary>Signed mandate (JWT, EdDSA / Ed25519, {{ customer }} key)</summary>
+        <pre class="code" id="cu-jwt-payload"></pre>
+        <pre class="code code--wrap" id="cu-jwt"></pre>
+      </details>
+    </div>
+  </div>
+
+  <aside class="col-side">
+    <h2 class="h3">What the customer is signing</h2>
+    <ul class="side-list">
+      <li><strong>Who may act</strong><span>one named agent, by its public key</span></li>
+      <li><strong>Who may be paid</strong><span>the allowlist, by account, not by name</span></li>
+      <li><strong>How much</strong><span>a per-payment cap and a rolling 30-day cap per supplier account</span></li>
+      <li><strong>Until when</strong><span>an expiry date; the customer can withdraw sooner</span></li>
+    </ul>
+    <h2 class="h3">What it does not say</h2>
+    <p class="small">No bank details of the customer, no personal contact data, no running balance. The passport carries permission, not the customer's records.</p>
+    <h2 class="h3">Passports</h2>
+    <ul class="applist" id="cu-list"></ul>
+  </aside>
+</div>
+{% endblock %}
+{% block scripts %}<script>AP.customer();</script>{% endblock %}
