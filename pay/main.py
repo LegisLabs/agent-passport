@@ -414,27 +414,47 @@ def agent_act(body: ActIn):
 
 
 class VerifyIn(BaseModel):
+    """Two accepted shapes. Nested: {passport_id, instruction: {...signed fields..., agent_signature}, passport?}.
+    Flat (the brief's contract): {passport_id, agent_signature, action_type, payee_account_ref, supplier_name, amount, currency, invoice_ref, nonce}."""
     passport_id: str
-    instruction: dict          # signed payment instruction
-    passport: dict | None = None  # optional presented envelope; otherwise fetched from the registry by id
+    instruction: dict | None = None   # signed payment instruction
+    passport: dict | None = None      # optional presented envelope; otherwise fetched from the registry by id
+    agent_signature: str | None = None
+    action_type: str | None = None
+    payee_account_ref: str | None = None
+    supplier_name: str | None = None
+    amount: float | None = None
+    currency: str | None = None
+    invoice_ref: str | None = None
+    nonce: str | None = None
+
+    def instruction_dict(self) -> dict:
+        if self.instruction:
+            return self.instruction
+        flat = {"passport_id": self.passport_id, "action_type": self.action_type, "payee_account_ref": self.payee_account_ref, "supplier_name": self.supplier_name,
+                "amount": self.amount, "currency": self.currency, "invoice_ref": self.invoice_ref, "nonce": self.nonce, "agent_signature": self.agent_signature}
+        return {k: v for k, v in flat.items() if v is not None}
 
 
 @app.post("/api/verify")
 def verify(body: VerifyIn):
     """The bank's gateway. Envelope (presented or fetched by id) + signed instruction + registry status +
     the bank's own ledger total → decision + signed receipt. The audit entry stores every input the decision
-    depended on so /api/audit/{id}/replay can re-run the pure function later."""
+    depended on so /api/audit/{id}/replay can re-run the pure function later.
+    Response carries both names for the rule and the audit anchor: rule / rule_id, audit_hash / audit_ref."""
     p = db.get_passport(body.passport_id)
     env = body.passport or (envelope_of(p) if p else {"passport_id": body.passport_id, "assurance": None, "agent_identity": None, "mandate": None})
     reg_status = p["status"] if p else "unknown"
-    req = body.instruction
+    req = body.instruction_dict()
     ledger_total = db.ledger_total(body.passport_id, str(req.get("payee_account_ref") or ""))
     res = rules.verify_action(env, reg_status, req, ledger_total)
     entry = {"event": "verification", "passport_id": body.passport_id, "instruction": req, "registry_status": reg_status, "presented_envelope": env,
              "ledger_total_before": ledger_total, "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req)),
              "decision": res["decision"], "rule": res["rule"], "code": res["code"], "reason": res["reason"], "trace": res["trace"], "rule_pack": res["rule_pack"]}
     rec = audit.record("verify", body.passport_id, entry, receipt_for={"passport_id": body.passport_id, "decision": res["decision"], "rule": res["rule"], "code": res["code"], "instruction_hash": entry["instruction_hash"]})
-    out = {**res, "audit_id": rec["id"], "audit_hash": rec["hash"], "prev_hash": rec["prev_hash"], "receipt": rec["receipt"], "ledger_total_before": ledger_total, "settlement": None, "incident": None}
+    out = {**res, "rule_id": res["rule"], "audit_id": rec["id"], "audit_hash": rec["hash"], "audit_ref": rec["hash"], "prev_hash": rec["prev_hash"], "receipt": rec["receipt"],
+           "ledger_total_before": ledger_total, "settlement": None, "incident": None,
+           "rails": {"authority_registry": reg_status, "vouch": {"voucher_id": p.get("vouch_voucher_id") if p else None, "status": p.get("vouch_status") if p else None, "mode": p.get("vouch_mode") if p else None}}}
     if res["decision"] == "ALLOW":
         s = vouch.settle_payment(req)
         pay = db.insert_payment(body.passport_id, str(req.get("payee_account_ref")), float(req.get("amount") or 0), str(req.get("currency") or "GBP"), req.get("invoice_ref"), rec["id"], s["rail"], s.get("ref"))

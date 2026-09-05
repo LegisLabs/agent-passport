@@ -137,8 +137,13 @@ REQUEST_FIELDS = ("passport_id", "action_type", "payee_account_ref", "supplier_n
 
 
 def request_signing_input(req: dict) -> bytes:
-    """Canonical bytes the agent signs: the instruction without the signature."""
-    body = {k: req[k] for k in REQUEST_FIELDS if k in req}
+    """Canonical bytes the agent signs: the instruction without the signature.
+    Integral floats are written as integers so 3200 and 3200.0 sign identically whichever side parsed them."""
+    body = {}
+    for k in REQUEST_FIELDS:
+        if k in req:
+            v = req[k]
+            body[k] = int(v) if isinstance(v, float) and v.is_integer() else v
     return crypto.canonical(body).encode()
 
 

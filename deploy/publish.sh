@@ -58,4 +58,4 @@ for S in $SERVICES; do
   ssh "$HOST" "docker exec $S curl -sf http://localhost:$PORT/api/health && echo"
 done
 [ "$WHICH" = pay ] || curl -sS -o /dev/null -w "https://cdir.legislabs.uk      HTTP %{http_code} (expect 401 without login)\n" --max-time 30 https://cdir.legislabs.uk/api/health || true
-[ "$WHICH" = hmrc ] || curl -sS -o /dev/null -w "https://pay.cdir.legislabs.uk  HTTP %{http_code} (expect 401 without login; 000 until DNS resolves)\n" --max-time 30 https://pay.cdir.legislabs.uk/api/health || true
+[ "$WHICH" = hmrc ] || curl -sS -o /dev/null -w "https://pay.cdir.legislabs.uk  HTTP %{http_code} (public; expect 200)\n" --max-time 30 https://pay.cdir.legislabs.uk/api/health || true

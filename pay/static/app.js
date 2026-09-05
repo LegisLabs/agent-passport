@@ -298,6 +298,7 @@ const AP = (() => {
       $('st-assurance').innerHTML = tag(m.status);
       $('st-mandate').innerHTML = tag(m.mandate_signed ? 'signed' : 'unsigned', m.mandate_signed ? 'signed' : 'not signed');
       $('st-payments').textContent = full.payments;
+      api('GET', `/api/passports/${p.passport_id}/vouch`).then(x => { const st = (x.live && x.live.status) || x.recorded.status; $('st-vouch').innerHTML = `${tag(st === 'ACTIVE' ? 'active' : st === 'REVOKED' ? 'revoked' : 'grey', st || 'none')} <span class="small mono">${esc(x.voucher_id || '')}</span>`; }).catch(() => { $('st-vouch').textContent = '—'; });
       const mt = $('st-meters'); mt.innerHTML = '';
       const ad = (full.mandate || full.mandate_proposed).authorization_details[0];
       const cap = ad.monthly_limit_per_account.amount;
@@ -338,9 +339,11 @@ const AP = (() => {
     function termLine(b, r, k) {
       const trace = r.trace.map(s => `<b>${esc(s.rule)}</b> ${s.ok ? '✓' : '✗'} ${esc(s.note)}`).join(' · ');
       const settle = r.settlement ? `<span class="t-settle">${esc(r.settlement.rail_reason)} · 30-day total for this account now ${gbp(r.settlement.ledger_total_after)}</span>` : '';
+      const rv = r.rails && r.rails.vouch, reg = r.rails && r.rails.authority_registry;
+      const rails = r.rails ? `<span class="t-rails">authority registry <b class="${reg !== 'active' ? 'refused' : ''}">${esc(reg)}</b> · vouch rail <b class="${rv.status === 'REVOKED' ? 'refused' : ''}">${esc(rv.status || 'none')}</b>${rv.voucher_id ? ' ' + esc(rv.voucher_id) : ''}${reg !== 'active' && rv.status === 'REVOKED' ? ' · one supervisory action, two rails refuse' : ''}</span>` : '';
       return el('li', null, `<span class="t-time">${t(new Date().toISOString())}</span><span class="t-body">
         <span class="t-head"><span class="t-action">${esc(b.action_type)} · ${esc(b.supplier_name)} · ${esc(b.payee_account_ref)} · ${gbp(b.amount)}${k ? ' · #' + k : ''}${b.signer === 'rogue' ? ' · signed with rogue key' : ''}</span><span class="t-verdict t-verdict--${r.decision}">${r.decision}</span><span class="t-rule">rule ${esc(r.rule)} · ${esc(r.code)}</span></span>
-        <span class="t-reason">${esc(r.reason)}</span>${settle}
+        <span class="t-reason">${esc(r.reason)}</span>${settle}${rails}
         <span class="t-trace">${trace}</span>
         <span class="t-meta">audit #${r.audit_id} <b>${esc(r.audit_hash.slice(0, 12))}</b> ← <b>${esc(r.prev_hash.slice(0, 12))}</b> · rule pack <b>${esc(r.rule_pack)}</b> · receipt signed by authority · decision replayable</span>
         <details class="receipt"><summary>receipt</summary>${esc(r.receipt)}</details></span>`);

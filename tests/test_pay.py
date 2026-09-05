@@ -197,3 +197,18 @@ def test_config_hash_mismatch_flags_a8():
     facts["agent"]["config_hash"]["value"] = "deadbeef"
     checks = rules.run_application_checks(facts, {"pop_verified": True, "kid": "x"})
     assert next(c for c in checks if c["id"] == "A.8")["result"] == "flag"
+
+
+def test_verify_accepts_flat_contract_and_aliases(client):
+    """The brief's POST /api/verify shape: flat instruction fields + agent_signature → decision, rule_id, reason, audit_ref, receipt."""
+    p, _ = issue_one(client)
+    a = db.get_application(db.get_passport(p["passport_id"])["application_id"])
+    flat = {"passport_id": p["passport_id"], "action_type": "pay_invoice", "payee_account_ref": "60-11-22 44556677", "supplier_name": "Fenwick Timber Ltd",
+            "amount": 3200, "currency": "GBP", "invoice_ref": "FT-1042", "nonce": "n1"}
+    flat["agent_signature"] = crypto.sign_bytes(a["agent"]["private_pem"], rules.request_signing_input(flat))
+    r = client.post("/api/verify", json=flat).json()
+    assert r["decision"] == "ALLOW" and r["rule_id"] == r["rule"] == "R.9" and r["audit_ref"] == r["audit_hash"] and r["receipt"]
+    assert r["rails"]["authority_registry"] == "active" and r["rails"]["vouch"]["status"] == "ACTIVE"
+    # tampering with a flat field after signing fails R.4
+    flat["amount"] = 1
+    assert client.post("/api/verify", json=flat).json()["rule"] == "R.4"

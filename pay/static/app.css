@@ -339,7 +339,7 @@ a.tabs__tab { text-decoration: none; }
 .mandate--signed .mandate__head { background: var(--green); }
 
 /* bank console */
-.strip--bank { grid-template-columns: repeat(4, auto) minmax(0, 1fr); }
+.strip--bank { grid-template-columns: repeat(5, auto) minmax(0, 1fr); }
 @media (max-width: 900px) { .strip--bank { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); } .strip--bank .strip__meters { grid-column: 1 / -1; } }
 .meters { display: grid; gap: .5rem; }
 .meters > div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: .5rem .8rem; align-items: baseline; font-size: .95rem; }
@@ -402,3 +402,7 @@ code, .mono { overflow-wrap: anywhere; }
 .prov, .jwt, .h4, .envelope__kv dd, .kv dd, .summary dd { overflow-wrap: anywhere; }
 .incidents li span, .log li span { min-width: 0; overflow-wrap: anywhere; }
 @media (max-width: 560px) { .incidents li, .log li { grid-template-columns: minmax(0, 1fr); gap: .1rem; } }
+
+.t-rails { color: var(--term-dim); font-size: .8rem; }
+.t-rails b { font-weight: 700; color: var(--term-fg); }
+.t-rails b.refused { color: var(--term-red); }

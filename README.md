@@ -34,7 +34,7 @@ All names, registers, accounts and documents are synthetic. This is a proposed a
 1. **Apply** (`/provider`). PayRail's evidence pack (five synthetic documents) loads. "Read documents into facts" sends them to Gemini in JSON mode; every value comes back with its source document and a verbatim quote. Correct anything, generate the agent's key, have the agent sign the authority's challenge (proof of possession). On submission PayRail signs the `agent_identity` claim with its own key and checks A.1–A.8 run.
 2. **Review & issue** (`/regulator`). Eight checks with rule id, source and CURRENT/PROTOTYPE label. Optional model-drafted file note. The officer sets the condition (hold above £5,000), writes a required note and approves, requests information or rejects. Approval signs the `assurance` with the authority key, enters the passport in the registry as ACTIVE and mirrors the mandate on the vouch rail. Lifecycle: suspend, reinstate, revoke, each with a reason. Incident feed.
 3. **Sign mandate** (`/customer`). Northgate's finance director sees the supplier allowlist, the limits and the expiry, and signs the `mandate` with the company key. Before that the envelope is incomplete and the bank refuses everything at R.5.
-4. **Act & check** (`/bank`). Eight proposed instructions. The simulated agent signs each; the bank runs R.1–R.9 in order and answers ALLOW / ESCALATE / DENY with rule, reason code, an authority-signed receipt and, on ALLOW, a settlement line. Per-account 30-day meters. Three refusals raise an incident.
+4. **Act & check** (`/bank`). Eight proposed instructions. The simulated agent signs each; the bank runs R.1–R.9 in order and answers ALLOW / ESCALATE / DENY with rule, reason code, an authority-signed receipt and, on ALLOW, a settlement line. Per-account 30-day meters, and both rails (authority registry, vouch voucher) on every line, so after a revocation the console shows two rails refusing. Three refusals raise an incident.
 5. **Audit** (`/audit`). Hash chain over every event. Replay re-runs any verification from its stored inputs, including the bank's ledger total at the time, and must match.
 
 ### The composite passport
@@ -101,14 +101,14 @@ Three refusals raise "escalated to supervisor" in the terminal and in the regula
 
 Approval → `POST /ai-vouchers` (passport id in metadata, voucher id in the envelope). Revoke → `DELETE /ai-vouchers/{id}`. "Re-check on rail" → `GET /ai-vouchers/{id}`. Verdicts come from HTTP responses, never the SSE stream. Verified live against the sandbox on 5 Sept 2026 (mint, status, revoke).
 
-**Kit replay.** `scripts/vouch_kit_replay.py` maps every scenario in the sponsor's `kya-licence` and `agent-mandate` kits to the Agent Passport rule that would fire, and scores against their `labels.jsonl` when given one:
+**Kit replay.** `scripts/vouch_kit_replay.py` replays the sponsor's `kya-licence` and `agent-mandate` kits through our verifier. It turns each kit into Agent Passport terms (allowlisted merchants become payee accounts on a customer-signed mandate, the kit's per-transaction cap becomes the per-payment limit, each actor's quota the 30-day limit, each actor its own agent key and three signed JWTs), expands every scripted scenario, runs each instruction through `pay.rules.verify_action` with a running ledger, and scores against the scripted ground truth:
 
 ```bash
 .venv/bin/python scripts/vouch_kit_replay.py                              # offline, vendored manifests
-.venv/bin/python scripts/vouch_kit_replay.py --labels ../hackathon-kits/artifacts/runs/<runId>/labels.jsonl
+.venv/bin/python scripts/vouch_kit_replay.py --labels ../hackathon-kits/artifacts/runs/<runId>/labels.jsonl --json report.json
 ```
 
-Out-of-hours and delegation-depth scenarios are reported as out of scope for v1. The field mapping is a proposed compatibility profile: `docs/KYA_extension_for_purpose_bound_value.md`.
+Result on 5 Sept 2026, condition £5,000: **kya-licence precision 100%, recall 86%** (miss: delegation-depth abuse, a mandate op outside v1); **agent-mandate precision 100%, recall 50%** (caught: over-limit, unapproved counterparty, delegation overspend; missed: out-of-category, out-of-hours, count-based structuring, because a v1 mandate carries payees and amounts, not categories, hours or transaction counts). Nothing compliant was refused. The field mapping is a proposed compatibility profile: `docs/KYA_extension_for_purpose_bound_value.md`.
 
 ## API (payments vertical)
 
@@ -128,7 +128,8 @@ GET  /api/passports/{id}/vouch                voucher status re-read from the ra
 GET  /api/status/{id}                         real-time registry status
 GET  /api/signers                             the three public keys
 POST /api/agent/act                           simulated agent signs and presents an instruction
-POST /api/verify                              {passport_id, instruction, passport?} → decision, receipt, settlement, incident
+POST /api/verify                              flat {passport_id, agent_signature, action_type, payee_account_ref, supplier_name, amount, currency, invoice_ref, nonce}
+                                              or nested {passport_id, instruction, passport?} → {decision, rule_id, code, reason, audit_ref, receipt, rails, settlement, incident}
 GET  /api/audit · POST /api/audit/{id}/replay · GET /api/receipt/verify?token=
 ```
 
