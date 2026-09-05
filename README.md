@@ -7,7 +7,7 @@ Regulator-issued, scoped, revocable credentials for autonomous AI agents. Lexis 
 | **B2B payments** (primary) | **https://pay.cdir.legislabs.uk** | `pay/` | A payment-initiation provider's AI agent pays a small business's suppliers. Three-signer passport envelope, bank-side verification, cumulative limits, incidents, vouch.finance rail. |
 | UK Self Assessment (transferability beat) | https://cdir.legislabs.uk | `app/` | The same engine, a tax rule pack: an accounting firm's filing agent, unchanged since the v1 skeleton (git tag `hmrc-v1`). |
 
-Both sites sit behind one basic-auth gate (user `lexis`; password supplied with the submission). API docs at `/api/docs` on each. Plan and briefs in `docs/`.
+The payments site is public. The tax site sits behind a basic-auth gate (user `lexis`; password supplied with the submission). API docs at `/api/docs` on each. Plan and briefs in `docs/`.
 
 **Identity is not authority.** The LLM only extracts facts from documents; versioned rule packs decide; a named human signs; every decision replays. Never the word "blockchain": signatures, a registry and a hash-chained log.
 

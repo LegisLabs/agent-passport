@@ -45,7 +45,7 @@ elif ssh "$HOST" "grep -q 'lexis [$]2' /opt/caddy-sites/cdir-legislabs.caddy 2>/
 else
   echo "ERROR: first publish with the gate needs DEMO_PASSWORD=... to create it"; exit 1
 fi
-for SITE in cdir-legislabs pay-cdir-legislabs; do
+for SITE in cdir-legislabs pay-cdir-legislabs; do  # pay drop-in has no placeholder: copied as is
   case "$WHICH:$SITE" in hmrc:pay-*|pay:cdir-*) continue;; esac
   ssh "$HOST" "rm -rf /opt/caddy-sites/$SITE; sed 's|__PASSWORD_HASH__|$HASH|' $APP_DIR/deploy/$SITE.caddy > /opt/caddy-sites/$SITE.caddy"
 done
