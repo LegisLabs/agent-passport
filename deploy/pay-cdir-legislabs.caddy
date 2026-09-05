@@ -1,6 +1,6 @@
 # pay.cdir.legislabs.uk — Agent Passport, payments vertical (C:\>DIR hackathon).
 # Drop-in for the shared Caddy owned by the Compass deploy. Same basic-auth gate as the HMRC app.
-# publish.sh substitutes __PASSWORD_HASH__.
+# publish.sh fills the password hash placeholder.
 pay.cdir.legislabs.uk {
 	encode gzip zstd
 	header X-Robots-Tag "noindex"
