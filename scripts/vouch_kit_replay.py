@@ -184,16 +184,22 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--kits-dir", default=str(ROOT / "fixtures" / "pay" / "vouch_kits"))
     ap.add_argument("--kits", default="kya-licence,agent-mandate")
-    ap.add_argument("--labels", default=None, help="labels.jsonl from their run-stream.ts (matched by kitScenarioId)")
+    ap.add_argument("--labels", default=None, help="one labels.jsonl from their run-stream.ts (matched by kitScenarioId)")
+    ap.add_argument("--labels-dir", default=str(ROOT / "fixtures" / "pay" / "vouch_kits" / "labels"), help="directory with <kitId>.labels.jsonl per kit (default: vendored runs)")
     ap.add_argument("--human-confirm-above", type=float, default=5000)
     ap.add_argument("--json", default=None, help="write the full report here")
     ap.add_argument("--verbose", action="store_true", help="print every instance, not one line per scenario")
     args = ap.parse_args()
-    labels = read_labels(Path(args.labels)) if args.labels else None
     report = []
+    used = []
     for kit in args.kits.split(","):
         m = load_manifest(Path(args.kits_dir), kit.strip())
+        lp = Path(args.labels) if args.labels else Path(args.labels_dir) / f"{m['kitId']}.labels.jsonl"
+        labels = read_labels(lp) if lp.exists() else None
+        used.append(f"{m['kitId']}: {lp if labels is not None else 'manifest (no labels file)'}")
         r = run_kit(m, args.human_confirm_above, labels)
+        r["labels_source"] = str(lp) if labels is not None else "manifest"
+        r["labelled_instances"] = sum(len(v) for v in labels.values()) if labels else 0
         report.append(r)
         print(f"\n== {r['kit']} · {r['title']}")
         print(f"   world: allowlist {', '.join(r['world']['allowlist'])} · per-payment cap {r['world']['per_payment_cap']} · actor quotas {r['world']['actors']}")
@@ -215,8 +221,8 @@ def main() -> int:
         print(f"   score: tp {r['tp']} fp {r['fp']} fn {r['fn']} tn {r['tn']} · precision {fmt(r['precision'])} · recall {fmt(r['recall'])}")
         for vt, g in r["gaps"].items():
             print(f"   {vt:28} caught {g['caught']}/{g['of']}  {g['note']}")
-    src = f"labels from {args.labels}" if args.labels else "labels from the manifests (the same ground truth run-stream.ts writes)"
-    print(f"\nScored against {src}. Every payment instruction was verified by pay.rules.verify_action with real Ed25519 envelopes.")
+    print("\nGround truth: " + "; ".join(used))
+    print("Every payment instruction was verified by pay.rules.verify_action with real Ed25519 envelopes; ground truth is the scripted label per scenario (labels.jsonl from run-stream.ts when present).")
     if args.json:
         Path(args.json).write_text(json.dumps(report, indent=1))
         print(f"report written to {args.json}")

@@ -212,3 +212,13 @@ def test_verify_accepts_flat_contract_and_aliases(client):
     # tampering with a flat field after signing fails R.4
     flat["amount"] = 1
     assert client.post("/api/verify", json=flat).json()["rule"] == "R.4"
+
+
+def test_vouch_merchant_map_and_rail_fallback(monkeypatch):
+    monkeypatch.setenv("VOUCH_MERCHANTS", '{"60-11-22 44556677": "m-fen"}')
+    monkeypatch.delenv("VOUCH_MERCHANT_ID", raising=False)
+    assert vouch.merchant_for("60-11-22 44556677") == "m-fen"
+    assert vouch.merchant_for("601122 44556677") == "m-fen"  # same account, different punctuation
+    assert vouch.merchant_for("60-11-22 10101010") is None    # redirected account has no merchant on the rail
+    # local rail: the bank executes, nothing leaves the process
+    assert vouch.settle_payment({"payee_account_ref": "60-11-22 44556677", "amount": 1})["rail"] == "local"

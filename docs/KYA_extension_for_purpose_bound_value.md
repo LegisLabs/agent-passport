@@ -46,6 +46,10 @@ Voucher → passport:
 - It does not delegate: v1 has no sub-agents, so the voucher's `delegation` policy is unused.
 - It does not bind the voucher to the agent key. The rail authenticates the org API key, not the agent; the passport does the agent binding (R.4). A future profile could carry `agent_identity.cnf.jwk` thumbprint in voucher metadata and have the rail check a per-instruction signature.
 
+## The mirror program
+
+`fixtures/pay/vouch_kits/agent-passport-northgate.json` is a kit manifest in the sponsor's own format that reproduces the demo mandate on the rail: a program "Northgate Joinery supplier payments", the three allowlisted suppliers as merchants, one actor (Agent 247) with a spending mandate, and a pre-redemption rule hook `merchant.id in [the three] and cart.total <= 10000`. `scripts/vouch_complete_seed.ts` seeds it (their seeder only accepts its four built-in kit ids). With `PAYMENT_RAIL=vouch` every instruction the bank ALLOWs is then settled as intent → quote → authorize under that program, so the rail's own policy engine is a second, independent enforcement of the same allowlist and cap. A payee the customer never signed for has no merchant on the rail at all.
+
 ## Modes in this repo
 
 `VOUCH_MODE=fixture` (default) records deterministic voucher ids and never calls the network. `VOUCH_MODE=live` calls `https://cdir.vouch.finance/api/v1` with the org's `sk_test_` key and falls back to the fixture answer, visibly labelled, on any failure. `PAYMENT_RAIL=vouch` additionally settles each ALLOW as intent → quote → authorize on the rail; a 403 there is reported as a rail-side decline, never as an error.

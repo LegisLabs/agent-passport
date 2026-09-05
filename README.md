@@ -97,18 +97,33 @@ Three refusals raise "escalated to supervisor" in the terminal and in the regula
 | Env | Values | Effect |
 |---|---|---|
 | `VOUCH_MODE` | `fixture` (default) · `live` | fixture records deterministic voucher ids, no network; live calls `https://cdir.vouch.finance/api/v1` with `HACKATHON_ORG_API_KEY` and falls back to fixture, visibly labelled, on any failure |
-| `PAYMENT_RAIL` | `local` (default) · `vouch` | vouch additionally settles each ALLOW as intent → quote → authorize; a 403 is a rail-side decline, not an error. Needs `VOUCH_PROGRAM_ID`, `VOUCH_MERCHANT_ID`, `VOUCH_PRIVY_USER_ID` from a seeded kit |
+| `PAYMENT_RAIL` | `local` (default) · `vouch` | vouch additionally settles each ALLOW as intent → quote → authorize on the mirror program; a 403 is a rail-side decline, a fault falls back to the local rail. Needs `VOUCH_PROGRAM_ID`, `VOUCH_PRIVY_USER_ID`, `VOUCH_MERCHANTS`, `VOUCH_CATEGORY` (see Settling on the rail) |
 
 Approval → `POST /ai-vouchers` (passport id in metadata, voucher id in the envelope). Revoke → `DELETE /ai-vouchers/{id}`. "Re-check on rail" → `GET /ai-vouchers/{id}`. Verdicts come from HTTP responses, never the SSE stream. Verified live against the sandbox on 5 Sept 2026 (mint, status, revoke).
 
-**Kit replay.** `scripts/vouch_kit_replay.py` replays the sponsor's `kya-licence` and `agent-mandate` kits through our verifier. It turns each kit into Agent Passport terms (allowlisted merchants become payee accounts on a customer-signed mandate, the kit's per-transaction cap becomes the per-payment limit, each actor's quota the 30-day limit, each actor its own agent key and three signed JWTs), expands every scripted scenario, runs each instruction through `pay.rules.verify_action` with a running ledger, and scores against the scripted ground truth:
+**Kit replay, scored against their ground truth.** Both sponsor kits are seeded in our hackathon org and their `run-stream.ts` was run against the sandbox (runs `lexis-am-1`, `lexis-kya-2`); the `labels.jsonl` files it wrote are vendored in `fixtures/pay/vouch_kits/labels/`. `scripts/vouch_kit_replay.py` turns each kit into Agent Passport terms (allowlisted merchants become payee accounts on a customer-signed mandate, the kit's per-transaction cap the per-payment limit, each actor's quota the 30-day limit, each actor its own agent key and three signed JWTs), runs every scripted instruction through `pay.rules.verify_action` with a running ledger, and scores against those labels:
 
 ```bash
-.venv/bin/python scripts/vouch_kit_replay.py                              # offline, vendored manifests
-.venv/bin/python scripts/vouch_kit_replay.py --labels ../hackathon-kits/artifacts/runs/<runId>/labels.jsonl --json report.json
+.venv/bin/python scripts/vouch_kit_replay.py                 # offline: vendored manifests + vendored labels
+.venv/bin/python scripts/vouch_kit_replay.py --verbose --json report.json
 ```
 
-Result on 5 Sept 2026, condition £5,000: **kya-licence precision 100%, recall 86%** (miss: delegation-depth abuse, a mandate op outside v1); **agent-mandate precision 100%, recall 50%** (caught: over-limit, unapproved counterparty, delegation overspend; missed: out-of-category, out-of-hours, count-based structuring, because a v1 mandate carries payees and amounts, not categories, hours or transaction counts). Nothing compliant was refused. The field mapping is a proposed compatibility profile: `docs/KYA_extension_for_purpose_bound_value.md`.
+| Kit | Precision | Recall | Caught | Missed, and why |
+|---|---|---|---|---|
+| kya-licence | 100% | 86% | unapproved counterparty (R.6), revoked mandate reused (R.2) | delegation-depth abuse: a mandate op, no sub-agents in v1 |
+| agent-mandate | 100% | 50% | over-limit (R.7), unapproved counterparty (R.6), delegation overspend (R.7) | out-of-category, out-of-hours, count-based structuring: a v1 mandate carries payees and amounts, not categories, hours or transaction counts |
+
+Nothing compliant was refused. The field mapping is a proposed compatibility profile: `docs/KYA_extension_for_purpose_bound_value.md`.
+
+**Settling on the rail.** `fixtures/pay/vouch_kits/agent-passport-northgate.json` is our own manifest in the sponsor's kit format, mirroring the demo mandate on the rail (program, the three suppliers as merchants, Agent 247 with a spending mandate, a rule hook for the allowlist and the £10,000 cap). `scripts/vouch_complete_seed.ts` seeds it from a clone of their repo, since their seeder only accepts its four built-in kits:
+
+```bash
+git clone -b feat/generalise-kits https://github.com/finternet-ecosystem/hackathon-kits && cd hackathon-kits && npm install
+cp ../CDIR/fixtures/pay/vouch_kits/agent-passport-northgate.json kits/ && cp ../CDIR/scripts/vouch_complete_seed.ts .
+HACKATHON_ORG_API_KEY=sk_test_… API_BASE_URL=https://cdir.vouch.finance/api/v1 npx tsx vouch_complete_seed.ts agent-passport-northgate
+```
+
+Then set `PAYMENT_RAIL=vouch` with `VOUCH_PROGRAM_ID`, `VOUCH_PRIVY_USER_ID` (the agent's identity on the rail) and `VOUCH_MERCHANTS` (JSON map of payee account to merchant id) from the state file it writes. Every instruction the bank ALLOWs is then quoted and authorized on the rail as a second, independent enforcement of the same allowlist and cap. A 403 from the rail is shown as a rail-side decline; a rail fault (5xx, unreachable) never contradicts the bank's decision: the instruction executes on the local rail and the console says so. Verified live on 5 Sept 2026: the rail declines £11,400 at quote (`cart.total lte check failed: got 11400, expected 10000`) and has no merchant for a redirected account.
 
 ## API (payments vertical)
 

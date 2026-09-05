@@ -17,18 +17,16 @@ ssh "$HOST" "mkdir -p $APP_DIR"
 rsync -az --delete --exclude .env --exclude .venv --exclude data --exclude __pycache__ --exclude .pytest_cache \
   "$ROOT/app" "$ROOT/pay" "$ROOT/rulepacks" "$ROOT/fixtures" "$ROOT/deploy" "$ROOT/scripts" "$ROOT/docs" "$ROOT/README.md" "$HOST:$APP_DIR/"
 
-echo "==> ensure server .env (Gemini key, vouch key)"
-envget() { grep "^$1=" "$ROOT/.env" | cut -d= -f2- || true; }
-if ! ssh "$HOST" "test -s $APP_DIR/deploy/.env"; then
-  KEY=$(envget GEMINI_API_KEY); [ -n "$KEY" ] || { echo "no GEMINI_API_KEY in $ROOT/.env"; exit 1; }
-  ssh "$HOST" "printf 'GEMINI_API_KEY=%s\nGEMINI_MODEL=gemini-2.5-flash\nEXTRACTION_MODE=gemini\n' '$KEY' > $APP_DIR/deploy/.env"
-  echo "    wrote new .env"
-fi
-for VAR in HACKATHON_ORG_API_KEY API_BASE_URL VOUCH_MODE PAYMENT_RAIL; do
-  VAL=$(envget "$VAR")
-  [ -n "$VAL" ] || continue
-  ssh "$HOST" "grep -q '^$VAR=' $APP_DIR/deploy/.env && sed -i 's|^$VAR=.*|$VAR=$VAL|' $APP_DIR/deploy/.env || echo '$VAR=$VAL' >> $APP_DIR/deploy/.env"
+echo "==> server .env from the local .env (only the keys the containers read)"
+KEYS="GEMINI_API_KEY GEMINI_MODEL EXTRACTION_MODE HACKATHON_ORG_API_KEY API_BASE_URL VOUCH_MODE PAYMENT_RAIL VOUCH_PROGRAM_ID VOUCH_PRIVY_USER_ID VOUCH_MERCHANTS VOUCH_CATEGORY"
+TMP_ENV=$(mktemp)
+for VAR in $KEYS; do
+  VAL=$(grep "^$VAR=" "$ROOT/.env" | head -1 | cut -d= -f2- || true)
+  [ -n "$VAL" ] && printf '%s=%s\n' "$VAR" "$VAL" >> "$TMP_ENV"
 done
+grep -q '^GEMINI_API_KEY=' "$TMP_ENV" || { echo "no GEMINI_API_KEY in $ROOT/.env"; rm -f "$TMP_ENV"; exit 1; }
+grep -q '^EXTRACTION_MODE=' "$TMP_ENV" || echo 'EXTRACTION_MODE=gemini' >> "$TMP_ENV"
+scp -q "$TMP_ENV" "$HOST:$APP_DIR/deploy/.env" && rm -f "$TMP_ENV"
 
 SERVICES=""
 [ "$WHICH" = all ] || [ "$WHICH" = hmrc ] && SERVICES="$SERVICES cdir"

@@ -12,6 +12,8 @@ with the org's sk_test_ key in the x-api-key header. Mandates are AI Vouchers:
   GET    /ai-vouchers/{id}/ledger                            -> spend ledger entries
 Payments (PAYMENT_RAIL=vouch) are intent -> quote -> authorize under
 /payments/* and need x-privy-user-id + x-sim-time; a 403 is an expected deny.
+They target a program on the rail that mirrors the customer's mandate: VOUCH_PROGRAM_ID, VOUCH_PRIVY_USER_ID
+(the agent's identity on the rail), VOUCH_MERCHANTS (JSON map payee account -> merchant id), VOUCH_CATEGORY.
 Any failure in live mode falls back to the fixture answer, labelled so the UI
 never pretends. Verdicts come from HTTP responses, never from the SSE stream.
 """
@@ -19,6 +21,7 @@ from __future__ import annotations
 
 import json
 import os
+import time
 import urllib.error
 import urllib.request
 from datetime import datetime, timezone
@@ -154,15 +157,18 @@ def settle_payment(instruction: dict) -> dict:
     Needs a seeded program: VOUCH_PROGRAM_ID, VOUCH_MERCHANT_ID, VOUCH_PRIVY_USER_ID (from the kit's state sidecar)."""
     if rail() != "vouch":
         return {"settled": True, "rail": "local", "rail_reason": "executed by the bank (local rail)", "ref": None}
-    program, merchant, privy = os.environ.get("VOUCH_PROGRAM_ID"), os.environ.get("VOUCH_MERCHANT_ID"), os.environ.get("VOUCH_PRIVY_USER_ID")
-    if mode() != "live" or not (program and merchant and privy):
-        return {"settled": True, "rail": "vouch-fallback", "rail_reason": "vouch rail not configured (needs VOUCH_PROGRAM_ID, VOUCH_MERCHANT_ID, VOUCH_PRIVY_USER_ID); fixture settlement", "ref": "TXN-FIX-001"}
+    program, privy = os.environ.get("VOUCH_PROGRAM_ID"), os.environ.get("VOUCH_PRIVY_USER_ID")
+    merchant = merchant_for(instruction.get("payee_account_ref"))
+    if mode() != "live" or not (program and privy):
+        return {"settled": True, "rail": "vouch-fallback", "rail_reason": "vouch rail not configured (needs VOUCH_PROGRAM_ID, VOUCH_PRIVY_USER_ID, VOUCH_MERCHANTS); fixture settlement", "ref": "TXN-FIX-001"}
+    if not merchant:
+        return {"settled": False, "rail": "vouch", "rail_reason": f"payee account {instruction.get('payee_account_ref')} has no merchant on the vouch rail", "ref": None}
     sim = datetime.now(timezone.utc).isoformat(timespec="milliseconds").replace("+00:00", "Z")
     hdr = {"x-privy-user-id": privy, "x-sim-time": sim}
     try:
         st, intent = _req("POST", "/payments/intents", {
             "merchantId": merchant, "programId": program,
-            "items": [{"sku": instruction.get("invoice_ref") or "INV", "name": f"Invoice {instruction.get('invoice_ref')} {instruction.get('supplier_name')}", "categoryCode": "LOGISTICS", "qty": 1, "unitPrice": float(instruction.get("amount") or 0)}],
+            "items": [{"sku": instruction.get("invoice_ref") or "INV", "name": f"Invoice {instruction.get('invoice_ref')} {instruction.get('supplier_name')}", "categoryCode": os.environ.get("VOUCH_CATEGORY", "SUPPLIES"), "qty": 1, "unitPrice": float(instruction.get("amount") or 0)}],
         })
         if st not in (200, 201) or not isinstance(intent, dict):
             return {"settled": False, "rail": "vouch", "rail_reason": f"intent refused: HTTP {st} {str(intent)[:120]}", "ref": None}
@@ -170,14 +176,34 @@ def settle_payment(instruction: dict) -> dict:
         st, quote = _req("POST", "/payments/quote", {"intentId": iid}, hdr)
         if st == 403:
             return {"settled": False, "rail": "vouch", "rail_reason": f"declined at quote: {_reason(quote)}", "ref": iid}
+        if st not in (200, 201):
+            return {"settled": True, "rail": "vouch-fallback", "rail_reason": f"vouch rail error at quote (HTTP {st}); executed on the local rail", "ref": iid}
         st, auth = _req("POST", "/payments/authorize", {"intentId": iid}, hdr)
+        if st >= 500:  # the sandbox's authorize step is intermittent; one retry before falling back
+            time.sleep(1.5)
+            st, auth = _req("POST", "/payments/authorize", {"intentId": iid}, hdr)
         if st == 403:
             return {"settled": False, "rail": "vouch", "rail_reason": f"declined at authorize: {_reason(auth)}", "ref": iid}
         if st in (200, 201):
-            return {"settled": True, "rail": "vouch", "rail_reason": "settled on the vouch rail", "ref": (auth or {}).get("txnRef") if isinstance(auth, dict) else iid}
-        return {"settled": False, "rail": "vouch", "rail_reason": f"authorize: HTTP {st}", "ref": iid}
+            ref = (auth.get("authId") or auth.get("txnRef") or iid) if isinstance(auth, dict) else iid
+            return {"settled": True, "rail": "vouch", "rail_reason": "quoted and authorized on the vouch rail", "ref": ref}
+        # 5xx or anything else is a rail fault, not a decision: the bank's ALLOW stands and the local rail executes
+        return {"settled": True, "rail": "vouch-fallback", "rail_reason": f"vouch rail error at authorize (HTTP {st}: {_reason(auth)[:80]}); executed on the local rail", "ref": iid}
     except Exception as exc:  # noqa: BLE001
-        return {"settled": True, "rail": "vouch-fallback", "rail_reason": f"vouch rail unreachable ({str(exc)[:100]}); fixture settlement", "ref": "TXN-FIX-001"}
+        return {"settled": True, "rail": "vouch-fallback", "rail_reason": f"vouch rail unreachable ({str(exc)[:100]}); executed on the local rail", "ref": "TXN-FIX-001"}
+
+
+def merchant_for(payee_account_ref: str | None) -> str | None:
+    """VOUCH_MERCHANTS is a JSON map {payee_account_ref: merchant id on the rail}; VOUCH_MERCHANT_ID is a single fallback."""
+    digits = "".join(ch for ch in str(payee_account_ref or "") if ch.isdigit())
+    try:
+        table = json.loads(os.environ.get("VOUCH_MERCHANTS") or "{}")
+    except json.JSONDecodeError:
+        table = {}
+    for k, v in table.items():
+        if "".join(ch for ch in k if ch.isdigit()) == digits and digits:
+            return v
+    return os.environ.get("VOUCH_MERCHANT_ID")
 
 
 def _reason(body) -> str:

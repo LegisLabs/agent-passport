@@ -31,6 +31,10 @@ services:
       API_BASE_URL: ${API_BASE_URL:-https://cdir.vouch.finance/api/v1}
       VOUCH_MODE: ${VOUCH_MODE:-fixture}
       PAYMENT_RAIL: ${PAYMENT_RAIL:-local}
+      VOUCH_PROGRAM_ID: ${VOUCH_PROGRAM_ID:-}
+      VOUCH_PRIVY_USER_ID: ${VOUCH_PRIVY_USER_ID:-}
+      VOUCH_MERCHANTS: ${VOUCH_MERCHANTS:-{}}
+      VOUCH_CATEGORY: ${VOUCH_CATEGORY:-SUPPLIES}
     volumes:
       - cdir_pay_data:/data
     restart: unless-stopped
