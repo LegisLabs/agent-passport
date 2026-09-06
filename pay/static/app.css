@@ -470,3 +470,6 @@ code, .mono { overflow-wrap: anywhere; }
 .badges { list-style: none; margin: .4rem 0 1rem; padding: 0; display: flex; flex-wrap: wrap; gap: .4rem; }
 .badges li { font-family: var(--mono); font-size: .8rem; padding: .15rem .5rem; border: 1px solid var(--ink); background: var(--panel); }
 abbr[title] { text-decoration: underline dotted; cursor: help; }
+.stepper .tag { white-space: normal; }
+.rulemap td, .rulemap th { overflow-wrap: anywhere; }
+@media (max-width: 640px) { .rulemap { display: block; overflow-x: auto; max-width: 100%; } .rulemap td:first-child { white-space: normal; } }

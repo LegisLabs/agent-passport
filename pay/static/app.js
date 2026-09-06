@@ -159,6 +159,7 @@ const AP = (() => {
     let state = await api('GET', '/api/state');
     let a = pick(state.applications.filter(x => x.status !== 'draft')) || pick(state.applications);
     let p = null;
+    let selectedVid = null;
     render();
 
     async function refresh() { state = await api('GET', '/api/state'); a = state.applications.find(x => x.id === a.id) || a; render(); }
@@ -217,7 +218,7 @@ const AP = (() => {
         if (st.id === 'sandbox') { const ok = st.data.filter(x => x.pass).length; badge = `<span class="tag tag--${ok === st.data.length ? 'green' : 'red'}">${ok} of ${st.data.length} as expected</span> <span class="small">same code path as /bank</span>`; body = `<div class="cards">${st.data.map(x => `<div data-pass="${x.pass}"><strong>${esc(x.id)} ${x.pass ? 'PASS' : 'FAIL'}</strong><span>${esc(x.decision)} <span class="mono">${esc(x.rule)} · ${esc(x.code)}</span></span><span class="small">${esc(x.reason)}</span></div>`).join('')}</div>`; }
         if (st.id === 'recommendation') { const d = st.data; badge = `<span class="tag tag--blue">${esc(d.label)}</span>`; body = `<p class="verdict verdict--${d.verdict.startsWith('APPROVE') ? 'approve' : 'refer'}">${esc(d.verdict)}</p><ul>${d.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="small">Draft note (${esc(modeLabel(d.narrative_mode))}): ${esc(d.narrative)}</p>`; if ($('rg-condition') && !$('rg-condition').dataset.touched) $('rg-condition').value = d.condition.human_confirm_above; }
         if (st.id === 'signoff') { state = a.status === 'approved' ? 'done' : 'human'; body = `<p>${esc(st.data.who)} decides below. ${esc(st.data.note)}.${a.status === 'approved' ? ' <span class="tag tag--green">signed</span>' : a.status === 'rejected' ? ' <span class="tag tag--red">rejected</span>' : ''}</p>`; }
-        ol.append(el('li', null, `<div></div><div class="stepper__title">${esc(st.title)} ${badge}</div><div class="stepper__body">${body}</div>`)).dataset.state = state;
+        const li = el('li', null, `<div></div><div class="stepper__title">${esc(st.title)} ${badge}</div><div class="stepper__body">${body}</div>`); li.dataset.state = state; ol.append(li);
       }
     }
     async function runReview(auto) {
@@ -228,7 +229,6 @@ const AP = (() => {
     }
     $('btn-review').onclick = () => runReview(false);
 
-    let selectedVid = null;
     function renderExceptions() {
       const pt = state.pattern_threshold || { count: 2, window_hours: 24 };
       const mine = (state.violations || []).filter(x => !p || x.passport_id === p.passport_id);
