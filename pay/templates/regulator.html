@@ -19,6 +19,11 @@
       <p class="hint">Each check is a plain rule over the reviewed facts and the authority's own records. Labels say whether the rule reflects current practice or a prototype assumption. The engine drafts; it does not decide.</p>
       <table class="checks" id="rg-checks"><thead><tr><th>Rule</th><th>Check</th><th>Source</th><th>Result</th></tr></thead><tbody></tbody></table>
 
+      <h2 class="h2">Standards Review Assistant <span class="h2__meta">KYA standards evaluation tool · rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
+      <p class="hint">Six visible steps. The assistant reads, maps, tests and recommends; the bank's own engine runs the sandbox; only your signature below issues anything.</p>
+      <div class="actions"><button class="btn btn--secondary btn--small" id="btn-review">Run the six steps</button><span class="actions__note" id="review-note"></span></div>
+      <ol class="stepper" id="review" hidden></ol>
+
       <details class="jwt" id="rg-note-wrap">
         <summary>File note (draft phrased by the model from the check results; not a decision)</summary>
         <div class="actions"><button class="btn btn--secondary btn--small" id="btn-note">Draft file note</button><span class="actions__note" id="note-mode"></span></div>

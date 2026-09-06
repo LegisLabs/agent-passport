@@ -15,7 +15,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from . import audit, config, crypto, db, extraction, fixtures, rules, vouch
+from . import audit, config, crypto, db, extraction, fixtures, review, rules, vouch
 
 HERE = Path(__file__).parent
 
@@ -213,6 +213,28 @@ def submit(app_id: int):
 
 
 # ── API: regulator ─────────────────────────────────────────────────────────
+class ReviewIn(BaseModel):
+    human_confirm_above: float | None = None
+
+
+@app.post("/api/applications/{app_id}/review")
+def run_review(app_id: int, body: ReviewIn | None = None):
+    """Task 2: the Standards Review Assistant's six steps. Deterministic; the sandbox uses the bank's own engine.
+    Stored on the application. Never changes its status."""
+    a = db.get_application(app_id) or _404()
+    if a["status"] not in ("submitted", "info_requested", "approved", "rejected"):
+        _400("submit the application first")
+    try:
+        r = review.run(a, body.human_confirm_above if body else None)
+    except ValueError as exc:
+        _400(str(exc))
+    a = db.update_application(app_id, review=r)
+    sb = r["steps"][3]["data"]
+    audit.record("review", a["ref"], {"event": "Standards Review Assistant run", "rule_pack": r["rule_pack"], "sandbox_passed": sum(1 for t in sb if t["pass"]), "sandbox_total": len(sb),
+                                      "recommendation": r["steps"][4]["data"]["verdict"], "decides": False})
+    return {"application": public_app(a), "review": r}
+
+
 class DecisionIn(BaseModel):
     decision: str  # approve | request_info | reject
     note: str

@@ -269,3 +269,47 @@ def test_every_bank_deny_writes_a_violation_row(client):
     assert len(db.list_violations(pid)) == before + 1
     ok = {**bad, "amount": 900}
     assert act(client, pid, ok)["violation"] is None
+
+
+# ── Iteration 2, Task 2: Standards Review Assistant ─────────────────────────
+def test_review_six_steps_sandbox_uses_real_engine_and_never_decides(client):
+    a = client.post("/api/applications").json()
+    a = client.post(f"/api/applications/{a['id']}/extract").json()
+    assert client.post(f"/api/applications/{a['id']}/review").status_code == 400  # not submitted yet
+    client.post(f"/api/applications/{a['id']}/agent-key"); client.post(f"/api/applications/{a['id']}/sign-challenge")
+    a = client.post(f"/api/applications/{a['id']}/submit").json()
+    r = client.post(f"/api/applications/{a['id']}/review").json()
+    rv = r["review"]
+    assert [s["id"] for s in rv["steps"]] == ["evidence", "rule_map", "tests", "sandbox", "recommendation", "signoff"]
+    assert rv["rule_pack"] == "payments-2026.09" and "Standards Review Assistant" in rv["assistant"]
+    rule_map = rv["steps"][1]["data"]
+    assert [x["id"] for x in rule_map["rules"]] == [f"A.{i}" for i in range(1, 9)] and rule_map["uncovered"] == [] and rule_map["flagged"] == []
+    tests = rv["steps"][2]["data"]
+    assert [t["id"] for t in tests] == ["T1", "T2", "T3", "T4", "T5"]
+    sb = rv["steps"][3]["data"]
+    assert [(t["decision"], t["rule"]) for t in sb] == [("DENY", "R.6"), ("DENY", "R.7"), ("DENY", "R.2"), ("DENY", "R.4"), ("ESCALATE", "R.9")]
+    assert all(t["pass"] for t in sb)
+    rec = rv["steps"][4]["data"]
+    assert rec["verdict"] == "APPROVE WITH CONDITIONS" and rec["decides"] is False and rec["label"] == "AI recommendation — human decision required"
+    for banned in ("approve", "reject", "recommend"):
+        assert banned not in rec["narrative"].lower()
+    # nothing was issued by the review
+    assert r["application"]["status"] == "submitted" and not [p for p in client.get("/api/state").json()["passports"] if p["application_id"] == a["id"]]
+    # sandbox passports never enter the registry
+    assert client.get(f"/api/status/SANDBOX-{a['ref']}").status_code == 404
+    # only the human decision signs
+    d = client.post(f"/api/applications/{a['id']}/decision", json={"decision": "approve", "note": "Assistant recommends; I decide.", "human_confirm_above": 5000}).json()
+    assert d["passport"]["status"] == "active"
+    assert client.get("/api/state").json()["applications"][0]["review"]["steps"][4]["data"]["verdict"] == "APPROVE WITH CONDITIONS"
+
+
+def test_review_refers_when_a_check_flags(client):
+    a = client.post("/api/applications").json()
+    a = client.post(f"/api/applications/{a['id']}/extract").json()
+    f = a["fields"]; f["insurance"]["policy_ref"]["value"] = None
+    client.put(f"/api/applications/{a['id']}/fields", json={"fields": f})
+    client.post(f"/api/applications/{a['id']}/agent-key"); client.post(f"/api/applications/{a['id']}/sign-challenge")
+    a = client.post(f"/api/applications/{a['id']}/submit").json()
+    assert "A.4" in [c["id"] for c in a["checks"] if c["result"] == "flag"]
+    rv = client.post(f"/api/applications/{a['id']}/review").json()["review"]
+    assert rv["steps"][4]["data"]["verdict"] == "REFER" and "A.4" in rv["steps"][1]["data"]["flagged"]

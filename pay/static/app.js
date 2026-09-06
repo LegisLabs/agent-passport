@@ -185,6 +185,7 @@ const AP = (() => {
       (a.checks || []).forEach(c => cb.append(el('tr', null, `<td>${esc(c.id)}</td><td>${esc(c.title)} <span class="tag tag--${c.status === 'CURRENT' ? 'green' : 'grey'}">${esc(c.status)}</span><br><span class="small">${esc(c.detail)}</span></td><td>${esc(c.source)}<br><span class="small">${esc(c.evidence)}</span></td><td>${c.result === 'pass' ? '<span class="tag tag--green">Pass</span>' : '<span class="tag tag--amber">Flag</span>'}</td>`)));
       $('rg-filenote').value = a.file_note || '';
       if (v(f, 'mandate', 'human_confirm_above_gbp') && !$('rg-condition').dataset.touched) $('rg-condition').value = v(f, 'mandate', 'human_confirm_above_gbp');
+      if (a.review) renderReview(a.review); else if (!a._reviewing) { a._reviewing = true; runReview(true); }
       p = passportFor();
       $('rg-decide').hidden = !(a.status === 'submitted' || a.status === 'info_requested');
       $('rg-issued').hidden = !p;
@@ -202,6 +203,28 @@ const AP = (() => {
       lines.sort((x, y) => x[0] < y[0] ? -1 : 1).reverse().forEach(([ts, txt]) => hist.append(el('li', null, `<time>${t(ts)}</time><span>${esc(txt)}</span>`)));
       if (!lines.length) hist.append(el('li', 'log__empty', 'Nothing yet.'));
     }
+
+    function renderReview(r) {
+      const ol = $('review'); ol.hidden = false; ol.innerHTML = '';
+      const kv = (o) => `<dl class="kv">${Object.entries(o).map(([k, v_]) => `<div><dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${Array.isArray(v_) ? v_.map(esc).join('<br>') : esc(String(v_ ?? '—'))}</dd></div>`).join('')}</dl>`;
+      for (const st of r.steps) {
+        let body = '', state = 'done', badge = '';
+        if (st.id === 'evidence') body = `<p class="small">Provider claims</p>${kv(st.data.provider_claims)}<p class="small">Customer authorises</p>${kv(st.data.customer_authorises)}<p class="small">Authority is asked to certify</p>${kv(st.data.authority_asked_to_certify)}<p class="small">${st.data.documents.length} documents read by ${esc(modeLabel(st.data.extraction_mode))}</p>`;
+        if (st.id === 'rule_map') { badge = `<span class="tag tag--blue">${esc(r.assistant)}</span> <span class="mono small">${esc(st.data.rule_pack)}</span>`; body = `<table class="rulemap"><thead><tr><th>Rule</th><th>Requirement</th><th>Evidence</th><th>Result</th></tr></thead><tbody>${st.data.rules.map(x => `<tr><td>${esc(x.id)}</td><td>${esc(x.title)} <span class="tag tag--${x.status === 'CURRENT' ? 'green' : 'grey'}">${esc(x.status)}</span></td><td>${x.evidence ? `<span class="mono small">${esc(String(x.evidence.value))}</span>${x.evidence.source_doc ? `<br><span class="small">${esc(x.evidence.source_doc)}</span>` : ''}` : '<span class="tag tag--red">uncovered</span>'}</td><td>${x.result === 'pass' ? '<span class="tag tag--green">Pass</span>' : '<span class="tag tag--amber">Flag</span>'}</td></tr>`).join('')}</tbody></table>${st.data.uncovered.length ? `<p class="error">Uncovered: ${esc(st.data.uncovered.join(', '))}</p>` : '<p class="small">Every rule maps to cited evidence.</p>'}`; }
+        if (st.id === 'tests') body = `<div class="cards">${st.data.map(x => `<div><strong>${esc(x.id)} · ${esc(x.title)}</strong><span class="small">${esc(x.instruction.supplier_name)} · ${esc(x.instruction.payee_account_ref)} · ${gbp(x.instruction.amount)}${x.variant !== 'normal' ? ' · ' + esc(x.variant) : ''}</span><span class="small">expect <b>${esc(x.expect)} ${esc(x.expect_rule)}</b></span></div>`).join('')}</div>`;
+        if (st.id === 'sandbox') { const ok = st.data.filter(x => x.pass).length; badge = `<span class="tag tag--${ok === st.data.length ? 'green' : 'red'}">${ok} of ${st.data.length} as expected</span> <span class="small">same code path as /bank</span>`; body = `<div class="cards">${st.data.map(x => `<div data-pass="${x.pass}"><strong>${esc(x.id)} ${x.pass ? 'PASS' : 'FAIL'}</strong><span>${esc(x.decision)} <span class="mono">${esc(x.rule)} · ${esc(x.code)}</span></span><span class="small">${esc(x.reason)}</span></div>`).join('')}</div>`; }
+        if (st.id === 'recommendation') { const d = st.data; badge = `<span class="tag tag--blue">${esc(d.label)}</span>`; body = `<p class="verdict verdict--${d.verdict.startsWith('APPROVE') ? 'approve' : 'refer'}">${esc(d.verdict)}</p><ul>${d.reasons.map(x => `<li>${esc(x)}</li>`).join('')}</ul><p class="small">Draft note (${esc(modeLabel(d.narrative_mode))}): ${esc(d.narrative)}</p>`; if ($('rg-condition') && !$('rg-condition').dataset.touched) $('rg-condition').value = d.condition.human_confirm_above; }
+        if (st.id === 'signoff') { state = a.status === 'approved' ? 'done' : 'human'; body = `<p>${esc(st.data.who)} decides below. ${esc(st.data.note)}.${a.status === 'approved' ? ' <span class="tag tag--green">signed</span>' : a.status === 'rejected' ? ' <span class="tag tag--red">rejected</span>' : ''}</p>`; }
+        ol.append(el('li', null, `<div></div><div class="stepper__title">${esc(st.title)} ${badge}</div><div class="stepper__body">${body}</div>`)).dataset.state = state;
+      }
+    }
+    async function runReview(auto) {
+      const b = $('btn-review'); b.disabled = true; b.textContent = 'Running…';
+      try { const r = await api('POST', `/api/applications/${a.id}/review`, { human_confirm_above: $('rg-condition').dataset.touched ? Number($('rg-condition').value) : null }); a.review = r.review; renderReview(r.review); $('review-note').textContent = (auto ? 'ran on opening · ' : '') + 'deterministic; the model only phrases the draft note'; }
+      catch (e) { $('review-note').textContent = e.message; }
+      finally { b.disabled = false; b.textContent = 'Run the six steps again'; }
+    }
+    $('btn-review').onclick = () => runReview(false);
 
     async function renderPassport(p) {
       $('pp-id').textContent = p.passport_id;
