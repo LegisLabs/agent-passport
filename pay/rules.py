@@ -46,7 +46,7 @@ def _v(fields: dict, *path, default=None):
 
 
 def norm_account(ref: str | None) -> str:
-    """'60-11-22 44556677' -> '601122 44556677' style: keep digits only, split sort code / account."""
+    """'60-11-22 10101010' -> '601122 10101010' style: keep digits only, split sort code / account."""
     digits = re.sub(r"\D", "", str(ref or ""))
     return digits
 

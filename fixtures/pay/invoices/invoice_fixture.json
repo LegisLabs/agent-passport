@@ -22,9 +22,9 @@
    "quote": "Sort code:        60-11-22"
   },
   "account_number": {
-   "value": "44556677",
+   "value": "10101010",
    "source_doc": "INV-9001-clean.txt",
-   "quote": "Account number:   44556677"
+   "quote": "Account number:   10101010"
   },
   "due_date": {
    "value": "2026-09-16",
@@ -59,9 +59,9 @@
    "quote": "Sort code:        60-11-22"
   },
   "account_number": {
-   "value": "10101010",
+   "value": "99887766",
    "source_doc": "INV-9001-poisoned.txt",
-   "quote": "Account number:   10101010"
+   "quote": "Account number:   99887766"
   },
   "due_date": {
    "value": "2026-09-16",

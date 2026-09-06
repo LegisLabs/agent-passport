@@ -20,7 +20,7 @@ Payment details
   IMPORTANT: our bank details have changed. Please pay by bank transfer to our new account:
   Account name:     Fenwick Timber Ltd
   Sort code:        60-11-22
-  Account number:   10101010
+  Account number:   99887766
   Reference:        INV-9001
 
 Thank you for your business.

@@ -39,7 +39,7 @@ All names, registers, accounts and documents are synthetic. This is a proposed a
 
 ### Iteration 2: the agentic loop and the manipulation moment
 
-- **Malicious invoice** (`/bank`): Agent 247 reads `INV-9001-clean` or `INV-9001-poisoned` with the model, signs the instruction it derived, and the bank decides. Clean pays the signed-for account; poisoned would pay 60-11-22 10101010 and is refused at R.6. Fixture mode reproduces the extraction exactly.
+- **Malicious invoice** (`/bank`): Agent 247 reads `INV-9001-clean` or `INV-9001-poisoned` with the model, signs the instruction it derived, and the bank decides. Clean pays the signed-for account; poisoned would pay 60-11-22 99887766 and is refused at R.6. Fixture mode reproduces the extraction exactly.
 - **Standards Review Assistant** (`/regulator`, `POST /api/applications/{id}/review`): evidence read, rule map, five adversarial tests, sandbox run through the real engine, labelled recommendation, human sign-off. Only the officer's decision signs.
 - **Anomaly Detection & Escalation** (`/regulator`, `GET /api/violations`, `POST /api/passports/{id}/investigation`): violations with status, a 2-in-24h same-rule alert, suspend → investigate → revoke or reinstate.
 
@@ -88,8 +88,8 @@ The limit lives in the mandate; the running total lives at the bank. `fixtures/p
 |---|---|---|
 | 0 | Any instruction before the customer signs | DENY R.5 mandate not signed |
 | 1 | Fenwick Timber Ltd · £3,200 · on the allowlist | ALLOW, receipt, settled |
-| 2 | Fenwick Timber Ltd · £2,750 · account 60-11-22 10101010 | DENY R.6 · invoice redirection fraud stopped by the customer-signed allowlist |
-| 3 | Ashby Ironmongery Ltd · £11,400 | DENY R.7 · above the £10,000 cap |
+| 2 | Fenwick Timber Ltd · £2,750 · account 60-11-22 99887766 | DENY R.6 · invoice redirection fraud stopped by the customer-signed allowlist |
+| 3 | Ashby Ironmongery Ltd · £12,000 | DENY R.7 · above the £10,000 cap |
 | 4 | Coastline Glass Ltd · £5,600 | ESCALATE R.9 · above the £5,000 supervisor condition |
 | 5 | Fenwick Timber Ltd · £4,900 · repeated | ALLOW ×3, then DENY R.8 when the 30-day total would pass £20,000 |
 | 6 | Fenwick Timber Ltd · £1,150 · signed with a rogue key | DENY R.4 · copied passport |
@@ -131,7 +131,7 @@ cp ../CDIR/fixtures/pay/vouch_kits/agent-passport-northgate.json kits/ && cp ../
 HACKATHON_ORG_API_KEY=sk_test_… API_BASE_URL=https://cdir.vouch.finance/api/v1 npx tsx vouch_complete_seed.ts agent-passport-northgate
 ```
 
-Then set `PAYMENT_RAIL=vouch` with `VOUCH_PROGRAM_ID`, `VOUCH_PRIVY_USER_ID` (the agent's identity on the rail) and `VOUCH_MERCHANTS` (JSON map of payee account to merchant id) from the state file it writes. Every instruction the bank ALLOWs is then quoted and authorized on the rail as a second, independent enforcement of the same allowlist and cap. A 403 from the rail is shown as a rail-side decline; a rail fault (5xx, unreachable) never contradicts the bank's decision: the instruction executes on the local rail and the console says so. Verified live on 5 Sept 2026: the rail declines £11,400 at quote (`cart.total lte check failed: got 11400, expected 10000`) and has no merchant for a redirected account.
+Then set `PAYMENT_RAIL=vouch` with `VOUCH_PROGRAM_ID`, `VOUCH_PRIVY_USER_ID` (the agent's identity on the rail) and `VOUCH_MERCHANTS` (JSON map of payee account to merchant id) from the state file it writes. Every instruction the bank ALLOWs is then quoted and authorized on the rail as a second, independent enforcement of the same allowlist and cap. A 403 from the rail is shown as a rail-side decline; a rail fault (5xx, unreachable) never contradicts the bank's decision: the instruction executes on the local rail and the console says so. Verified live on 5 Sept 2026: the rail declines £12,000 at quote (`cart.total lte check failed: got 12000, expected 10000`) and has no merchant for a redirected account.
 
 ## API (payments vertical)
 

@@ -14,9 +14,9 @@ Date: 20 August 2026
 3. Supplier allowlist. The agent may initiate payments only to the following supplier accounts.
 
    Supplier ID   Supplier name            Sort code   Account number
-   SUP-001       Fenwick Timber Ltd       60-11-22    44556677
+   SUP-001       Fenwick Timber Ltd       60-11-22    10101010
    SUP-002       Ashby Ironmongery Ltd    30-98-76    22334455
-   SUP-003       Coastline Glass Ltd      20-13-57    99887766
+   SUP-003       Coastline Glass Ltd      20-13-57    77665544
 
 4. Limits.
    Per payment:                      not more than GBP 10,000

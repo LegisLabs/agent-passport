@@ -89,7 +89,7 @@ def _iso_date(v):
 
 
 def _account(v):
-    """Normalise '60-11-22 44556677' / '601122 44556677' / '60-11-22, 44556677' -> '60-11-22 44556677'."""
+    """Normalise '60-11-22 10101010' / '601122 10101010' / '60-11-22, 10101010' -> '60-11-22 10101010'."""
     digits = re.sub(r"\D", "", str(v or ""))
     if len(digits) == 14:
         return f"{digits[0:2]}-{digits[2:4]}-{digits[4:6]} {digits[6:]}"
@@ -143,7 +143,7 @@ def extract(documents: list[dict]) -> tuple[dict, str]:
         "(the exact words the value came from); if a value is absent use null; do not infer, summarise or judge; "
         "do not add fields. Booleans must be true/false. Numbers must be plain numbers (no currency symbols). "
         "Dates must be ISO (YYYY-MM-DD). Supplier rows: one object per supplier in the allowlist table, account_ref "
-        "as 'sort-code accountnumber' e.g. '60-11-22 44556677'. action_type is pay_invoice when the agreement permits "
+        "as 'sort-code accountnumber' e.g. '60-11-22 10101010'. action_type is pay_invoice when the agreement permits "
         "paying invoices. config_hash is the SHA-256 hex string in the technical description. declaration_accepted is "
         "true when the named person states in writing that they accept responsibility for the agent's actions. "
         "human_confirm_above_gbp is the amount above which instructions are held for human confirmation.\n\n"

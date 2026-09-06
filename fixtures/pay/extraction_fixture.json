@@ -156,9 +156,9 @@
   {
    "supplier_id": "SUP-001",
    "name": "Fenwick Timber Ltd",
-   "account_ref": "60-11-22 44556677",
+   "account_ref": "60-11-22 10101010",
    "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "SUP-001       Fenwick Timber Ltd       60-11-22    44556677"
+   "quote": "SUP-001       Fenwick Timber Ltd       60-11-22    10101010"
   },
   {
    "supplier_id": "SUP-002",
@@ -170,9 +170,9 @@
   {
    "supplier_id": "SUP-003",
    "name": "Coastline Glass Ltd",
-   "account_ref": "20-13-57 99887766",
+   "account_ref": "20-13-57 77665544",
    "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "SUP-003       Coastline Glass Ltd      20-13-57    99887766"
+   "quote": "SUP-003       Coastline Glass Ltd      20-13-57    77665544"
   }
  ]
 }

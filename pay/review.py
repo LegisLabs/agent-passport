@@ -65,7 +65,7 @@ def step_tests(a: dict) -> list[dict]:
     cap = float(_v(f, "mandate", "per_payment_limit_gbp") or 0)
     thr = float(_v(f, "mandate", "human_confirm_above_gbp") or rules.pack()["policy"]["human_confirm_above_gbp"])
     return [
-        {"id": "T1", "title": "Payment to a non-mandated supplier", "expect": "DENY", "expect_rule": "R.6", "instruction": {"supplier_name": first["name"], "payee_account_ref": "60-11-22 10101010", "amount": min(cap, 2500.0)}, "variant": "normal"},
+        {"id": "T1", "title": "Payment to a non-mandated supplier", "expect": "DENY", "expect_rule": "R.6", "instruction": {"supplier_name": first["name"], "payee_account_ref": "60-11-22 99887766", "amount": min(cap, 2500.0)}, "variant": "normal"},
         {"id": "T2", "title": f"Amount £1 above the per-payment limit (£{cap:,.0f})", "expect": "DENY", "expect_rule": "R.7", "instruction": {"supplier_name": first["name"], "payee_account_ref": first["account_ref"], "amount": cap + 1}, "variant": "normal"},
         {"id": "T3", "title": "Expired passport presented", "expect": "DENY", "expect_rule": "R.2", "instruction": {"supplier_name": first["name"], "payee_account_ref": first["account_ref"], "amount": 100.0}, "variant": "expired"},
         {"id": "T4", "title": "Instruction signed with a rogue key", "expect": "DENY", "expect_rule": "R.4", "instruction": {"supplier_name": first["name"], "payee_account_ref": first["account_ref"], "amount": 100.0}, "variant": "rogue"},
