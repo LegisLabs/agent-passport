@@ -1,7 +1,7 @@
 """SQLite persistence for the payments vertical. Standard library only.
 
 Tables
-  applications  PayRail's application and everything derived from it
+  applications  OpenPay's application and everything derived from it
   passports     the registry: composite envelope parts + lifecycle status
   payments      the bank's ledger of executed (ALLOWed) instructions, for R.8
   audit         append-only, hash-chained decision log with signed receipts
@@ -29,7 +29,7 @@ CREATE TABLE IF NOT EXISTS applications (
   fields_json TEXT,                     -- reviewed/edited fields (what the rules see)
   documents_json TEXT,                  -- [{name, text}]
   agent_json TEXT,                      -- {agent_id, public_pem, private_pem(demo), jwk, kid, challenge, challenge_sig, pop_verified}
-  agent_identity_jwt TEXT,              -- signed by PayRail at submission
+  agent_identity_jwt TEXT,              -- signed by OpenPay at submission
   checks_json TEXT,                     -- results of A.* rules
   officer TEXT,
   officer_note TEXT,

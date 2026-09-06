@@ -2,11 +2,11 @@ SERVICE AGREEMENT — AUTOMATED SUPPLIER PAYMENTS (extract)
 
 Between:   Northgate Joinery Ltd, Companies House number 11223344, 3 Kiln Lane, King's Lynn PE30 4RT
            ("the Customer")
-and:       PayRail Ltd, licence PSP-4471 ("the Provider")
+and:       OpenPay Ltd, licence PSP-4471 ("the Provider")
 
 Date: 20 August 2026
 
-1. The Customer engages the Provider to operate the software agent "Agent 247" to read the
+1. The Customer engages the Provider to operate the software agent "PayGPT 6.0" to read the
    Customer's supplier invoices and to initiate payments from the Customer's account.
 
 2. Authorising officer for the Customer: Helen Marsh, Finance Director.

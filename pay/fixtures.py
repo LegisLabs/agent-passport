@@ -4,11 +4,10 @@ from __future__ import annotations
 from . import config
 
 
-def evidence_pack() -> list[dict]:
-    docs = []
-    for p in sorted((config.FIXTURES_DIR / "documents").glob("*.txt")):
-        docs.append({"name": p.name, "text": p.read_text()})
-    return docs
+def registered_models() -> list[dict]:
+    """The provider's earlier registrations (synthetic), shown on the Provider Panel."""
+    import json
+    return json.loads((config.FIXTURES_DIR / "registered_models.json").read_text())["models"]
 
 
 FENWICK = "60-11-22 10101010"

@@ -29,8 +29,9 @@ def client():
 def issue_one(client, sign_mandate=True):
     """Drive the whole path: draft → extract → key → challenge → submit → approve (→ customer signs)."""
     a = client.post("/api/applications").json()
-    a = client.post(f"/api/applications/{a['id']}/extract").json()
-    assert a["extraction_mode"] == "fixture"
+    assert a["extraction_mode"] == "form" and a["fields"]["provider"]["legal_name"]["value"] is None
+    a = client.post(f"/api/applications/{a['id']}/prefill").json()
+    assert a["extraction_mode"] == "prefill" and a["fields"]["provider"]["legal_name"]["value"] == "OpenPay Ltd"
     a = client.post(f"/api/applications/{a['id']}/agent-key").json()
     a = client.post(f"/api/applications/{a['id']}/sign-challenge").json()
     assert a["agent"]["pop_verified"] is True
@@ -62,10 +63,10 @@ def test_envelope_three_signers_and_minimal(client, issued):
     ver = crypto.verify_envelope(env)
     assert ver["ok"] and ver["failure"] is None
     assert crypto.verify_jwt("authority", env["assurance"])["jti"] == p["passport_id"]
-    assert crypto.verify_jwt("payrail", env["agent_identity"])["cnf"]["jwk"]["kty"] == "OKP"
+    assert crypto.verify_jwt("openpay", env["agent_identity"])["cnf"]["jwk"]["kty"] == "OKP"
     assert crypto.verify_jwt("northgate", env["mandate"])["passport_id"] == p["passport_id"]
     # each JWT only verifies against its own signer
-    assert crypto.verify_jwt("payrail", env["assurance"]) is None
+    assert crypto.verify_jwt("openpay", env["assurance"]) is None
     assert crypto.verify_jwt("authority", env["mandate"]) is None
     # assurance binds the exact agent_identity it was issued for
     assert crypto.verify_jwt("authority", env["assurance"])["binds"]["agent_identity_sha256"] == crypto.sha256_hex(env["agent_identity"])
@@ -183,8 +184,7 @@ def test_vouch_fixture_adapter_never_touches_network():
 
 def test_no_verdict_vocabulary_in_fixture_note():
     from pay import extraction
-    from pay.fixtures import evidence_pack
-    facts, _ = extraction.extract(evidence_pack())
+    facts = extraction.fixture()
     checks = rules.run_application_checks(facts, {"pop_verified": True, "kid": "x"})
     note, _ = extraction.draft_file_note("AP-TEST", facts, checks)
     for banned in ("approve", "reject", "recommend"):
@@ -274,7 +274,7 @@ def test_every_bank_deny_writes_a_violation_row(client):
 # ── Iteration 2, Task 2: Standards Review Assistant ─────────────────────────
 def test_review_six_steps_sandbox_uses_real_engine_and_never_decides(client):
     a = client.post("/api/applications").json()
-    a = client.post(f"/api/applications/{a['id']}/extract").json()
+    a = client.post(f"/api/applications/{a['id']}/prefill").json()
     assert client.post(f"/api/applications/{a['id']}/review").status_code == 400  # not submitted yet
     client.post(f"/api/applications/{a['id']}/agent-key"); client.post(f"/api/applications/{a['id']}/sign-challenge")
     a = client.post(f"/api/applications/{a['id']}/submit").json()
@@ -305,7 +305,7 @@ def test_review_six_steps_sandbox_uses_real_engine_and_never_decides(client):
 
 def test_review_refers_when_a_check_flags(client):
     a = client.post("/api/applications").json()
-    a = client.post(f"/api/applications/{a['id']}/extract").json()
+    a = client.post(f"/api/applications/{a['id']}/prefill").json()
     f = a["fields"]; f["insurance"]["policy_ref"]["value"] = None
     client.put(f"/api/applications/{a['id']}/fields", json={"fields": f})
     client.post(f"/api/applications/{a['id']}/agent-key"); client.post(f"/api/applications/{a['id']}/sign-challenge")
@@ -421,7 +421,7 @@ def test_expanding_delegation_refused_at_c_b(client):
 def test_poisoned_invoice_with_chain_refused(client):
     p, _ = issue_one(client)
     r = client.post("/api/agent/invoice", json={"passport_id": p["passport_id"], "invoice_id": "INV-9001-poisoned", "chain": True}).json()
-    assert r["chain"] is True and r["delegation"]["scope"]["beneficiaries"] == ["60-11-22 99887766"] and r["delegation"]["iss"] == "payrail-agent-247"
+    assert r["chain"] is True and r["delegation"]["scope"]["beneficiaries"] == ["60-11-22 99887766"] and r["delegation"]["iss"] == "openpay-paygpt-6"
     assert r["result"]["decision"] == "DENY" and r["result"]["rule"] == "C.b"
     ok = client.post("/api/agent/invoice", json={"passport_id": p["passport_id"], "invoice_id": "INV-9001-clean", "chain": True}).json()
     assert ok["result"]["decision"] == "ALLOW" and ok["result"]["chain"]["ok"] is True

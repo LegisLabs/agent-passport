@@ -1,0 +1,19 @@
+{
+ "_comment": "Models this provider has registered before (synthetic). Shown on the Provider Panel so the provider sees only its own registrations.",
+ "models": [
+  {
+   "model": "OpenPay 5.5",
+   "agent_id": "openpay-5-5",
+   "passport_id": "AP-2025-0088",
+   "assured": "2025-11-14",
+   "status": "expired"
+  },
+  {
+   "model": "OpenPay 5.6",
+   "agent_id": "openpay-5-6",
+   "passport_id": "AP-2026-0031",
+   "assured": "2026-03-02",
+   "status": "active"
+  }
+ ]
+}

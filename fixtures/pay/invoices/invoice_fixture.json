@@ -1,5 +1,5 @@
 {
- "_comment": "Deterministic stand-in for the Gemini invoice extraction Agent 247 performs. Same provenance shape as the application extraction. Keyed by invoice id.",
+ "_comment": "Deterministic stand-in for the Gemini invoice extraction PayGPT 6.0 performs. Same provenance shape as the application extraction. Keyed by invoice id.",
  "INV-9001-clean": {
   "supplier_name": {
    "value": "Fenwick Timber Ltd",

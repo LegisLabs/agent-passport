@@ -1,12 +1,11 @@
 """The model at the edges, payments vertical.
 
-extract(documents)  Gemini reads the evidence pack into a fixed schema. Every
-                    fact carries source_doc + verbatim quote. JSON mode,
-                    temperature 0. On any failure, the fixture is returned and
-                    the mode is reported as "gemini-fallback" so the UI never
-                    pretends.
-draft_file_note()   Gemini phrases the structured check results as a short
-                    officer file note. Draft only; never a decision.
+Registration is a form the provider fills in by hand (a Prefill button exists for the demo); there is no
+document extraction on the regulatory side. The model is used in two places only:
+extract_invoice()   the AP agent reads an invoice into a payment instruction (verbatim-quote schema,
+                    JSON mode, temperature 0; fixture stand-in when offline or on failure).
+draft_file_note()   Gemini phrases the structured check results as a short officer file note.
+                    Draft only; never a decision.
 """
 from __future__ import annotations
 
@@ -96,58 +95,10 @@ def _account(v):
     return str(v or "").strip()
 
 
-def _validate(out: dict) -> dict:
-    """Shape check and normalisation only. The rules do the real checking."""
+def blank_fields() -> dict:
+    """The registration form, empty. Same shape as the prefill fixture with every value null."""
     fx = fixture()
-    for section in SECTIONS:
-        if not isinstance(out.get(section), dict):
-            raise ValueError(f"missing section {section}")
-        for k in fx[section]:
-            v = out[section].get(k)
-            if not isinstance(v, dict) or "value" not in v:
-                out[section][k] = {"value": None, "source_doc": None, "quote": None}
-    rq = out["requested"]
-    at = str(rq["action_type"]["value"] or "").lower()
-    rq["action_type"]["value"] = "pay_invoice" if "pay" in at or "invoice" in at else rq["action_type"]["value"]
-    rq["human_confirm_above_gbp"]["value"] = _num(rq["human_confirm_above_gbp"]["value"])
-    ins = out["insurance"]
-    ins["cover_gbp"]["value"] = _num(ins["cover_gbp"]["value"])
-    ins["valid_until"]["value"] = _iso_date(ins["valid_until"]["value"])
-    ap = out["accountable_person"]
-    decl = ap["declaration_accepted"]
-    quote = str(decl.get("quote") or "").lower()
-    decl["value"] = decl["value"] is True or str(decl["value"]).lower() in ("true", "yes") or "accept responsibility" in quote
-    ag = out["agent"]
-    ag["config_hash"]["value"] = str(ag["config_hash"]["value"] or "").strip().lower() or None
-    ch = out["provider"]["companies_house_number"]
-    ch["value"] = re.sub(r"\D", "", str(ch["value"] or "")) or None
-    return out
-
-
-def extract(documents: list[dict]) -> tuple[dict, str]:
-    """Returns (facts, mode). mode is gemini | fixture | gemini-fallback."""
-    if config.EXTRACTION_MODE != "gemini" or not config.GEMINI_API_KEY:
-        return fixture(), "fixture"
-    docs_text = "\n\n".join(f"=== FILE: {d['name']} ===\n{d['text']}" for d in documents)
-    prompt = (
-        "You are an extraction function, not an adviser. Read the documents below and fill the JSON schema. "
-        "Rules: copy values verbatim from the documents; for every field give source_doc (the FILE name) and quote "
-        "(the exact words the value came from); if a value is absent use null; do not infer, summarise or judge; "
-        "do not add fields. Booleans must be true/false. Numbers must be plain numbers (no currency symbols). "
-        "Dates must be ISO (YYYY-MM-DD). action_type is pay_invoice when the requested authority is initiating invoice "
-        "payments. config_hash is the SHA-256 hex string in the technical description. benchmarks and training_type are "
-        "the sentences under Model documentation; key_storage and key_rotation the lines under Key management. declaration_accepted is "
-        "true when the named person states in writing that they accept responsibility for the agent's actions. "
-        "human_confirm_above_gbp is the amount above which instructions are held for human confirmation.\n\n"
-        f"SCHEMA:\n{json.dumps(_blank_schema(fixture()), indent=1)}\n\nDOCUMENTS:\n{docs_text}\n\nReturn only the JSON."
-    )
-    try:
-        out = _validate(_generate_json(prompt))
-        return out, "gemini"
-    except Exception as exc:  # noqa: BLE001
-        fx = fixture()
-        fx["_fallback_reason"] = str(exc)[:300]
-        return fx, "gemini-fallback"
+    return {sec: {k: {"value": None, "source_doc": None, "quote": None} for k in fx[sec]} for sec in SECTIONS}
 
 
 def draft_file_note(ref: str, fields: dict, checks: list[dict]) -> tuple[str, str]:

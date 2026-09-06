@@ -1,143 +1,133 @@
 {
- "_comment": "Deterministic stand-in for the Gemini extraction of PayRail's registration pack (Phase 1: provider, accountable person, insurance, agent model documentation and key management, requested authority). No customer data.",
+ "_comment": "Prefilled registration fields for the demo (Phase 1). Values only; the provider types or corrects them on the Provider Panel. No documents, no extraction.",
  "provider": {
   "legal_name": {
-   "value": "PayRail Ltd",
-   "source_doc": "01_licence_register_extract.txt",
-   "quote": "Firm name:                 PayRail Ltd"
+   "value": "OpenPay Ltd",
+   "source_doc": null,
+   "quote": null
   },
   "licence_ref": {
    "value": "PSP-4471",
-   "source_doc": "01_licence_register_extract.txt",
-   "quote": "Licence reference:         PSP-4471"
+   "source_doc": null,
+   "quote": null
   },
   "companies_house_number": {
    "value": "10987654",
-   "source_doc": "01_licence_register_extract.txt",
-   "quote": "Companies House number:    10987654"
+   "source_doc": null,
+   "quote": null
   },
   "permissions": {
    "value": "Payment initiation services; account information services",
-   "source_doc": "01_licence_register_extract.txt",
-   "quote": "Permissions:               Payment initiation services; account information services"
+   "source_doc": null,
+   "quote": null
   }
  },
  "accountable_person": {
   "name": {
    "value": "Daniel Okoye",
-   "source_doc": "04_accountable_person_appointment.txt",
-   "quote": "I, Daniel Okoye, Head of Compliance at PayRail Ltd"
+   "source_doc": null,
+   "quote": null
   },
   "role": {
    "value": "Head of Compliance",
-   "source_doc": "04_accountable_person_appointment.txt",
-   "quote": "Role: Head of Compliance"
-  },
-  "email": {
-   "value": "daniel.okoye@payrail.example",
-   "source_doc": "04_accountable_person_appointment.txt",
-   "quote": "Contact: daniel.okoye@payrail.example"
+   "source_doc": null,
+   "quote": null
   },
   "declaration_ref": {
    "value": "DEC-2026-017",
-   "source_doc": "04_accountable_person_appointment.txt",
-   "quote": "Declaration reference: DEC-2026-017"
-  },
-  "declaration_accepted": {
-   "value": true,
-   "source_doc": "04_accountable_person_appointment.txt",
-   "quote": "I accept responsibility for the actions taken by this agent"
+   "source_doc": null,
+   "quote": null
   }
  },
  "insurance": {
   "provider": {
    "value": "Demo Mutual Insurance Association",
-   "source_doc": "03_insurance_summary.txt",
-   "quote": "DEMO MUTUAL INSURANCE ASSOCIATION"
+   "source_doc": null,
+   "quote": null
   },
   "policy_ref": {
    "value": "PI-2026-88213",
-   "source_doc": "03_insurance_summary.txt",
-   "quote": "Policy reference:          PI-2026-88213"
+   "source_doc": null,
+   "quote": null
   },
   "cover_gbp": {
    "value": 2000000,
-   "source_doc": "03_insurance_summary.txt",
-   "quote": "Limit of indemnity:        GBP 2,000,000 any one claim"
+   "source_doc": null,
+   "quote": null
   },
   "valid_until": {
    "value": "2027-03-31",
-   "source_doc": "03_insurance_summary.txt",
-   "quote": "Period of insurance:       1 April 2026 to 31 March 2027"
+   "source_doc": null,
+   "quote": null
   }
  },
  "agent": {
   "agent_name": {
-   "value": "Agent 247",
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "Agent name:              Agent 247"
+   "value": "PayGPT 6.0",
+   "source_doc": null,
+   "quote": null
   },
   "agent_id": {
-   "value": "payrail-agent-247",
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "Agent identifier:        payrail-agent-247"
+   "value": "openpay-paygpt-6",
+   "source_doc": null,
+   "quote": null
   },
   "software": {
-   "value": "RailPay AP Agent",
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "Software:                RailPay AP Agent, version 2.4.0"
+   "value": "PayGPT",
+   "source_doc": null,
+   "quote": null
   },
   "software_version": {
-   "value": "2.4.0",
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "version 2.4.0"
+   "value": "6.0",
+   "source_doc": null,
+   "quote": null
   },
   "model_provider": {
    "value": "Anthropic (Claude)",
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "Model provider:          Anthropic (Claude)"
+   "source_doc": null,
+   "quote": null
   },
   "model_version": {
    "value": "claude-sonnet-5",
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "Model version:         claude-sonnet-5 (pinned; changes require re-registration)"
+   "source_doc": null,
+   "quote": null
   },
   "benchmarks": {
-   "value": "invoice field extraction 99.2% exact match on the RailPay AP-2026 test set (1,200 invoices); payee-change detection 100% recall on 300 seeded redirection attempts",
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "invoice field extraction 99.2% exact match on the RailPay AP-2026 test"
+   "value": "invoice field extraction 99.2% exact match on the OpenPay AP-2026 test set (1,200 invoices); payee-change detection 100% recall on 300 seeded redirection attempts",
+   "source_doc": null,
+   "quote": null
   },
   "training_type": {
    "value": "foundation model, no fine-tuning; retrieval and tool use only; no customer data used for training",
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "Training type:         foundation model, no fine-tuning; retrieval and tool use only"
+   "source_doc": null,
+   "quote": null
   },
   "config_hash": {
-   "value": "3461e119a630aec53b47b3cc7777d99b1fcfb89c03a075938519896148df628b",
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "SHA-256:               3461e119a630aec53b47b3cc7777d99b1fcfb89c03a075938519896148df628b"
+   "value": "0742d2a29aaa65ffb40e172b1eeb00f46c40e8e970a94d8bab68c15e76a5edfc",
+   "source_doc": null,
+   "quote": null
   },
   "key_storage": {
-   "value": "hardware-backed key store in PayRail's deployment; not exportable",
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "Private key storage:   hardware-backed key store in PayRail's deployment; not exportable"
+   "value": "hardware-backed key store in OpenPay's deployment; not exportable",
+   "source_doc": null,
+   "quote": null
   },
   "key_rotation": {
    "value": "every 12 months, or immediately on suspected compromise",
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "Key rotation:          every 12 months, or immediately on suspected compromise"
+   "source_doc": null,
+   "quote": null
   }
  },
  "requested": {
   "action_type": {
    "value": "pay_invoice",
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "Action type:           pay_invoice (initiate a payment to an allowlisted supplier account)"
+   "source_doc": null,
+   "quote": null
   },
   "human_confirm_above_gbp": {
    "value": 5000,
-   "source_doc": "02_agent_technical_description.txt",
-   "quote": "instructions above GBP 5,000 are held for confirmation by the customer's authorising officer"
+   "source_doc": null,
+   "quote": null
   }
  }
 }

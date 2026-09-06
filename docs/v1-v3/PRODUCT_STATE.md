@@ -18,7 +18,7 @@ Pitch line: **identity is not authority.**
 | Code | `pay/` | `app/` (frozen, git tag `hmrc-v1`) |
 | Rule pack | `rulepacks/payments-2026.09.json` | `rulepacks/hmrc-sa-2026.09.json` |
 | Authority | National Payments Supervisor (demo) | UK Tax Authority (demo) |
-| Operator / agent | PayRail Ltd (licensed payment-initiation provider) / Agent 247 | Smith & Co Accountants / smithco-sa-agent-01 |
+| Operator / agent | OpenPay Ltd (licensed payment-initiation provider) / PayGPT 6.0 | Smith & Co Accountants / smithco-sa-agent-01 |
 | Principal | Northgate Joinery Ltd, finance director signs the mandate | Taxpayers with 64-8 / digital-handshake authorisation |
 | Relying party | Northgate's bank | HMRC filing gateway |
 | Credential | Envelope of three JWTs (authority, provider, customer) | One authority-signed JWT |
@@ -28,7 +28,7 @@ The tax vertical exists to show the same engine with a swapped rule pack. It has
 
 ## 3. The payments scenario
 
-Northgate Joinery Ltd pays suppliers through PayRail Ltd, whose accounts-payable agent, Agent 247, reads invoices and initiates payments. Before deployment PayRail applies to the payments supervisor with five synthetic documents: licence register extract, agent technical description (with the SHA-256 of the agent's configuration file), professional-indemnity insurance summary, accountable-person appointment letter, Northgate service agreement (supplier allowlist, limits, expiry). Eight automated checks run; officer A. Ferreira approves with a condition (hold anything above £5,000); the authority signs the assurance. Northgate's finance director signs the mandate. The bank verifies every instruction. The supervisor can suspend or revoke; three refused instructions raise an incident.
+Northgate Joinery Ltd pays suppliers through OpenPay Ltd, whose accounts-payable agent, PayGPT 6.0, reads invoices and initiates payments. Before deployment OpenPay applies to the payments supervisor with five synthetic documents: licence register extract, agent technical description (with the SHA-256 of the agent's configuration file), professional-indemnity insurance summary, accountable-person appointment letter, Northgate service agreement (supplier allowlist, limits, expiry). Eight automated checks run; officer A. Ferreira approves with a condition (hold anything above £5,000); the authority signs the assurance. Northgate's finance director signs the mandate. The bank verifies every instruction. The supervisor can suspend or revoke; three refused instructions raise an incident.
 
 All firms, registers, accounts and documents are synthetic. Copy everywhere says this is a proposed framework, not a current legal requirement.
 
@@ -72,6 +72,12 @@ Each party signs only what it is entitled to say. The assurance is bound to the 
 
 The limit lives in the mandate; the running total lives at the bank, and the total at decision time is stored in the audit entry so replay is exact. Three DENYs on one passport write an "escalated to supervisor" incident row, visible in the bank terminal and the regulator's incident feed.
 
+## 5c. 7 Sept: product-demo cut
+
+- Names: the provider is OpenPay Ltd, the agent PayGPT 6.0 (agent id `openpay-paygpt-6`, provider signer `openpay`). Earlier registrations OpenPay 5.5 and 5.6 appear on the Provider Panel as synthetic history.
+- Provider Panel is a hand-filled registration form with a Prefill (demo) button. The evidence pack and document extraction are gone: no automation on the regulatory side. Submitting carries the accountable person's acceptance of responsibility; the separate checkbox is gone. The sidebar shows only the provider's registered models.
+- Header is a GOV.UK-style blue bar with a GOV·DEMO logo (square, not the crown).
+
 ## 5b. Iteration 3 (6 Sept): Issuance Flow v4, signature evidence, demo readiness
 
 - Registration carries no customer data; A.6 and A.7 now check model documentation and key management. The assurance carries policy ceilings. The customer writes and signs its own mandate on the Customer Panel (prefilled from `fixtures/pay/customer/mandate_draft.json`), gated only by ceiling containment. The regulator's envelope panel shows the mandate as customer-signed with counts, never its content.
@@ -82,7 +88,7 @@ The limit lives in the mandate; the running total lives at the bank, and the tot
 
 ## 5a. Iteration 2 (6 Sept): the agentic loop, the manipulation moment, the exception loop
 
-- **Malicious invoice demo** (`/bank`, top panel). Agent 247 reads a clean or a poisoned invoice through the model (verbatim quote per field), signs the instruction it derived, and presents it. Four visible steps: what it read (account marked), the instruction it generated (wrong account in red), the bank's decision (R.6 with the FATF named-beneficiary note), and the caption "The AI read a manipulated invoice and would have paid the wrong account. The mandate stopped it." Every bank DENY now writes a violation row.
+- **Malicious invoice demo** (`/bank`, top panel). PayGPT 6.0 reads a clean or a poisoned invoice through the model (verbatim quote per field), signs the instruction it derived, and presents it. Four visible steps: what it read (account marked), the instruction it generated (wrong account in red), the bank's decision (R.6 with the FATF named-beneficiary note), and the caption "The AI read a manipulated invoice and would have paid the wrong account. The mandate stopped it." Every bank DENY now writes a violation row.
 - **Standards Review Assistant** (`/regulator`, runs on opening a submitted case). Six visible steps: evidence read, standards rule map against the versioned pack, five adversarial tests, a sandbox run of those tests through the real R.1 to R.9 engine on a sandbox-signed envelope, a recommendation labelled "AI recommendation, human decision required", and the officer's existing sign-off. Nothing auto-approves.
 - **Anomaly Detection & Escalation** (`/regulator`). Violations table with OPEN / INVESTIGATING / RESOLVED, a supervisor alert when the same rule is refused twice within 24 hours on one passport (policy `pattern_threshold`), and a panel-driven loop: suspend, open investigation (reads the extraction evidence), revoke or reinstate. INVESTIGATING blocks nothing by itself; the registry status does.
 - **Standards labels** on the issuance surfaces (RFC 9396, W3C VC JWT, RFC 7800 cnf, Ed25519 RFC 8037, SPIFFE tooltip, OIDC-compatible JWT), "Regulatory Assurance (proposed FCA Agent Assurance addendum, PSR 2017 extension)" on the regulator, "Cryptographic Delegation Verifier, Zero Trust, deny by default" on the bank, About rewritten in the What it is / What it is not / Why now / Technical standards / Regulatory context structure. Tagline: delegation can only narrow authority, never expand it.
@@ -110,7 +116,7 @@ Beats on `/bank`, in order (the video storyboard):
 ## 7. vouch.finance integration (live from the deployed site)
 
 1. **Mandate lifecycle.** Approval mints an AI Voucher (`POST /ai-vouchers`) with our passport id in its metadata; the voucher id goes into the envelope. Revocation deletes it (`DELETE /ai-vouchers/{id}`). "Re-check on rail" reads `GET /ai-vouchers/{id}`. The bank console prints "authority registry revoked · vouch rail REVOKED · one supervisory action, two rails refuse".
-2. **Payment settlement.** Our own manifest `fixtures/pay/vouch_kits/agent-passport-northgate.json` is seeded on the rail (`scripts/vouch_complete_seed.ts`): a program with the three suppliers as merchants, Agent 247 as actor with a mandate, and a rule hook for the allowlist and the £10,000 cap. With `PAYMENT_RAIL=vouch` every bank ALLOW is sent as intent → quote → authorize. Their policy engine independently enforces the same allowlist and cap. Refused instructions never reach the rail.
+2. **Payment settlement.** Our own manifest `fixtures/pay/vouch_kits/agent-passport-northgate.json` is seeded on the rail (`scripts/vouch_complete_seed.ts`): a program with the three suppliers as merchants, PayGPT 6.0 as actor with a mandate, and a rule hook for the allowlist and the £10,000 cap. With `PAYMENT_RAIL=vouch` every bank ALLOW is sent as intent → quote → authorize. Their policy engine independently enforces the same allowlist and cap. Refused instructions never reach the rail.
 3. **Kit replay.** The sponsor's `kya-licence` and `agent-mandate` kits are seeded in our org and their stream was run; the ground-truth labels are vendored. `scripts/vouch_kit_replay.py` replays every scripted scenario through our verifier with signed envelopes and scores it: kya-licence precision 100%, recall 86%; agent-mandate precision 100%, recall 50%. Misses are named: delegation depth, merchant category, business hours, count-based structuring. Nothing compliant was refused.
 
 Compatibility profile: `docs/KYA_extension_for_purpose_bound_value.md`. Not used: MCP, sub-agent delegation, `simulate_policy`, SSE, the arena scorer, the other two kits.

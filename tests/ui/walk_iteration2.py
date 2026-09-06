@@ -8,8 +8,8 @@ def check(c, m):
     (print("  ✓", m) if c else (problems.append(m), print("  ✗", m)))
 def low(page, sel): return page.locator(sel).inner_text().lower()
 def issue(page, sign=True):
-    page.goto(BASE + "/provider"); page.click("#btn-new"); page.wait_for_selector("#btn-extract:not([hidden])"); page.click("#btn-extract")
-    page.wait_for_selector('[data-step="2"]:not([hidden])', timeout=60000); page.click("#btn-key"); page.wait_for_selector("#btn-sign:not([hidden])"); page.click("#btn-sign")
+    page.goto(BASE + "/provider"); page.click("#btn-new"); page.wait_for_selector("#btn-prefill:not([hidden])"); page.click("#btn-prefill")
+    page.wait_for_function("document.querySelector('#facts input[data-key=legal_name]') && document.querySelector('#facts input[data-key=legal_name]').value.length > 0"); page.click("#btn-key"); page.wait_for_selector("#btn-sign:not([hidden])"); page.click("#btn-sign")
     page.wait_for_selector("#btn-submit:not([hidden])"); page.click("#btn-submit"); page.wait_for_selector("#confirm:not([hidden])")
     page.goto(BASE + "/regulator"); page.wait_for_selector("#rg-case:not([hidden])")
     page.wait_for_selector("#review:not([hidden]) > li", timeout=60000)

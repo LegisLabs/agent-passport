@@ -79,8 +79,8 @@ def run_application_checks(fields: dict, agent: dict | None, reg: dict | None = 
             out.append(_check(rule, ok, f"Companies House {num}", "active company, name matches" if ok else "no matching active company"))
         elif c == "accountable_person":
             ap = fields.get("accountable_person", {})
-            ok = all(_v(ap, k) for k in ("name", "role", "email", "declaration_ref")) and _v(ap, "declaration_accepted") is True
-            out.append(_check(rule, ok, "appointment letter", f"{_v(ap, 'name')}, {_v(ap, 'role')}, declaration {_v(ap, 'declaration_ref')}" if ok else "incomplete accountability details or no signed declaration"))
+            ok = all(_v(ap, k) for k in ("name", "role", "declaration_ref"))
+            out.append(_check(rule, ok, "registration: accountable person", f"{_v(ap, 'name')}, {_v(ap, 'role')}, declaration {_v(ap, 'declaration_ref')}; responsibility accepted on submission" if ok else "incomplete accountability details"))
         elif c == "insurance_evidenced":
             ins = fields.get("insurance", {})
             cover = float(_v(ins, "cover_gbp") or 0)
@@ -170,7 +170,7 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
         return _result("R.2", "DENY", _rule("R.2")["code"], f"assurance not active: status is {registry_status.upper()}" + (" and validity has ended" if expired else ""), trace)
 
     # R.3 agent identity signature (provider) and binding to this assurance
-    ident = crypto.verify_jwt("payrail", envelope.get("agent_identity"))
+    ident = crypto.verify_jwt("openpay", envelope.get("agent_identity"))
     bound = bool(ident) and crypto.sha256_hex(envelope.get("agent_identity") or "") == (assurance.get("binds") or {}).get("agent_identity_sha256")
     if not step("R.3", bool(ident) and bound, "provider signature verifies; identity bound to this assurance" if ident and bound else ("agent identity does not verify against the provider key" if not ident else "agent identity is not the one this assurance was issued for")):
         return _result("R.3", "DENY", _rule("R.3")["code"], "agent identity signature invalid or not bound to this assurance", trace)

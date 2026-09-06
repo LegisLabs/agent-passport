@@ -14,7 +14,7 @@
     "ceilings_note": "Policy ceilings set by the authority at Phase 2. Every customer mandate must stay within them; the containment check runs when the customer signs.",
     "human_confirm_above_gbp": 5000,
     "min_insurance_cover_gbp": 1000000,
-    "recognised_software": ["RailPay AP Agent", "LedgerLine Payables", "InvoiceBot"],
+    "recognised_software": ["PayGPT", "OpenPay", "LedgerLine Payables", "InvoiceBot"],
     "incident_deny_threshold": 3,
     "pattern_threshold": {"count": 2, "window_hours": 24, "note": "same rule refused this many times within the window on one passport raises a supervisor alert"},
     "delegation_max_gbp": 4000

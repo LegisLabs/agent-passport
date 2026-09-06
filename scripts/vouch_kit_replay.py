@@ -83,7 +83,7 @@ def build_world(m: dict, human_confirm_above: float) -> dict:
         jwk = crypto.public_jwk(pub)
         ident_payload = {"iss": "kit-operator", "typ": "agent_identity", "sub": a["ref"], "iat": crypto.now_ts(),
                          "agent": {"name": a["label"], "agent_id": f"{m['kitId']}:{a['ref']}", "software": "kit", "software_version": "0"}, "cnf": {"jwk": jwk}}
-        ident = crypto.sign_jwt("payrail", ident_payload, typ="agent-identity+jwt")
+        ident = crypto.sign_jwt("openpay", ident_payload, typ="agent-identity+jwt")
         pid = f"KIT-{m['kitId']}-{a['ref']}"
         assurance = crypto.sign_jwt("authority", {"iss": "payments-authority-demo", "typ": "assurance", "jti": pid, "iat": crypto.now_ts(), "valid_until": "2099-12-31",
                                                   "provider": {"legal_name": "Kit operator", "licence_ref": "KIT"}, "agent_id": a["ref"],

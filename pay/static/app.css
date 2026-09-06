@@ -526,3 +526,22 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
 .containment ul { margin: .3rem 0 0 1rem; padding: 0; }
 
 .envelope__stamp { margin: .2rem 0 .6rem; display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+
+/* GOV.UK-style blue masthead with the GOV·DEMO logo */
+.masthead { background: #1d70b8; color: #fff; border-bottom: 0; }
+.masthead__row { display: flex; align-items: center; gap: 1.25rem; height: 3.5rem; padding: 0 1.25rem; max-width: none; margin: 0; }
+.masthead__logo { display: inline-flex; align-items: center; gap: .55rem; color: #fff; text-decoration: none; }
+.masthead__logo:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
+.masthead__square { width: 1.55rem; height: 1.55rem; border: 4px solid #fff; display: inline-block; box-sizing: border-box; }
+.masthead__logotype { font-weight: 700; font-size: 1.55rem; letter-spacing: .02em; display: inline-flex; align-items: center; }
+.masthead__dot { display: inline-block; width: .5rem; height: .5rem; border-radius: 50%; background: #00ffe0; margin: 0 .3rem; }
+.masthead__org { font-weight: 700; font-size: 1.1rem; color: #fff; padding-left: 1.25rem; border-left: 1px solid rgba(255,255,255,.4); }
+.masthead__tag { margin-left: auto; font-size: .9rem; letter-spacing: .04em; text-transform: uppercase; color: rgba(255,255,255,.85); }
+.shell { min-height: calc(100vh - 3.5rem); }
+.sidebar__list { height: calc(100vh - 3.5rem); }
+@media (max-width: 800px) { .masthead__org { display: none; } .masthead__tag { display: none; } .sidebar__list { height: auto; } }
+
+.models { list-style: none; margin: 0; padding: 0; }
+.models li { padding: .6rem 0; border-bottom: 1px solid var(--line-soft); display: grid; gap: .15rem; }
+.models strong { font-size: 1.05rem; }
+.models .small { color: var(--ink-2); }

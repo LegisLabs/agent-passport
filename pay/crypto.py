@@ -2,7 +2,7 @@
 
 Three signers, each entitled to exactly one claim set:
   authority  signs the assurance JWT      (KY-A assurance + supervisor condition)
-  payrail    signs the agent_identity JWT (agent name, agent public key, software, config hash)
+  openpay    signs the agent_identity JWT (agent name, agent public key, software, config hash)
   northgate  signs the mandate JWT        (supplier allowlist, limits, expiry)
 Each is an Ed25519 key generated once into KEYS_DIR (never committed). The
 agent has a fourth key, generated per application; the demo agent lives inside
@@ -25,7 +25,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 
 from . import config
 
-SIGNERS = ("authority", "payrail", "northgate")
+SIGNERS = ("authority", "openpay", "northgate")
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
@@ -105,7 +105,7 @@ _keys: dict[str, dict] = {}
 
 
 def signer(name: str) -> dict:
-    """{private_pem, public_pem, jwk, kid} for authority | payrail | northgate."""
+    """{private_pem, public_pem, jwk, kid} for authority | openpay | northgate."""
     if name not in SIGNERS:
         raise KeyError(name)
     if name in _keys:
@@ -186,7 +186,7 @@ def verify_envelope(env: dict) -> dict:
     if out["assurance"] is None:
         out["failure"] = "assurance"
         return out
-    out["agent_identity"] = verify_jwt("payrail", env.get("agent_identity"))
+    out["agent_identity"] = verify_jwt("openpay", env.get("agent_identity"))
     if out["agent_identity"] is None:
         out["failure"] = "agent_identity"
         return out

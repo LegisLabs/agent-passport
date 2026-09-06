@@ -2,7 +2,7 @@
  "_comment": "Synthetic authority records. What the payments supervisor already knows before the application arrives. No real firm.",
  "psp_licences": {
   "PSP-4471": {
-   "firm": "PayRail Ltd",
+   "firm": "OpenPay Ltd",
    "status": "active",
    "type": "Authorised payment institution",
    "permissions": [
@@ -21,7 +21,7 @@
  },
  "companies_house": {
   "10987654": {
-   "name": "PAYRAIL LTD",
+   "name": "OPENPAY LTD",
    "status": "active",
    "address": "Unit 9, Riverside Works, Norwich NR1 1QE"
   },

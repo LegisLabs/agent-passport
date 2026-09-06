@@ -21,7 +21,7 @@ const AP = (() => {
 
   const LABELS = {
     provider: { title: 'Provider', legal_name: 'Legal name', licence_ref: 'Licence reference', companies_house_number: 'Companies House number', permissions: 'Licence permissions' },
-    accountable_person: { title: 'Accountable person', name: 'Named responsible individual', role: 'Role or title', email: 'Contact email', declaration_ref: 'Declaration reference', declaration_accepted: 'Accepts responsibility for the agent’s actions' },
+    accountable_person: { title: 'Accountable person', name: 'Named responsible individual', role: 'Role or title', declaration_ref: 'Declaration reference' },
     insurance: { title: 'Insurance', provider: 'Insurer', policy_ref: 'Policy reference', cover_gbp: 'Cover (£)', valid_until: 'In force until' },
     agent: { title: 'The agent: model documentation and key management', agent_name: 'Agent name', agent_id: 'Agent identifier', software: 'Software', software_version: 'Version', model_provider: 'Model provider', model_version: 'Model version', benchmarks: 'Benchmarks', training_type: 'Training type', config_hash: 'Configuration SHA-256', key_storage: 'Private key storage', key_rotation: 'Key rotation' },
     requested: { title: 'Requested authority', action_type: 'Action type', human_confirm_above_gbp: 'Proposed human confirmation above (£)' },
@@ -47,35 +47,22 @@ const AP = (() => {
     async function refresh() { state = await api('GET', '/api/state'); a = state.applications.find(x => x.id === (a && a.id)) || pick(state.applications); render(); }
 
     function render() {
-      applist(state.applications);
-      const has = !!a;
-      $('btn-new').hidden = has && a.status === 'draft';
-      $('btn-new').textContent = has ? 'Start another application' : 'Start application';
-      $('btn-extract').hidden = !has || a.status !== 'draft' || !!a.fields;
-      renderDocs();
-      const facts = has && a.fields;
-      for (const n of [2, 3, 4]) document.querySelector(`[data-step="${n}"]`).hidden = !facts;
-      if (facts) {
-        $('facts-meta').textContent = `read by ${modeLabel(a.extraction_mode)}`;
-        renderFacts(a.fields, a.status === 'draft');
-        renderAgent();
-      }
-      $('extract-note').textContent = has && a.status === 'draft' && !a.fields ? `Reference ${a.ref} · draft` : '';
+      const ul = $('models'); ul.innerHTML = '';
+      (state.registered_models || []).forEach(m => ul.append(el('li', null, `<strong>${esc(m.model)}</strong><span class="small"><span class="mono">${esc(m.passport_id)}</span> · assured ${d(m.assured)}</span>${tag(m.status)}`)));
+      state.applications.forEach(x => ul.append(el('li', null, `<strong>${esc(v(x.fields, 'agent', 'agent_name') || 'PayGPT 6.0')}</strong><span class="small"><a href="${location.pathname}?ref=${x.ref}" class="mono">${esc(x.ref)}</a> · this registration</span>${tag(x.status)}`)));
+      const has = !!a, draft = has && a.status === 'draft';
+      $('btn-new').hidden = draft;
+      $('btn-new').textContent = has ? 'Start another registration' : 'Start registration';
+      $('btn-prefill').hidden = !draft;
+      $('facts-meta').textContent = has ? `${a.ref} · ${a.status.replace('_', ' ')}` : '';
+      $('extract-note').textContent = draft ? 'Fill in the fields, or use Prefill for the demo.' : '';
+      document.querySelector('[data-step="2"]').hidden = !has;
+      document.querySelector('[data-step="3"]').hidden = !has;
+      if (has) { renderFacts(a.fields, draft); renderAgent(); } else { $('facts').innerHTML = ''; $('btn-save-fields').hidden = true; }
       const submitted = has && a.status !== 'draft';
       $('btn-submit').hidden = submitted || !(a && a.agent && a.agent.pop_verified);
       $('confirm').hidden = !submitted;
       if (submitted) $('confirm-ref').textContent = a.ref;
-    }
-
-    function renderDocs() {
-      const ul = $('docs'); ul.innerHTML = '';
-      const docs = a ? a.documents : [];
-      docs.forEach((doc) => {
-        const b = el('button', null, esc(doc.name)); b.type = 'button'; b.setAttribute('aria-pressed', 'false');
-        b.onclick = () => { const open = b.getAttribute('aria-pressed') === 'true'; ul.querySelectorAll('button').forEach(x => x.setAttribute('aria-pressed', 'false')); $('doc-view').hidden = open; if (!open) { b.setAttribute('aria-pressed', 'true'); $('doc-view').textContent = doc.text; } };
-        ul.append(el('li', null).appendChild(b).parentElement);
-      });
-      if (!docs.length) ul.append(el('li', 'small', 'Start an application to load the evidence pack.'));
     }
 
     function renderFacts(f, editable) {
@@ -90,7 +77,7 @@ const AP = (() => {
           const input = isBool
             ? `<label><input type="checkbox" data-sec="${sec}" data-key="${k}" ${fact.value ? 'checked' : ''} ${editable ? '' : 'disabled'}> ${fact.value ? 'Yes' : 'No'}</label>`
             : `<input class="input" data-sec="${sec}" data-key="${k}" value="${esc(fact.value ?? '')}" ${editable ? '' : 'disabled'} aria-label="${esc(label)}">`;
-          const prov = fact.source_doc ? `<span class="prov">from <span class="mono">${esc(fact.source_doc)}</span>: <q>${esc(fact.quote || '')}</q></span>` : '<span class="prov">not found in the documents</span>';
+          const prov = fact.source_doc ? `<span class="prov">from <span class="mono">${esc(fact.source_doc)}</span>: <q>${esc(fact.quote || '')}</q></span>` : '';
           dl.append(el('div', 'fact', `<dt>${esc(label)}</dt><dd>${input}${prov}</dd>`));
         }
         box.append(dl);
@@ -115,7 +102,7 @@ const AP = (() => {
     }
 
     $('btn-new').onclick = async () => { a = await api('POST', '/api/applications'); history.replaceState(null, '', `?ref=${a.ref}`); await refresh(); };
-    $('btn-extract').onclick = async () => { const b = $('btn-extract'); b.disabled = true; b.textContent = 'Reading documents…'; try { a = await api('POST', `/api/applications/${a.id}/extract`); } finally { b.disabled = false; b.textContent = 'Read documents into facts'; } await refresh(); };
+    $('btn-prefill').onclick = async () => { a = await api('POST', `/api/applications/${a.id}/prefill`); await refresh(); };
     $('btn-save-fields').onclick = async () => { a = await api('PUT', `/api/applications/${a.id}/fields`, { fields: collectFields() }); $('save-note').textContent = 'Saved ' + t(new Date().toISOString()); await refresh(); };
     $('btn-key').onclick = async () => { await api('PUT', `/api/applications/${a.id}/fields`, { fields: collectFields() }); a = await api('POST', `/api/applications/${a.id}/agent-key`); await refresh(); };
     $('btn-sign').onclick = async () => { a = await api('POST', `/api/applications/${a.id}/sign-challenge`); await refresh(); };
@@ -169,7 +156,7 @@ const AP = (() => {
       const f = a.fields;
       $('rg-summary').innerHTML = [
         ['Provider', `${esc(v(f, 'provider', 'legal_name'))} · licence <span class="mono">${esc(v(f, 'provider', 'licence_ref'))}</span> · Companies House <span class="mono">${esc(v(f, 'provider', 'companies_house_number'))}</span>`],
-        ['Accountable person', `${esc(v(f, 'accountable_person', 'name'))}, ${esc(v(f, 'accountable_person', 'role'))} · ${v(f, 'accountable_person', 'declaration_accepted') ? `declaration <span class="mono">${esc(v(f, 'accountable_person', 'declaration_ref'))}</span> signed` : '<strong>no declaration</strong>'}`],
+        ['Accountable person', `${esc(v(f, 'accountable_person', 'name'))}, ${esc(v(f, 'accountable_person', 'role'))} · declaration <span class="mono">${esc(v(f, 'accountable_person', 'declaration_ref'))}</span> · responsibility accepted on submission`],
         ['Insurance', `${esc(v(f, 'insurance', 'provider'))} · <span class="mono">${esc(v(f, 'insurance', 'policy_ref'))}</span> · ${gbp(v(f, 'insurance', 'cover_gbp'))} until ${esc(v(f, 'insurance', 'valid_until'))}`],
         ['Agent', `${esc(v(f, 'agent', 'agent_name'))} <span class="mono">${esc(v(f, 'agent', 'agent_id'))}</span> · ${esc(v(f, 'agent', 'software'))} ${esc(v(f, 'agent', 'software_version'))} · ${esc(v(f, 'agent', 'model_provider'))} · key kid <span class="mono">${esc(a.agent && a.agent.kid)}</span> ${a.agent && a.agent.pop_verified ? '<span class="tag tag--green">possession proven</span>' : '<span class="tag tag--red">possession not proven</span>'} ${a.agent_identity_jwt ? '<span class="tag tag--green">identity signed by provider</span>' : ''}`],
         ['Model documentation', `${esc(v(f, 'agent', 'model_provider'))} · <span class="mono">${esc(v(f, 'agent', 'model_version'))}</span> · ${esc(v(f, 'agent', 'training_type'))}<br><span class="small">${esc(v(f, 'agent', 'benchmarks'))}</span>`],
@@ -207,7 +194,7 @@ const AP = (() => {
       const kv = (o) => `<dl class="kv">${Object.entries(o).map(([k, v_]) => `<div><dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${Array.isArray(v_) ? v_.map(esc).join('<br>') : esc(String(v_ ?? '—'))}</dd></div>`).join('')}</dl>`;
       for (const st of r.steps) {
         let body = '', state = 'done', badge = '';
-        if (st.id === 'evidence') body = `<p class="small">Provider claims</p>${kv(st.data.provider_claims)}<p class="small">Customer authorises</p>${kv(st.data.customer_authorises)}<p class="small">Authority is asked to certify</p>${kv(st.data.authority_asked_to_certify)}<p class="small">${st.data.documents.length} documents read by ${esc(modeLabel(st.data.extraction_mode))}</p>`;
+        if (st.id === 'evidence') body = `<p class="small">Provider claims</p>${kv(st.data.provider_claims)}<p class="small">Customer authorises</p>${kv(st.data.customer_authorises)}<p class="small">Authority is asked to certify</p>${kv(st.data.authority_asked_to_certify)}<p class="small">${esc(st.data.registration || '')}</p>`;
         if (st.id === 'rule_map') { badge = `<span class="tag tag--blue">${esc(r.assistant)}</span> <span class="mono small">${esc(st.data.rule_pack)}</span>`; body = `<table class="rulemap"><thead><tr><th>Rule</th><th>Requirement</th><th>Evidence</th><th>Result</th></tr></thead><tbody>${st.data.rules.map(x => `<tr><td>${esc(x.id)}</td><td>${esc(x.title)} <span class="tag tag--${x.status === 'CURRENT' ? 'green' : 'grey'}">${esc(x.status)}</span></td><td>${x.evidence ? `<span class="mono small">${esc(String(x.evidence.value))}</span>${x.evidence.source_doc ? `<br><span class="small">${esc(x.evidence.source_doc)}</span>` : ''}` : '<span class="tag tag--red">uncovered</span>'}</td><td>${x.result === 'pass' ? '<span class="tag tag--green">Pass</span>' : '<span class="tag tag--amber">Flag</span>'}</td></tr>`).join('')}</tbody></table>${st.data.uncovered.length ? `<p class="error">Uncovered: ${esc(st.data.uncovered.join(', '))}</p>` : '<p class="small">Every rule maps to cited evidence.</p>'}`; }
         if (st.id === 'tests') body = `<div class="cards">${st.data.map(x => `<div><strong>${esc(x.id)} · ${esc(x.title)}</strong><span class="small">${esc(x.instruction.supplier_name)} · ${esc(x.instruction.payee_account_ref)} · ${gbp(x.instruction.amount)}${x.variant !== 'normal' ? ' · ' + esc(x.variant) : ''}</span><span class="small">expect <b>${esc(x.expect)} ${esc(x.expect_rule)}</b></span></div>`).join('')}</div>`;
         if (st.id === 'sandbox') { const ok = st.data.filter(x => x.pass).length; badge = `<span class="tag tag--${ok === st.data.length ? 'green' : 'red'}">${ok} of ${st.data.length} as expected</span> <span class="small">same code path as /bank</span>`; body = `<div class="cards">${st.data.map(x => `<div data-pass="${x.pass}"><strong>${esc(x.id)} ${x.pass ? 'PASS' : 'FAIL'}</strong><span>${esc(x.decision)} <span class="mono">${esc(x.rule)} · ${esc(x.code)}</span></span><span class="small">${esc(x.reason)}</span></div>`).join('')}</div>`; }

@@ -5,7 +5,7 @@ deterministic over structured facts; the sandbox run uses the same rules.verify_
 model may phrase a summary (through extraction.draft_file_note, verdict vocabulary rejected); it never scores,
 decides or signs. Only the officer's own POST /decision applies the authority signature.
 
-  1 EVIDENCE READ           what the provider claims, what the customer authorised, what the authority is asked to certify
+  1 EVIDENCE READ           what the provider registered, what customers will authorise, what the authority is asked to certify
   2 STANDARDS RULE MAP      each rule in the versioned pack mapped to the evidence that satisfies it; uncovered items flagged
   3 ADVERSARIAL TESTS       five test instructions specific to this passport
   4 SANDBOX RUN             each test through the real R.1–R.9 engine against a provisional, sandbox-signed envelope
@@ -41,7 +41,7 @@ def step_evidence(a: dict) -> dict:
         "authority_asked_to_certify": {"kya_assurance": "provider identity, licence, accountability, insurance, model documentation, key management and key binding verified against records",
                                        "policy_ceilings": f"per payment ≤ £{pol['per_payment_ceiling_gbp']:,.0f}; per account in 30 days ≤ £{pol['monthly_per_account_ceiling_gbp']:,.0f}; expiry ≤ {pol['max_validity']}; actions {', '.join(pol['action_types'])}",
                                        "condition_proposed": float(_v(f, "requested", "human_confirm_above_gbp") or 0), "action": _v(f, "requested", "action_type")},
-        "documents": [d["name"] for d in a.get("documents") or []], "extraction_mode": a.get("extraction_mode"),
+        "documents": [], "registration": "fields entered by the provider on the Provider Panel" + (" (prefilled for the demo)" if a.get("extraction_mode") == "prefill" else ""), "extraction_mode": a.get("extraction_mode"),
     }
 
 

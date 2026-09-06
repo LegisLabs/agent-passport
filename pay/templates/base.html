@@ -12,11 +12,12 @@
 <a href="#main" class="skip">Skip to main content</a>
 
 <header class="masthead" role="banner">
-  <div class="wrap masthead__row">
-    <a class="masthead__brand" href="/provider" aria-label="Agent Passport home">
-      <span class="masthead__crest" aria-hidden="true"></span>
-      <span class="masthead__name">{{ issuer }} <span class="masthead__sep">·</span> Agent Passport</span>
+  <div class="masthead__row">
+    <a class="masthead__logo" href="/provider" aria-label="GOV DEMO home">
+      <span class="masthead__square" aria-hidden="true"></span>
+      <span class="masthead__logotype">GOV<span class="masthead__dot" aria-hidden="true"></span>DEMO</span>
     </a>
+    <span class="masthead__org">{{ issuer }} · Agent Passport</span>
     <span class="masthead__tag">Prototype v{{ version }} · payments</span>
   </div>
 </header>
@@ -41,7 +42,7 @@
 <footer class="footer">
   <div class="wrap footer__row">
     <span>Legis Labs · Agent Passport · <em>delegation can only narrow authority, never expand it</em> · <span class="mono">rule pack {{ rule_pack }}</span> · extraction <span class="mono">{{ extraction_mode }}</span> · vouch <span class="mono">{{ vouch_mode }}</span> · rail <span class="mono">{{ payment_rail }}</span></span>
-    <span class="mono small">keys: authority {{ kids.authority }} · provider {{ kids.payrail }} · customer {{ kids.northgate }} · <button class="link" id="demo-reset" type="button">reset to demo baseline</button> · <a href="https://cdir.legislabs.uk">tax vertical</a></span>
+    <span class="mono small">keys: authority {{ kids.authority }} · provider {{ kids.openpay }} · customer {{ kids.northgate }} · <button class="link" id="demo-reset" type="button">reset to demo baseline</button> · <a href="https://cdir.legislabs.uk">tax vertical</a></span>
   </div>
 </footer>
 

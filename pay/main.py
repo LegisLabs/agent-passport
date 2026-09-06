@@ -75,7 +75,7 @@ def rulepack():
 @app.get("/api/signers")
 def signers():
     """The three public keys a relying party needs. Nothing private."""
-    return {n: {"kid": s["kid"], "jwk": s["jwk"], "alg": "EdDSA", "signs": {"authority": "assurance", "payrail": "agent_identity", "northgate": "mandate"}[n]}
+    return {n: {"kid": s["kid"], "jwk": s["jwk"], "alg": "EdDSA", "signs": {"authority": "assurance", "openpay": "agent_identity", "northgate": "mandate"}[n]}
             for n, s in crypto.all_signers().items()}
 
 
@@ -93,6 +93,7 @@ def state():
     pat = pol.get("pattern_threshold", {"count": 2, "window_hours": 24})
     return {"applications": [public_app(a) for a in apps], "passports": [public_passport(p) for p in pps], "beats": fixtures.BEATS,
             "invoices": [{"id": k, "label": "Clean invoice" if k.endswith("clean") else "Poisoned invoice", "text": t} for k, t in extraction.invoices().items()],
+            "registered_models": fixtures.registered_models(),
             "incidents": db.list_audit(50, kind="incident"), "violations": db.list_violations(), "alerts": db.pattern_alerts(pat["count"], pat["window_hours"]), "pattern_threshold": pat,
             "vouch_mode": vouch.mode(), "payment_rail": vouch.rail(),
             "mandate_draft": mandate_draft(), "policy": {k: pol[k] for k in ("per_payment_ceiling_gbp", "monthly_per_account_ceiling_gbp", "max_validity", "action_types", "currency", "human_confirm_above_gbp")},
@@ -141,20 +142,23 @@ def envelope_of(p: dict) -> dict:
 # ── API: provider (operator) ───────────────────────────────────────────────
 @app.post("/api/applications")
 def create_application():
+    """Phase 1: an empty registration form. The provider fills it in; nothing is extracted from documents."""
     n = db.count_applications() + 107
     ref = f"AP-2026-{n:04d}"
-    a = db.create_application(ref, fixtures.evidence_pack())
-    audit.record("application", ref, {"event": "draft created", "provider": config.OPERATOR, "documents": [d["name"] for d in a["documents"]]})
+    a = db.create_application(ref, [])
+    a = db.update_application(a["id"], fields=extraction.blank_fields(), extraction_mode="form")
+    audit.record("application", ref, {"event": "registration started", "provider": config.OPERATOR})
     return public_app(a)
 
 
-@app.post("/api/applications/{app_id}/extract")
-def extract(app_id: int):
+@app.post("/api/applications/{app_id}/prefill")
+def prefill(app_id: int):
+    """Demo convenience: fill the registration form with the synthetic OpenPay values. A human would type them."""
     a = db.get_application(app_id) or _404()
-    facts, mode = extraction.extract(a["documents"])
-    a = db.update_application(app_id, extraction=facts, fields=facts, extraction_mode=mode)
-    n_fields = sum(len(v) for k, v in facts.items() if isinstance(v, dict) and not k.startswith("_")) + len(facts.get("suppliers", []))
-    audit.record("extraction", a["ref"], {"event": "documents read into structured facts", "mode": mode, "fields": n_fields, "model": config.GEMINI_MODEL if mode == "gemini" else None})
+    if a["status"] != "draft":
+        raise HTTPException(409, "registration already submitted")
+    a = db.update_application(app_id, fields=extraction.fixture(), extraction_mode="prefill")
+    audit.record("application", a["ref"], {"event": "registration form prefilled for the demo", "mode": "prefill"})
     return public_app(a)
 
 
@@ -173,7 +177,7 @@ def put_fields(app_id: int, body: FieldsIn):
 
 @app.post("/api/applications/{app_id}/agent-key")
 def agent_key(app_id: int):
-    """PayRail provisions the agent's key pair and the authority issues a challenge."""
+    """OpenPay provisions the agent's key pair and the authority issues a challenge."""
     a = db.get_application(app_id) or _404()
     priv, pub = crypto.generate_keypair()
     jwk = crypto.public_jwk(pub)
@@ -201,7 +205,7 @@ def sign_challenge(app_id: int):
 def agent_identity_payload(a: dict) -> dict:
     f, ag = a["fields"], a["agent"]
     return {
-        "iss": "payrail-ltd", "typ": "agent_identity", "sub": ag["agent_id"], "iat": crypto.now_ts(), "application": a["ref"],
+        "iss": "openpay-ltd", "typ": "agent_identity", "sub": ag["agent_id"], "iat": crypto.now_ts(), "application": a["ref"],
         "operator": {"legal_name": rules._v(f, "provider", "legal_name"), "licence_ref": rules._v(f, "provider", "licence_ref")},
         "agent": {"name": rules._v(f, "agent", "agent_name"), "agent_id": ag["agent_id"], "software": rules._v(f, "agent", "software"),
                   "software_version": rules._v(f, "agent", "software_version"), "model_provider": rules._v(f, "agent", "model_provider"),
@@ -218,9 +222,9 @@ def submit(app_id: int):
     if not a.get("fields"):
         _400("read the documents first")
     checks = rules.run_application_checks(a["fields"], a.get("agent"))
-    ident_jwt = crypto.sign_jwt("payrail", agent_identity_payload(a), typ="agent-identity+jwt") if a.get("agent") else None
+    ident_jwt = crypto.sign_jwt("openpay", agent_identity_payload(a), typ="agent-identity+jwt") if a.get("agent") else None
     a = db.update_application(app_id, status="submitted", submitted_at=db.now_iso(), checks=checks, agent_identity_jwt=ident_jwt)
-    audit.record("check", a["ref"], {"event": "application submitted; agent_identity signed by the provider; automated checks run",
+    audit.record("check", a["ref"], {"event": "registration submitted; accountable person accepts responsibility for the agent's actions; agent_identity signed by the provider; automated checks run",
                                      "passed": sum(c["result"] == "pass" for c in checks), "flagged": [c["id"] for c in checks if c["result"] != "pass"],
                                      "agent_identity_sha256": crypto.sha256_hex(ident_jwt) if ident_jwt else None})
     return public_app(a)
@@ -287,7 +291,7 @@ def issue_passport(a: dict, note: str, condition: dict) -> dict:
     if not ag.get("pop_verified"):
         _400("agent has not proven possession of its key")
     ident_jwt = a.get("agent_identity_jwt") or _400("agent identity not signed by the provider")
-    ident = crypto.verify_jwt("payrail", ident_jwt) or _400("agent identity signature does not verify")
+    ident = crypto.verify_jwt("openpay", ident_jwt) or _400("agent identity signature does not verify")
     pol = rules.pack()["policy"]
     valid_until = pol["max_validity"]
     exp = int(datetime.fromisoformat(valid_until + "T23:59:59+00:00").timestamp())
@@ -494,7 +498,7 @@ def get_passport(passport_id: str):
     env = envelope_of(p)
     ver = crypto.verify_envelope(env)
     parts = {"assurance": crypto.verify_jwt("authority", env["assurance"]) is not None,
-             "agent_identity": crypto.verify_jwt("payrail", env["agent_identity"]) is not None,
+             "agent_identity": crypto.verify_jwt("openpay", env["agent_identity"]) is not None,
              "mandate": (crypto.verify_jwt("northgate", env["mandate"]) is not None) if env.get("mandate") else None}
     headers = {k: crypto.decode_unverified(env[k])[0] for k in ("assurance", "agent_identity", "mandate") if env.get(k)}
     return {**public_passport(p), "verification": {"ok": ver["ok"], "failure": ver["failure"], "parts": parts}, "headers": headers, "minimal": minimal_passport(p)}
@@ -509,7 +513,7 @@ def minimal_passport(p: dict) -> dict:
         "agent": i["agent"]["name"], "agent_id": i["agent"]["agent_id"], "agent_kid": crypto.jwk_thumbprint(i["cnf"]["jwk"])[:16],
         "condition": a["condition"], "valid_until": a["valid_until"], "status": p["status"], "mandate_signed": bool(m),
         "scope": {"actions": ad["actions"], "currency": ad["currency"], "suppliers": len(ad["supplier_allowlist"]), "per_payment_limit": ad["per_payment_limit"], "monthly_limit_per_account": ad["monthly_limit_per_account"]},
-        "signers": {"assurance": crypto.signer("authority")["kid"], "agent_identity": crypto.signer("payrail")["kid"], "mandate": crypto.signer("northgate")["kid"]},
+        "signers": {"assurance": crypto.signer("authority")["kid"], "agent_identity": crypto.signer("openpay")["kid"], "mandate": crypto.signer("northgate")["kid"]},
     }
 
 
@@ -564,7 +568,7 @@ def rogue_key() -> dict:
 
 @app.post("/api/agent/act")
 def agent_act(body: ActIn):
-    """Simulated Agent 247: builds a payment instruction, signs it, presents it to the bank."""
+    """Simulated PayGPT 6.0: builds a payment instruction, signs it, presents it to the bank."""
     p = db.get_passport(body.passport_id) or _404()
     a = db.get_application(p["application_id"])
     req = {"passport_id": body.passport_id, "action_type": body.action_type, "payee_account_ref": body.payee_account_ref, "supplier_name": body.supplier_name,
@@ -587,7 +591,7 @@ class InvoiceIn(BaseModel):
 
 @app.post("/api/agent/invoice")
 def agent_invoice(body: InvoiceIn):
-    """Task 1: Agent 247 reads an invoice with the model (verbatim-quote extraction), turns what it read into a
+    """Task 1: PayGPT 6.0 reads an invoice with the model (verbatim-quote extraction), turns what it read into a
     signed payment instruction, and presents it to the bank. Returns every step so the UI can show the manipulation
     moment: extracted text → generated instruction → bank decision. The model reads; it never decides."""
     p = db.get_passport(body.passport_id) or _404()
@@ -664,7 +668,7 @@ def verify(body: VerifyIn):
     r4 = next((t for t in res["trace"] if t["rule"] == "R.4"), None)
     agent_kid = None
     try:
-        ident_jwk = ((crypto.verify_jwt("payrail", env.get("agent_identity")) or {}).get("cnf") or {}).get("jwk")
+        ident_jwk = ((crypto.verify_jwt("openpay", env.get("agent_identity")) or {}).get("cnf") or {}).get("jwk")
         agent_kid = crypto.jwk_thumbprint(ident_jwk)[:16] if ident_jwk else None
     except Exception:  # noqa: BLE001
         agent_kid = None
@@ -735,11 +739,9 @@ def demo_seed(stage: str = "issued"):
     db.reset_all()
     audit.record("system", None, {"event": "demo baseline seeded", "stage": stage})
     n = db.count_applications() + 107
-    a = db.create_application(f"AP-2026-{n:04d}", fixtures.evidence_pack())
-    audit.record("application", a["ref"], {"event": "draft created", "provider": config.OPERATOR, "documents": [d["name"] for d in a["documents"]]})
-    facts = extraction.fixture()
-    a = db.update_application(a["id"], extraction=facts, fields=facts, extraction_mode="fixture")
-    audit.record("extraction", a["ref"], {"event": "documents read into structured facts", "mode": "fixture", "fields": sum(len(v) for k, v in facts.items() if isinstance(v, dict) and not k.startswith("_")), "model": None})
+    a = db.create_application(f"AP-2026-{n:04d}", [])
+    audit.record("application", a["ref"], {"event": "registration started", "provider": config.OPERATOR})
+    a = db.update_application(a["id"], fields=extraction.fixture(), extraction_mode="prefill")
     a = agent_key(a["id"]); a = sign_challenge(a["id"]); a = submit(a["id"])
     r = run_review(a["id"], ReviewIn())
     out = {"ok": True, "stage": stage, "application": r["application"]["ref"], "recommendation": r["review"]["steps"][4]["data"]["verdict"]}

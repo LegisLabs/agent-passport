@@ -2,7 +2,7 @@
   "kitId": "agent-passport-northgate",
   "title": "Agent Passport · Northgate Joinery supplier payments",
   "track": "KY-A Licence",
-  "description": "Mirror of the Agent Passport demo mandate on the vouch rail: Northgate Joinery Ltd's three allowlisted suppliers, a GBP 10,000 per-payment cap, and one agent (Agent 247) with a spending mandate. Used by PAYMENT_RAIL=vouch to settle each ALLOWed instruction. Synthetic.",
+  "description": "Mirror of the Agent Passport demo mandate on the vouch rail: Northgate Joinery Ltd's three allowlisted suppliers, a GBP 10,000 per-payment cap, and one agent (PayGPT 6.0) with a spending mandate. Used by PAYMENT_RAIL=vouch to settle each ALLOWed instruction. Synthetic.",
   "program": {
     "slugPrefix": "agent-passport-northgate",
     "name": "Northgate Joinery supplier payments (Agent Passport)",
@@ -23,8 +23,8 @@
     {"ref": "coastline", "name": "Coastline Glass Ltd", "approvedCategories": ["SUPPLIES"]}
   ],
   "actors": [
-    {"ref": "agent-247", "label": "Agent 247 (PayRail Ltd)", "phone": "9999200001", "fields": {"agentRole": "accounts-payable-agent", "fullName": "Agent 247"}, "budget": 100000,
-     "mandate": {"label": "Agent 247 mandate for Northgate Joinery Ltd", "policy": {"quota": {"totalCostUsd": 100000}}}}
+    {"ref": "paygpt-6", "label": "PayGPT 6.0 (OpenPay Ltd)", "phone": "9999200001", "fields": {"agentRole": "accounts-payable-agent", "fullName": "PayGPT 6.0"}, "budget": 100000,
+     "mandate": {"label": "PayGPT 6.0 mandate for Northgate Joinery Ltd", "policy": {"quota": {"totalCostUsd": 100000}}}}
   ],
   "hooks": [
     {"name": "Customer-signed allowlist + per-payment cap", "event": "redemption", "phase": "pre", "type": "rule",
@@ -33,7 +33,7 @@
      "effect": "deny", "failureBehavior": "block"}
   ],
   "violationScript": [
-    {"id": "compliant-fenwick", "label": "Agent 247 pays Fenwick Timber within the mandate", "violationType": null, "kind": "payment", "actorRef": "agent-247", "merchantRef": "fenwick",
+    {"id": "compliant-fenwick", "label": "PayGPT 6.0 pays Fenwick Timber within the mandate", "violationType": null, "kind": "payment", "actorRef": "paygpt-6", "merchantRef": "fenwick",
      "item": {"sku": "FT-1042", "name": "Invoice FT-1042", "categoryCode": "SUPPLIES", "qty": 1, "unitPrice": 3200}, "count": 1, "simHourOfWeek": 60, "expectAllowed": true}
   ]
 }

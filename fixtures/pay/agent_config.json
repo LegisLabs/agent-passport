@@ -1,16 +1,21 @@
 {
-  "agent": "Agent 247",
-  "agent_id": "payrail-agent-247",
-  "operator": "PayRail Ltd",
-  "software": "RailPay AP Agent",
-  "version": "2.4.0",
+  "agent": "PayGPT 6.0",
+  "agent_id": "openpay-paygpt-6",
+  "operator": "OpenPay Ltd",
+  "software": "PayGPT",
+  "version": "6.0",
   "model_provider": "Anthropic (Claude)",
   "task": "read supplier invoices; initiate payment instructions",
-  "actions": ["pay_invoice"],
-  "signing": {"algorithm": "Ed25519", "key_storage": "hardware-backed key store; not exportable"},
+  "actions": [
+    "pay_invoice"
+  ],
+  "signing": {
+    "algorithm": "Ed25519",
+    "key_storage": "hardware-backed key store; not exportable"
+  },
   "controls": {
     "payee_source": "customer-signed mandate allowlist only",
-    "escalation_route": "Northgate Joinery finance director via PayRail case queue",
+    "escalation_route": "Northgate Joinery finance director via OpenPay case queue",
     "logging": "every instruction carries the passport id and an internal case reference"
   }
 }

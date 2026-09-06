@@ -4,7 +4,7 @@ Regulator-issued, scoped, revocable credentials for autonomous AI agents. Lexis 
 
 | Vertical | Live | Code | What it shows |
 |---|---|---|---|
-| **B2B payments** (primary) | **https://pay.cdir.legislabs.uk** | `pay/` | A payment-initiation provider's AI agent pays a small business's suppliers. Three-signer passport envelope, bank-side verification, cumulative limits, incidents, vouch.finance rail. |
+| **B2B payments** (primary) | **https://pay.cdir.legislabs.uk** | `pay/` | A payment-initiation provider's AI agent (OpenPay's PayGPT 6.0) pays a small business's suppliers. Three-signer passport envelope, bank-side verification, cumulative limits, incidents, vouch.finance rail. |
 | UK Self Assessment (transferability beat) | https://cdir.legislabs.uk | `app/` | The same engine, a tax rule pack: an accounting firm's filing agent, unchanged since the v1 skeleton (git tag `hmrc-v1`). |
 
 The payments site is public. The tax site sits behind a basic-auth gate (user `lexis`; password supplied with the submission). API docs at `/api/docs` on each. Plan and briefs in `docs/`.
@@ -25,13 +25,13 @@ Each app self-seeds on first run: signer keys into `data/pay/keys/` (or `data/ke
 
 ## The payments scenario
 
-**Northgate Joinery Ltd** (customer) pays suppliers through **PayRail Ltd** (licensed payment-initiation provider, the operator). PayRail runs an accounts-payable agent, **Agent 247**, that reads invoices and initiates payments. Before deployment PayRail submits evidence to the **national payments supervisor (demo)**. Automated KY-A checks run, an officer approves with a condition, and an assurance is issued. Northgate's finance director signs the mandate. **Northgate's bank** verifies the passport on every instruction before executing. The supervisor can suspend or revoke at any time; three refusals raise an incident.
+**Northgate Joinery Ltd** (customer) pays suppliers through **OpenPay Ltd** (licensed payment-initiation provider, the operator). OpenPay runs an accounts-payable agent, **PayGPT 6.0**, that reads invoices and initiates payments. Before deployment OpenPay submits evidence to the **national payments supervisor (demo)**. Automated KY-A checks run, an officer approves with a condition, and an assurance is issued. Northgate's finance director signs the mandate. **Northgate's bank** verifies the passport on every instruction before executing. The supervisor can suspend or revoke at any time; three refusals raise an incident.
 
 All names, registers, accounts and documents are synthetic. This is a proposed assurance framework, not a current legal requirement.
 
 ### The path
 
-1. **Apply** (`/provider`). PayRail's evidence pack (five synthetic documents) loads. "Read documents into facts" sends them to Gemini in JSON mode; every value comes back with its source document and a verbatim quote. Correct anything, generate the agent's key, have the agent sign the authority's challenge (proof of possession). On submission PayRail signs the `agent_identity` claim with its own key and checks A.1–A.8 run.
+1. **Apply** (`/provider`). OpenPay's evidence pack (five synthetic documents) loads. "Read documents into facts" sends them to Gemini in JSON mode; every value comes back with its source document and a verbatim quote. Correct anything, generate the agent's key, have the agent sign the authority's challenge (proof of possession). On submission OpenPay signs the `agent_identity` claim with its own key and checks A.1–A.8 run.
 2. **Review & issue** (`/regulator`). Eight checks with rule id, source and CURRENT/PROTOTYPE label. Optional model-drafted file note. The officer sets the condition (hold above £5,000), writes a required note and approves, requests information or rejects. Approval signs the `assurance` with the authority key, enters the passport in the registry as ACTIVE and mirrors the mandate on the vouch rail. Lifecycle: suspend, reinstate, revoke, each with a reason. Incident feed.
 3. **Sign mandate** (`/customer`). Northgate's finance director sees the supplier allowlist, the limits and the expiry, and signs the `mandate` with the company key. Before that the envelope is incomplete and the bank refuses everything at R.5.
 4. **Act & check** (`/bank`). Eight proposed instructions. The simulated agent signs each; the bank runs R.1–R.9 in order and answers ALLOW / ESCALATE / DENY with rule, reason code, an authority-signed receipt and, on ALLOW, a settlement line. Per-account 30-day meters, and both rails (authority registry, vouch voucher) on every line, so after a revocation the console shows two rails refusing. Three refusals raise an incident.
@@ -46,7 +46,7 @@ All names, registers, accounts and documents are synthetic. This is a proposed a
 
 ### Iteration 2: the agentic loop and the manipulation moment
 
-- **Malicious invoice** (`/bank`): Agent 247 reads `INV-9001-clean` or `INV-9001-poisoned` with the model, signs the instruction it derived, and the bank decides. Clean pays the signed-for account; poisoned would pay 60-11-22 99887766 and is refused at R.6. Fixture mode reproduces the extraction exactly.
+- **Malicious invoice** (`/bank`): PayGPT 6.0 reads `INV-9001-clean` or `INV-9001-poisoned` with the model, signs the instruction it derived, and the bank decides. Clean pays the signed-for account; poisoned would pay 60-11-22 99887766 and is refused at R.6. Fixture mode reproduces the extraction exactly.
 - **Standards Review Assistant** (`/regulator`, `POST /api/applications/{id}/review`): evidence read, rule map, five adversarial tests, sandbox run through the real engine, labelled recommendation, human sign-off. Only the officer's decision signs.
 - **Anomaly Detection & Escalation** (`/regulator`, `GET /api/violations`, `POST /api/passports/{id}/investigation`): violations with status, a 2-in-24h same-rule alert, suspend → investigate → revoke or reinstate.
 
@@ -130,7 +130,7 @@ Approval → `POST /ai-vouchers` (passport id in metadata, voucher id in the env
 
 Nothing compliant was refused. The field mapping is a proposed compatibility profile: `docs/KYA_extension_for_purpose_bound_value.md`.
 
-**Settling on the rail.** `fixtures/pay/vouch_kits/agent-passport-northgate.json` is our own manifest in the sponsor's kit format, mirroring the demo mandate on the rail (program, the three suppliers as merchants, Agent 247 with a spending mandate, a rule hook for the allowlist and the £10,000 cap). `scripts/vouch_complete_seed.ts` seeds it from a clone of their repo, since their seeder only accepts its four built-in kits:
+**Settling on the rail.** `fixtures/pay/vouch_kits/agent-passport-northgate.json` is our own manifest in the sponsor's kit format, mirroring the demo mandate on the rail (program, the three suppliers as merchants, PayGPT 6.0 with a spending mandate, a rule hook for the allowlist and the £10,000 cap). `scripts/vouch_complete_seed.ts` seeds it from a clone of their repo, since their seeder only accepts its four built-in kits:
 
 ```bash
 git clone -b feat/generalise-kits https://github.com/finternet-ecosystem/hackathon-kits && cd hackathon-kits && npm install
@@ -143,8 +143,8 @@ Then set `PAYMENT_RAIL=vouch` with `VOUCH_PROGRAM_ID`, `VOUCH_PRIVY_USER_ID` (th
 ## API (payments vertical)
 
 ```
-POST /api/applications                        start (loads the evidence pack)
-POST /api/applications/{id}/extract           Gemini → structured facts with provenance
+POST /api/applications                        start an empty registration form
+POST /api/applications/{id}/prefill           demo: fill the registration form with the synthetic values
 PUT  /api/applications/{id}/fields            provider corrections
 POST /api/applications/{id}/agent-key         agent key pair + authority challenge
 POST /api/applications/{id}/sign-challenge    agent signs; authority verifies possession
@@ -165,7 +165,7 @@ GET  /api/audit · POST /api/audit/{id}/replay · GET /api/receipt/verify?token=
 
 ## Where the model sits
 
-Gemini (JSON mode, temperature 0) reads documents into a fixed schema and drafts the officer's file note. It never checks, scores or decides. `EXTRACTION_MODE=fixture` replaces both calls with deterministic stand-ins; on API failure the system falls back to the fixture and labels the result `gemini-fallback`.
+There is no document extraction on the regulatory side: registration is a form. Gemini (JSON mode, temperature 0) is used by the AP agent to read invoices into payment instructions, and optionally by the officer to phrase a draft file note. It never checks, scores or decides. `EXTRACTION_MODE=fixture` replaces both with deterministic stand-ins; on API failure the system falls back and labels the result `gemini-fallback`.
 
 ## Deploy
 
@@ -180,7 +180,7 @@ bash deploy/publish.sh pay      # payments only
 pay/          payments vertical: main.py · rules.py · crypto.py (three signers, verify_envelope) · vouch.py · audit.py · extraction.py · db.py · fixtures.py · templates/ · static/
 app/          tax vertical (unchanged, tag hmrc-v1)
 rulepacks/    payments-2026.09.json · hmrc-sa-2026.09.json
-fixtures/pay/ documents/ (evidence pack) · registry.json · extraction_fixture.json · oracle.json · agent_config.json · vouch_kits/
+fixtures/pay/ extraction_fixture.json (registration prefill) · registered_models.json · customer/ · invoices/ · registry.json · oracle.json · agent_config.json · vouch_kits/
 fixtures/     the tax vertical's fixtures
 scripts/      vouch_kit_replay.py
 tests/        test_pay.py · test_rules.py, offline
