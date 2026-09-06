@@ -89,8 +89,12 @@ def state():
     """Everything the views need in one call."""
     apps = db.list_applications()
     pps = db.list_passports()
+    pol = rules.pack()["policy"]
+    pat = pol.get("pattern_threshold", {"count": 2, "window_hours": 24})
     return {"applications": [public_app(a) for a in apps], "passports": [public_passport(p) for p in pps], "beats": fixtures.BEATS,
-            "incidents": db.list_audit(50, kind="incident"), "vouch_mode": vouch.mode(), "payment_rail": vouch.rail()}
+            "invoices": [{"id": k, "label": "Clean invoice" if k.endswith("clean") else "Poisoned invoice", "text": t} for k, t in extraction.invoices().items()],
+            "incidents": db.list_audit(50, kind="incident"), "violations": db.list_violations(), "alerts": db.pattern_alerts(pat["count"], pat["window_hours"]), "pattern_threshold": pat,
+            "vouch_mode": vouch.mode(), "payment_rail": vouch.rail()}
 
 
 def public_app(a: dict) -> dict:
@@ -413,6 +417,42 @@ def agent_act(body: ActIn):
     return verify(VerifyIn(passport_id=body.passport_id, instruction=req))
 
 
+class InvoiceIn(BaseModel):
+    passport_id: str
+    invoice_id: str          # INV-9001-clean | INV-9001-poisoned
+    signer: str = "agent"
+
+
+@app.post("/api/agent/invoice")
+def agent_invoice(body: InvoiceIn):
+    """Task 1: Agent 247 reads an invoice with the model (verbatim-quote extraction), turns what it read into a
+    signed payment instruction, and presents it to the bank. Returns every step so the UI can show the manipulation
+    moment: extracted text → generated instruction → bank decision. The model reads; it never decides."""
+    p = db.get_passport(body.passport_id) or _404()
+    texts = extraction.invoices()
+    if body.invoice_id not in texts:
+        _400("unknown invoice")
+    facts, mode = extraction.extract_invoice(body.invoice_id, texts[body.invoice_id])
+    v = lambda k: (facts.get(k) or {}).get("value")  # noqa: E731
+    account_ref = f"{v('sort_code')} {v('account_number')}".strip()
+    audit.record("agent", body.passport_id, {"event": "agent read an invoice into a payment instruction", "invoice": body.invoice_id, "mode": mode,
+                                             "model": config.GEMINI_MODEL if mode == "gemini" else None, "payee_account_ref": account_ref, "amount": v("amount_gbp"),
+                                             "bank_details_changed": v("bank_details_changed")})
+    a = db.get_application(p["application_id"])
+    req = {"passport_id": body.passport_id, "action_type": "pay_invoice", "payee_account_ref": account_ref, "supplier_name": v("supplier_name"),
+           "amount": float(v("amount_gbp") or 0), "currency": "GBP", "invoice_ref": v("invoice_ref"), "nonce": crypto.new_nonce()}
+    key = a["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
+    req["agent_signature"] = crypto.sign_bytes(key, rules.request_signing_input(req))
+    mandate = p.get("mandate") or p["mandate_proposed"]
+    allow = mandate["authorization_details"][0]["supplier_allowlist"]
+    on_allowlist = any(rules.norm_account(x["account_ref"]) == rules.norm_account(account_ref) for x in allow)
+    registered = next((x["account_ref"] for x in allow if (x.get("name") or "").lower() == str(v("supplier_name") or "").lower()), None)
+    evidence = {"invoice": body.invoice_id, "extraction_mode": mode, "facts": facts, "instruction_payee": account_ref, "registered_payee": registered}
+    result = verify(VerifyIn(passport_id=body.passport_id, instruction=req, evidence=evidence))
+    return {"invoice": body.invoice_id, "text": texts[body.invoice_id], "extraction": facts, "extraction_mode": mode,
+            "instruction": {k: v_ for k, v_ in req.items() if k != "agent_signature"}, "on_allowlist": on_allowlist, "registered_payee": registered, "result": result}
+
+
 class VerifyIn(BaseModel):
     """Two accepted shapes. Nested: {passport_id, instruction: {...signed fields..., agent_signature}, passport?}.
     Flat (the brief's contract): {passport_id, agent_signature, action_type, payee_account_ref, supplier_name, amount, currency, invoice_ref, nonce}."""
@@ -427,6 +467,7 @@ class VerifyIn(BaseModel):
     currency: str | None = None
     invoice_ref: str | None = None
     nonce: str | None = None
+    evidence: dict | None = None      # e.g. the invoice extraction that produced this instruction (recorded on refusal)
 
     def instruction_dict(self) -> dict:
         if self.instruction:
@@ -453,13 +494,15 @@ def verify(body: VerifyIn):
              "decision": res["decision"], "rule": res["rule"], "code": res["code"], "reason": res["reason"], "trace": res["trace"], "rule_pack": res["rule_pack"]}
     rec = audit.record("verify", body.passport_id, entry, receipt_for={"passport_id": body.passport_id, "decision": res["decision"], "rule": res["rule"], "code": res["code"], "instruction_hash": entry["instruction_hash"]})
     out = {**res, "rule_id": res["rule"], "audit_id": rec["id"], "audit_hash": rec["hash"], "audit_ref": rec["hash"], "prev_hash": rec["prev_hash"], "receipt": rec["receipt"],
-           "ledger_total_before": ledger_total, "settlement": None, "incident": None,
+           "ledger_total_before": ledger_total, "settlement": None, "incident": None, "violation": None,
            "rails": {"authority_registry": reg_status, "vouch": {"voucher_id": p.get("vouch_voucher_id") if p else None, "status": p.get("vouch_status") if p else None, "mode": p.get("vouch_mode") if p else None}}}
     if res["decision"] == "ALLOW":
         s = vouch.settle_payment(req)
         pay = db.insert_payment(body.passport_id, str(req.get("payee_account_ref")), float(req.get("amount") or 0), str(req.get("currency") or "GBP"), req.get("invoice_ref"), rec["id"], s["rail"], s.get("ref"))
         out["settlement"] = {**s, "ledger_total_after": ledger_total + float(req.get("amount") or 0), "payment_id": pay["id"]}
     elif res["decision"] == "DENY" and p:
+        vio = db.insert_violation(body.passport_id, p["assurance"].get("agent_id"), res["rule"], res["code"], req, body.evidence, rec["id"])
+        out["violation"] = {"id": vio["id"], "status": vio["status"]}
         n = db.denies_since_last_incident(body.passport_id)
         threshold = rules.pack()["policy"]["incident_deny_threshold"]
         out["deny_count"] = n

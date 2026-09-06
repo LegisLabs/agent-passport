@@ -13,6 +13,18 @@
   <div class="strip__meters"><span class="strip__k">30-day totals per supplier account</span><div class="meters" id="st-meters"></div></div>
 </div>
 
+<section class="invoice" id="invoice-demo">
+  <h2 class="h3">Agent 247 reads an invoice</h2>
+  <p class="hint">The model reads the invoice into a payment instruction, verbatim quote per field. Then the bank checks the instruction against the customer-signed mandate. Read the clean invoice first, then the poisoned one.</p>
+  <div class="actions" id="invoice-buttons"></div>
+  <ol class="invoice__steps" id="invoice-steps" hidden>
+    <li class="invoice__step" data-step="a"><h3 class="h4">a · What the agent read</h3><pre class="code code--wrap invoice__text" id="inv-text"></pre><dl class="kv invoice__facts" id="inv-facts"></dl></li>
+    <li class="invoice__step" data-step="b"><h3 class="h4">b · The instruction the agent generated and signed</h3><dl class="kv" id="inv-instruction"></dl></li>
+    <li class="invoice__step" data-step="c"><h3 class="h4">c · The bank's decision</h3><div class="invoice__verdict" id="inv-verdict"></div></li>
+    <li class="invoice__step" data-step="d"><p class="invoice__caption" id="inv-caption"></p></li>
+  </ol>
+</section>
+
 <div class="grid grid--wide">
   <div class="col-main">
     <h2 class="h3">What the bank sees on the passport</h2>

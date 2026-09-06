@@ -222,3 +222,50 @@ def test_vouch_merchant_map_and_rail_fallback(monkeypatch):
     assert vouch.merchant_for("60-11-22 10101010") is None    # redirected account has no merchant on the rail
     # local rail: the bank executes, nothing leaves the process
     assert vouch.settle_payment({"payee_account_ref": "60-11-22 44556677", "amount": 1})["rail"] == "local"
+
+
+# ── Iteration 2, Task 1: the agent reads an invoice ─────────────────────────
+def test_invoice_extraction_fixtures():
+    from pay import extraction
+    texts = extraction.invoices()
+    assert set(texts) == {"INV-9001-clean", "INV-9001-poisoned"}
+    clean, m1 = extraction.extract_invoice("INV-9001-clean", texts["INV-9001-clean"])
+    bad, m2 = extraction.extract_invoice("INV-9001-poisoned", texts["INV-9001-poisoned"])
+    assert m1 == m2 == "fixture"
+    assert clean["account_number"]["value"] == "44556677" and clean["bank_details_changed"]["value"] is False
+    assert bad["account_number"]["value"] == "10101010" and bad["bank_details_changed"]["value"] is True
+    assert clean["amount_gbp"]["value"] == bad["amount_gbp"]["value"] == 2500
+    for f in (clean, bad):
+        assert all(f[k]["quote"] and f[k]["source_doc"] for k in extraction.INVOICE_FIELDS)
+
+
+def test_clean_invoice_allows_and_poisoned_invoice_is_refused_with_violation(client):
+    p, _ = issue_one(client)
+    pid = p["passport_id"]
+    r = client.post("/api/agent/invoice", json={"passport_id": pid, "invoice_id": "INV-9001-clean"}).json()
+    assert r["on_allowlist"] is True and r["instruction"]["payee_account_ref"] == "60-11-22 44556677" and r["instruction"]["amount"] == 2500
+    assert r["result"]["decision"] == "ALLOW" and r["result"]["violation"] is None
+    r = client.post("/api/agent/invoice", json={"passport_id": pid, "invoice_id": "INV-9001-poisoned"}).json()
+    assert r["on_allowlist"] is False and r["registered_payee"] == "60-11-22 44556677"
+    assert r["instruction"]["payee_account_ref"] == "60-11-22 10101010"
+    assert r["result"]["decision"] == "DENY" and r["result"]["rule"] == "R.6" and r["result"]["code"] == "PAYEE_NOT_ON_MANDATE"
+    vid = r["result"]["violation"]["id"]
+    v = db.get_violation(vid)
+    assert v["status"] == "OPEN" and v["rule"] == "R.6" and v["evidence"]["invoice"] == "INV-9001-poisoned"
+    assert v["evidence"]["facts"]["account_number"]["value"] == "10101010" and "agent_signature" not in v["instruction"]
+    state = client.get("/api/state").json()
+    assert any(x["id"] == vid for x in state["violations"]) and len(state["invoices"]) == 2
+    # unknown invoice is refused
+    assert client.post("/api/agent/invoice", json={"passport_id": pid, "invoice_id": "INV-0000"}).status_code == 400
+
+
+def test_every_bank_deny_writes_a_violation_row(client):
+    p, _ = issue_one(client)
+    pid = p["passport_id"]
+    before = len(db.list_violations(pid))
+    bad = {"action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455", "amount": 11400}
+    r = act(client, pid, bad)
+    assert r["rule"] == "R.7" and r["violation"]["status"] == "OPEN"
+    assert len(db.list_violations(pid)) == before + 1
+    ok = {**bad, "amount": 900}
+    assert act(client, pid, ok)["violation"] is None

@@ -316,6 +316,51 @@ const AP = (() => {
     if (!p) $('rp-passport').innerHTML = '<div><dt>Passport</dt><dd>none issued yet — approve an application in <a href="/regulator">Review &amp; issue</a></dd></div>';
     else await strip();
 
+    // ── Task 1: the agent reads an invoice ──
+    const ib = $('invoice-buttons');
+    (state.invoices || []).forEach(inv => {
+      const b = el('button', 'btn ' + (inv.id.endsWith('clean') ? 'btn--secondary' : 'btn--warning'), esc(inv.label) + ' <span class="btn__sub mono">' + esc(inv.id) + '</span>'); b.type = 'button'; b.disabled = !p;
+      b.onclick = async () => {
+        ib.querySelectorAll('button').forEach(x => x.disabled = true); b.textContent = 'Agent reading…';
+        try { const r = await api('POST', '/api/agent/invoice', { passport_id: p.passport_id, invoice_id: inv.id }); await showInvoice(r); await strip(); }
+        catch (e) { alert(e.message); }
+        finally { ib.querySelectorAll('button').forEach(x => x.disabled = false); b.innerHTML = esc(inv.label) + ' <span class="btn__sub mono">' + esc(inv.id) + '</span>'; }
+      };
+      ib.append(b);
+    });
+    const pause = (ms) => new Promise(r => setTimeout(r, ms));
+    async function showInvoice(r) {
+      const steps = $('invoice-steps'); steps.hidden = false;
+      steps.querySelectorAll('.invoice__step').forEach(x => x.hidden = true);
+      const acct = r.instruction.payee_account_ref, ok = r.on_allowlist;
+      const digits = (r.extraction.account_number || {}).value || '';
+      // a. what the agent read, account number marked
+      $('inv-text').innerHTML = esc(r.text).replace(new RegExp('(Account number:\\s*)(' + digits + ')'), `$1<mark class="${ok ? 'ok' : ''}">$2</mark>`).replace(/(IMPORTANT: our bank details have changed[^\n]*)/, '<mark>$1</mark>');
+      $('inv-facts').innerHTML = Object.entries(r.extraction).filter(([k]) => !k.startsWith('_')).map(([k, f]) => `<div><dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${k === 'account_number' ? `<span class="${ok ? 'right' : 'wrong'}">${esc(f.value)}</span>` : esc(String(f.value))} <span class="prov">from <span class="mono">${esc(f.source_doc || '')}</span>: <q>${esc(f.quote || '')}</q></span></dd></div>`).join('') + `<div><dt>read by</dt><dd>${esc(modeLabel(r.extraction_mode))}</dd></div>`;
+      steps.querySelector('[data-step="a"]').hidden = false; await pause(700);
+      // b. the generated instruction
+      const i = r.instruction;
+      $('inv-instruction').innerHTML = [['Action', esc(i.action_type)], ['Payee', esc(i.supplier_name)], ['Account', `<span class="${ok ? 'right' : 'wrong'}">${esc(acct)}</span>${ok ? ' on the customer-signed mandate' : ` not on the mandate; the customer signed for <span class="mono">${esc(r.registered_payee || '—')}</span>`}`], ['Amount', gbp(i.amount) + ' ' + esc(i.currency)], ['Invoice', esc(i.invoice_ref)], ['Signed by', 'the agent key bound in agent_identity (Ed25519)']].map(([k, v_]) => `<div><dt>${k}</dt><dd>${v_}</dd></div>`).join('');
+      steps.querySelector('[data-step="b"]').hidden = false; await pause(700);
+      // c. the bank's decision
+      const res = r.result;
+      const box = $('inv-verdict'); box.className = 'invoice__verdict invoice__verdict--' + res.decision;
+      const rulesHtml = res.trace.map(s => `<li class="${s.ok ? 'ok' : 'fail'}">${esc(s.rule)} ${s.ok ? '✓' : '✗'}</li>`).join('');
+      box.innerHTML = `<div><span class="t-verdict t-verdict--${res.decision}" style="color:${res.decision === 'DENY' ? 'var(--red)' : res.decision === 'ALLOW' ? 'var(--green)' : 'var(--amber-ink)'}">${res.decision}</span> <strong>${esc(res.rule)} · ${esc(res.code)}</strong></div><div>${esc(res.reason)}</div><ul class="invoice__rules">${rulesHtml}</ul>${res.rule === 'R.6' && res.decision === 'DENY' ? '<div class="invoice__note">Named-beneficiary mandate check (FATF 2025 AML/CFT alignment). The customer signed for accounts, not names: a changed account on a genuine-looking invoice has no authority.</div>' : ''}${res.violation ? `<div class="invoice__note">Violation #${res.violation.id} recorded as ${esc(res.violation.status)} for the supervisor’s exception panel.</div>` : ''}${res.settlement ? `<div class="invoice__note">${esc(res.settlement.rail_reason)}</div>` : ''}<div class="invoice__note">audit #${res.audit_id} <span class="mono">${esc(res.audit_hash.slice(0, 12))}</span> · receipt signed by the authority · decision replayable</div>`;
+      steps.querySelector('[data-step="c"]').hidden = false;
+      if (lines.querySelector('.terminal__hint')) lines.innerHTML = '';
+      lines.append(termLine({ action_type: i.action_type, supplier_name: i.supplier_name, payee_account_ref: acct, amount: i.amount, signer: 'agent' }, res)); lines.scrollTop = lines.scrollHeight;
+      if (res.incident) { lines.append(el('li', 't-incident', `<span><b>INCIDENT</b> escalated to supervisor · ${res.incident.denies} refused instructions · audit #${res.incident.audit_id}</span>`)); setDenies(0); }
+      else if (res.decision === 'DENY') setDenies(Math.min(3, (res.deny_count || denies + 1)));
+      await pause(700);
+      // d. caption
+      $('inv-caption').textContent = ok
+        ? 'The AI read a genuine invoice and paid the account the customer signed for. Same agent, same mandate: the next invoice is the test.'
+        : 'The AI read a manipulated invoice and would have paid the wrong account. The mandate stopped it.';
+      steps.querySelector('[data-step="d"]').hidden = false;
+      steps.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
     state.beats.forEach(b => {
       const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p;
       btn.innerHTML = `<span class="beat__label">${esc(b.label)}<small>${esc(b.hint)}</small></span><span class="beat__expect">${esc(b.expect)}</span>`;

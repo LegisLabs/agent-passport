@@ -14,7 +14,8 @@
     "human_confirm_above_gbp": 5000,
     "min_insurance_cover_gbp": 1000000,
     "recognised_software": ["RailPay AP Agent", "LedgerLine Payables", "InvoiceBot"],
-    "incident_deny_threshold": 3
+    "incident_deny_threshold": 3,
+    "pattern_threshold": {"count": 2, "window_hours": 24, "note": "same rule refused this many times within the window on one passport raises a supervisor alert"}
   },
   "application_rules": [
     {"id": "A.1", "title": "Provider licence reference resolves and is active", "status": "CURRENT", "source": "Payment-institution register (analogue of the FCA Financial Services Register)", "check": "licence_active", "fail": "flag"},

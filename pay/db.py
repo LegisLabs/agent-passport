@@ -77,8 +77,26 @@ CREATE TABLE IF NOT EXISTS audit (
   hash TEXT NOT NULL,
   receipt TEXT
 );
+CREATE TABLE IF NOT EXISTS violations (
+  id INTEGER PRIMARY KEY,
+  ts TEXT NOT NULL,
+  passport_id TEXT NOT NULL,
+  agent_id TEXT,
+  rule TEXT NOT NULL,                   -- R.x that refused
+  code TEXT NOT NULL,
+  instruction_json TEXT NOT NULL,       -- what the agent tried (signature stripped)
+  evidence_json TEXT,                   -- invoice extraction that produced the instruction, if any
+  audit_id INTEGER,
+  outcome TEXT NOT NULL,                -- DENY
+  status TEXT NOT NULL,                 -- OPEN | INVESTIGATING | RESOLVED
+  resolution TEXT                       -- revoked | reinstated | null
+);
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
 """
+_MIGRATIONS = [
+    "ALTER TABLE passports ADD COLUMN investigation TEXT",          # null | investigating
+    "ALTER TABLE applications ADD COLUMN review_json TEXT",          # Standards Review Assistant output
+]
 
 
 def now_iso() -> str:
@@ -96,6 +114,11 @@ def connect() -> sqlite3.Connection:
 def init() -> None:
     with tx() as con:
         con.executescript(SCHEMA)
+        for stmt in _MIGRATIONS:
+            try:
+                con.execute(stmt)
+            except sqlite3.OperationalError:
+                pass  # column already there
 
 
 @contextmanager
@@ -114,7 +137,7 @@ def j(s: str | None):
 
 def row_to_app(r: sqlite3.Row) -> dict:
     d = dict(r)
-    for k in ("extraction_json", "fields_json", "documents_json", "agent_json", "checks_json", "condition_json"):
+    for k in ("extraction_json", "fields_json", "documents_json", "agent_json", "checks_json", "condition_json", "review_json"):
         d[k[:-5]] = j(d.pop(k))
     return d
 
@@ -178,7 +201,7 @@ def count_applications() -> int:
 def update_application(app_id: int, **cols) -> dict:
     sets, vals = [], []
     for k, v in cols.items():
-        if k in ("extraction", "fields", "documents", "agent", "checks", "condition"):
+        if k in ("extraction", "fields", "documents", "agent", "checks", "condition", "review"):
             k = k + "_json"
             v = json.dumps(v)
         sets.append(f"{k}=?")
@@ -233,6 +256,12 @@ def set_passport_status(passport_id: str, status: str, officer: str, reason: str
             raise KeyError(passport_id)
         hist = p["history"] + [{"ts": now_iso(), "from": p["status"], "to": status, "officer": officer, "reason": reason}]
         con.execute("UPDATE passports SET status=?, history_json=? WHERE passport_id=?", (status, json.dumps(hist), passport_id))
+        return get_passport(passport_id, con)
+
+
+def set_investigation(passport_id: str, state: str | None) -> dict:
+    with tx() as con:
+        con.execute("UPDATE passports SET investigation=? WHERE passport_id=?", (state, passport_id))
         return get_passport(passport_id, con)
 
 
@@ -314,7 +343,53 @@ def denies_since_last_incident(passport_id: str) -> int:
         return sum(1 for r in rows if json.loads(r["entry_json"]).get("decision") == "DENY")
 
 
+# ── violations (the exception log; mutable status, unlike the audit chain) ──
+def row_to_violation(r: sqlite3.Row) -> dict:
+    d = dict(r)
+    d["instruction"] = j(d.pop("instruction_json"))
+    d["evidence"] = j(d.pop("evidence_json"))
+    return d
+
+
+def insert_violation(passport_id: str, agent_id: str | None, rule: str, code: str, instruction: dict, evidence: dict | None, audit_id: int | None) -> dict:
+    inst = {k: v for k, v in instruction.items() if k != "agent_signature"}
+    with tx() as con:
+        cur = con.execute("INSERT INTO violations(ts,passport_id,agent_id,rule,code,instruction_json,evidence_json,audit_id,outcome,status) VALUES(?,?,?,?,?,?,?,?,?,?)",
+                          (now_iso(), passport_id, agent_id, rule, code, json.dumps(inst), json.dumps(evidence) if evidence else None, audit_id, "DENY", "OPEN"))
+        return row_to_violation(con.execute("SELECT * FROM violations WHERE id=?", (cur.lastrowid,)).fetchone())
+
+
+def list_violations(passport_id: str | None = None, limit: int = 200) -> list[dict]:
+    with tx() as con:
+        if passport_id:
+            rows = con.execute("SELECT * FROM violations WHERE passport_id=? ORDER BY id DESC LIMIT ?", (passport_id, limit))
+        else:
+            rows = con.execute("SELECT * FROM violations ORDER BY id DESC LIMIT ?", (limit,))
+        return [row_to_violation(r) for r in rows]
+
+
+def get_violation(vid: int) -> dict | None:
+    with tx() as con:
+        r = con.execute("SELECT * FROM violations WHERE id=?", (vid,)).fetchone()
+        return row_to_violation(r) if r else None
+
+
+def set_violation_status(passport_id: str, status: str, resolution: str | None = None, only_status: tuple[str, ...] = ("OPEN", "INVESTIGATING")) -> int:
+    with tx() as con:
+        q = f"UPDATE violations SET status=?, resolution=COALESCE(?, resolution) WHERE passport_id=? AND status IN ({','.join('?' * len(only_status))})"
+        return con.execute(q, (status, resolution, passport_id, *only_status)).rowcount
+
+
+def pattern_alerts(count: int, window_hours: int) -> list[dict]:
+    """Passports with >= count violations of the same rule inside the window. One alert per (passport, rule)."""
+    since = (datetime.now(timezone.utc) - timedelta(hours=window_hours)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    with tx() as con:
+        rows = con.execute("SELECT passport_id, rule, code, COUNT(*) AS n, MAX(ts) AS last_ts, MIN(ts) AS first_ts FROM violations WHERE ts>=? GROUP BY passport_id, rule HAVING n>=? ORDER BY last_ts DESC",
+                           (since, count)).fetchall()
+        return [dict(r) for r in rows]
+
+
 def reset_all() -> None:
     with tx() as con:
-        for t in ("applications", "passports", "payments", "audit", "kv"):
+        for t in ("applications", "passports", "payments", "audit", "violations", "kv"):
             con.execute(f"DELETE FROM {t}")

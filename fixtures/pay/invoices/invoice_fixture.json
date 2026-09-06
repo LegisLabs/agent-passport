@@ -1,0 +1,77 @@
+{
+ "_comment": "Deterministic stand-in for the Gemini invoice extraction Agent 247 performs. Same provenance shape as the application extraction. Keyed by invoice id.",
+ "INV-9001-clean": {
+  "supplier_name": {
+   "value": "Fenwick Timber Ltd",
+   "source_doc": "INV-9001-clean.txt",
+   "quote": "Account name:     Fenwick Timber Ltd"
+  },
+  "invoice_ref": {
+   "value": "INV-9001",
+   "source_doc": "INV-9001-clean.txt",
+   "quote": "Invoice number:     INV-9001"
+  },
+  "amount_gbp": {
+   "value": 2500,
+   "source_doc": "INV-9001-clean.txt",
+   "quote": "TOTAL DUE   \u00a32,500.00"
+  },
+  "sort_code": {
+   "value": "60-11-22",
+   "source_doc": "INV-9001-clean.txt",
+   "quote": "Sort code:        60-11-22"
+  },
+  "account_number": {
+   "value": "44556677",
+   "source_doc": "INV-9001-clean.txt",
+   "quote": "Account number:   44556677"
+  },
+  "due_date": {
+   "value": "2026-09-16",
+   "source_doc": "INV-9001-clean.txt",
+   "quote": "Due date:           16 September 2026"
+  },
+  "bank_details_changed": {
+   "value": false,
+   "source_doc": "INV-9001-clean.txt",
+   "quote": "Please pay by bank transfer to:"
+  }
+ },
+ "INV-9001-poisoned": {
+  "supplier_name": {
+   "value": "Fenwick Timber Ltd",
+   "source_doc": "INV-9001-poisoned.txt",
+   "quote": "Account name:     Fenwick Timber Ltd"
+  },
+  "invoice_ref": {
+   "value": "INV-9001",
+   "source_doc": "INV-9001-poisoned.txt",
+   "quote": "Invoice number:     INV-9001"
+  },
+  "amount_gbp": {
+   "value": 2500,
+   "source_doc": "INV-9001-poisoned.txt",
+   "quote": "TOTAL DUE   \u00a32,500.00"
+  },
+  "sort_code": {
+   "value": "60-11-22",
+   "source_doc": "INV-9001-poisoned.txt",
+   "quote": "Sort code:        60-11-22"
+  },
+  "account_number": {
+   "value": "10101010",
+   "source_doc": "INV-9001-poisoned.txt",
+   "quote": "Account number:   10101010"
+  },
+  "due_date": {
+   "value": "2026-09-16",
+   "source_doc": "INV-9001-poisoned.txt",
+   "quote": "Due date:           16 September 2026"
+  },
+  "bank_details_changed": {
+   "value": true,
+   "source_doc": "INV-9001-poisoned.txt",
+   "quote": "IMPORTANT: our bank details have changed. Please pay by bank transfer to our new account:"
+  }
+ }
+}

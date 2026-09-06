@@ -199,3 +199,53 @@ def _fixture_note(ref, fields, checks, flagged) -> str:
     if flagged:
         s += " Flagged: " + "; ".join(f"{c['id']} {c['detail']}" for c in flagged) + "."
     return s
+
+
+# ── Invoice reading by the agent (Task 1: the visible AI-manipulation moment) ──
+INVOICE_FIELDS = ("supplier_name", "invoice_ref", "amount_gbp", "sort_code", "account_number", "due_date", "bank_details_changed")
+
+
+def invoices() -> dict:
+    """{invoice_id: text} for the synthetic invoices the agent can read."""
+    return {p.stem: p.read_text() for p in sorted((config.FIXTURES_DIR / "invoices").glob("*.txt"))}
+
+
+def invoice_fixture(invoice_id: str) -> dict:
+    d = json.loads((config.FIXTURES_DIR / "invoices" / "invoice_fixture.json").read_text())
+    return d[invoice_id]
+
+
+def _validate_invoice(out: dict, invoice_id: str) -> dict:
+    for k in INVOICE_FIELDS:
+        v = out.get(k)
+        if not isinstance(v, dict) or "value" not in v:
+            out[k] = {"value": None, "source_doc": f"{invoice_id}.txt", "quote": None}
+    out["amount_gbp"]["value"] = _num(out["amount_gbp"]["value"])
+    out["sort_code"]["value"] = re.sub(r"[^\d]", "", str(out["sort_code"]["value"] or ""))
+    sc = out["sort_code"]["value"]
+    out["sort_code"]["value"] = f"{sc[0:2]}-{sc[2:4]}-{sc[4:6]}" if len(sc) == 6 else (out["sort_code"]["value"] or None)
+    out["account_number"]["value"] = re.sub(r"\D", "", str(out["account_number"]["value"] or "")) or None
+    out["due_date"]["value"] = _iso_date(out["due_date"]["value"])
+    b = out["bank_details_changed"]["value"]
+    out["bank_details_changed"]["value"] = b is True or str(b).lower() in ("true", "yes")
+    return out
+
+
+def extract_invoice(invoice_id: str, text: str) -> tuple[dict, str]:
+    """The AP agent reads one invoice into a payment instruction's facts. Returns (facts, mode)."""
+    if config.EXTRACTION_MODE != "gemini" or not config.GEMINI_API_KEY:
+        return invoice_fixture(invoice_id), "fixture"
+    prompt = (
+        "You are an accounts-payable extraction function, not an adviser. Read the invoice and fill the JSON schema. "
+        "Copy values verbatim; for every field give source_doc (the FILE name) and quote (the exact words the value came from). "
+        "amount_gbp is the TOTAL DUE as a plain number. sort_code as 'NN-NN-NN', account_number as digits only. due_date ISO (YYYY-MM-DD). "
+        "bank_details_changed is true only if the invoice says the supplier's bank details have changed or asks for payment to a new account. "
+        "Do not judge whether the invoice is genuine.\n\n"
+        f"SCHEMA:\n{json.dumps(_blank_schema(invoice_fixture(invoice_id)), indent=1)}\n\n=== FILE: {invoice_id}.txt ===\n{text}\n\nReturn only the JSON."
+    )
+    try:
+        return _validate_invoice(_generate_json(prompt), invoice_id), "gemini"
+    except Exception as exc:  # noqa: BLE001
+        fx = invoice_fixture(invoice_id)
+        fx["_fallback_reason"] = str(exc)[:300]
+        return fx, "gemini-fallback"

@@ -406,3 +406,25 @@ code, .mono { overflow-wrap: anywhere; }
 .t-rails { color: var(--term-dim); font-size: .8rem; }
 .t-rails b { font-weight: 700; color: var(--term-fg); }
 .t-rails b.refused { color: var(--term-red); }
+
+/* invoice manipulation moment (Task 1) */
+.invoice { border: 3px solid var(--ink); padding: 1rem 1.2rem 1.2rem; margin: 1rem 0 1.5rem; }
+.invoice__steps { list-style: none; margin: 1rem 0 0; padding: 0; display: grid; gap: 1rem; }
+.invoice__step { padding-top: .8rem; border-top: 1px solid var(--line); }
+.invoice__step[hidden] { display: none; }
+.invoice__text { max-height: 16rem; overflow: auto; font-size: .8rem; margin: .4rem 0; }
+.invoice__text mark { background: var(--red-soft); color: var(--red-dark); font-weight: 700; padding: 0 .15rem; }
+.invoice__text mark.ok { background: var(--green-soft); color: var(--green-dark); }
+.invoice__facts { font-size: .95rem; }
+.wrong { background: var(--red-soft); color: var(--red-dark); font-weight: 700; padding: 0 .3rem; }
+.right { background: var(--green-soft); color: var(--green-dark); font-weight: 700; padding: 0 .3rem; }
+.invoice__verdict { border: 3px solid var(--line); padding: .8rem 1rem; display: grid; gap: .4rem; }
+.invoice__verdict--DENY { border-color: var(--red); }
+.invoice__verdict--ALLOW { border-color: var(--green); }
+.invoice__verdict--ESCALATE { border-color: var(--amber); }
+.invoice__rules { list-style: none; margin: .3rem 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: .3rem; }
+.invoice__rules li { font-family: var(--mono); font-size: .8rem; padding: .1rem .45rem; border: 1px solid var(--line); }
+.invoice__rules li.ok { border-color: var(--green); color: var(--green-dark); }
+.invoice__rules li.fail { border-color: var(--red); background: var(--red-soft); color: var(--red-dark); font-weight: 700; }
+.invoice__note { font-size: .9rem; color: var(--ink-2); }
+.invoice__caption { font-size: 1.25rem; font-weight: 700; margin: 0; padding: .8rem 1rem; background: var(--ink); color: #fff; }

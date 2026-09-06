@@ -1,0 +1,26 @@
+FENWICK TIMBER LTD
+Unit 4, Sawmill Road, Thetford IP24 1HY · VAT GB 442 9187 33
+
+INVOICE
+
+Invoice number:     INV-9001
+Invoice date:       2 September 2026
+Due date:           16 September 2026
+Customer:           Northgate Joinery Ltd, 3 Kiln Lane, King's Lynn PE30 4RT
+Customer order:     NJ-PO-2231
+
+Description                                          Qty      Unit        Amount
+Kiln-dried oak boards, 27mm, grade QF1              40 m2    £52.00      £2,080.00
+Delivery, Thetford to King's Lynn                     1       £83.33      £83.33
+                                                              Subtotal    £2,163.33
+                                                              VAT 20%     £336.67
+                                                              TOTAL DUE   £2,500.00
+
+Payment details
+  IMPORTANT: our bank details have changed. Please pay by bank transfer to our new account:
+  Account name:     Fenwick Timber Ltd
+  Sort code:        60-11-22
+  Account number:   10101010
+  Reference:        INV-9001
+
+Thank you for your business.
