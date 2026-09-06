@@ -144,11 +144,12 @@ const AP = (() => {
       <section>
         <span class="envelope__who">Signed by the provider</span>
         <h3 class="envelope__title">Agent identity ${sig(ver.agent_identity)}</h3>
-        ${kv([['Agent', `${esc(i.agent.name)} · <span class="mono">${esc(i.agent.agent_id)}</span>`], ['Public key', `<span class="mono small">kid ${esc(full.minimal.agent_kid)}</span>`], ['Software', `${esc(i.agent.software)} ${esc(i.agent.software_version)}`], ['Model provider', esc(i.agent.model_provider)], ['Config SHA-256', `<span class="mono small">${esc((i.agent.config_sha256 || '').slice(0, 16))}…</span>`]])}
+        ${kv([['Agent', `${esc(i.agent.name)} · <span class="mono">${esc(i.agent.agent_id)}</span>`], ['Public key', `<abbr title="Agent key binding provides workload-identity guarantees equivalent to SPIFFE SVID."><span class="mono small">kid ${esc(full.minimal.agent_kid)}</span></abbr>`], ['Software', `${esc(i.agent.software)} ${esc(i.agent.software_version)}`], ['Model provider', esc(i.agent.model_provider)], ['Config SHA-256', `<span class="mono small">${esc((i.agent.config_sha256 || '').slice(0, 16))}…</span>`]])}
       </section>
       <section>
         <span class="envelope__who">Signed by the customer</span>
-        <h3 class="envelope__title">Mandate ${sig(ver.mandate)}</h3>
+        <h3 class="envelope__title">Payment Mandate ${sig(ver.mandate)}</h3>
+        <span class="small">OAuth 2.0 RFC 9396 Rich Authorization Request</span>
         ${kv([['Customer', esc(mp.customer.legal_name)], ['Officer', `${esc(mp.authorising_officer.name)}, ${esc(mp.authorising_officer.role)}`], ['Payees', `${ad.supplier_allowlist.length} supplier accounts`], ['Per payment', gbp(ad.per_payment_limit.amount)], ['Per account, 30 days', gbp(ad.monthly_limit_per_account.amount)], ['Expires', esc(mp.valid_until)]])}
         ${m ? '' : `<p class="envelope__pending">Awaiting the finance director’s signature in <a href="/customer">Sign mandate</a>. Until then the bank refuses every instruction at R.5.</p>`}
       </section>`;
@@ -273,7 +274,7 @@ const AP = (() => {
       env.classList.toggle('envelope--incomplete', !full.mandate_signed);
       env.classList.toggle('envelope--revoked', p.status === 'revoked');
       renderRail(p, null);
-      $('jwt-panels').innerHTML = ['assurance', 'agent_identity', 'mandate'].map(k => full.envelope[k] ? `<h4 class="h4">${k} <span class="small">header ${esc(JSON.stringify(full.headers[k]))}</span></h4><pre class="code">${esc(JSON.stringify(full[k], null, 2))}</pre><pre class="code code--wrap">${esc(full.envelope[k])}</pre>` : `<h4 class="h4">${k}</h4><p class="small">not yet signed</p>`).join('');
+      $('jwt-panels').innerHTML = ['assurance', 'agent_identity', 'mandate'].map(k => full.envelope[k] ? `<h4 class="h4">${k} <span class="small">JWT (OIDC-compatible) · header ${esc(JSON.stringify(full.headers[k]))}</span></h4><pre class="code">${esc(JSON.stringify(full[k], null, 2))}</pre><pre class="code code--wrap">${esc(full.envelope[k])}</pre>` : `<h4 class="h4">${k}</h4><p class="small">not yet signed</p>`).join('');
     }
 
     function renderRail(p, live) {
@@ -406,7 +407,7 @@ const AP = (() => {
       const res = r.result;
       const box = $('inv-verdict'); box.className = 'invoice__verdict invoice__verdict--' + res.decision;
       const rulesHtml = res.trace.map(s => `<li class="${s.ok ? 'ok' : 'fail'}">${esc(s.rule)} ${s.ok ? '✓' : '✗'}</li>`).join('');
-      box.innerHTML = `<div><span class="t-verdict t-verdict--${res.decision}" style="color:${res.decision === 'DENY' ? 'var(--red)' : res.decision === 'ALLOW' ? 'var(--green)' : 'var(--amber-ink)'}">${res.decision}</span> <strong>${esc(res.rule)} · ${esc(res.code)}</strong></div><div>${esc(res.reason)}</div><ul class="invoice__rules">${rulesHtml}</ul>${res.rule === 'R.6' && res.decision === 'DENY' ? '<div class="invoice__note">Named-beneficiary mandate check (FATF 2025 AML/CFT alignment). The customer signed for accounts, not names: a changed account on a genuine-looking invoice has no authority.</div>' : ''}${res.violation ? `<div class="invoice__note">Violation #${res.violation.id} recorded as ${esc(res.violation.status)} for the supervisor’s exception panel.</div>` : ''}${res.settlement ? `<div class="invoice__note">${esc(res.settlement.rail_reason)}</div>` : ''}<div class="invoice__note">audit #${res.audit_id} <span class="mono">${esc(res.audit_hash.slice(0, 12))}</span> · receipt signed by the authority · decision replayable</div>`;
+      box.innerHTML = `<div><span class="t-verdict t-verdict--${res.decision}" style="color:${res.decision === 'DENY' ? 'var(--red)' : res.decision === 'ALLOW' ? 'var(--green)' : 'var(--amber-ink)'}">${res.decision}</span> <strong>${res.decision === 'ALLOW' ? 'all nine checks passed' : esc(res.rule)} · ${esc(res.code)}</strong></div><div>${esc(res.reason)}</div><ul class="invoice__rules">${rulesHtml}</ul>${res.rule === 'R.6' && res.decision === 'DENY' ? '<div class="invoice__note">Named-beneficiary mandate check (FATF 2025 AML/CFT alignment). The customer signed for accounts, not names: a changed account on a genuine-looking invoice has no authority.</div>' : ''}${res.violation ? `<div class="invoice__note">Violation #${res.violation.id} recorded as ${esc(res.violation.status)} for the supervisor’s exception panel.</div>` : ''}${res.settlement ? `<div class="invoice__note">${esc(res.settlement.rail_reason)}</div>` : ''}<div class="invoice__note">audit #${res.audit_id} <span class="mono">${esc(res.audit_hash.slice(0, 12))}</span> · receipt signed by the authority · decision replayable</div>`;
       steps.querySelector('[data-step="c"]').hidden = false;
       if (lines.querySelector('.terminal__hint')) lines.innerHTML = '';
       lines.append(termLine({ action_type: i.action_type, supplier_name: i.supplier_name, payee_account_ref: acct, amount: i.amount, signer: 'agent' }, res)); lines.scrollTop = lines.scrollHeight;
@@ -447,8 +448,8 @@ const AP = (() => {
       const rv = r.rails && r.rails.vouch, reg = r.rails && r.rails.authority_registry;
       const rails = r.rails ? `<span class="t-rails">authority registry <b class="${reg !== 'active' ? 'refused' : ''}">${esc(reg)}</b> · vouch rail <b class="${rv.status === 'REVOKED' ? 'refused' : ''}">${esc(rv.status || 'none')}</b>${rv.voucher_id ? ' ' + esc(rv.voucher_id) : ''}${reg !== 'active' && rv.status === 'REVOKED' ? ' · one supervisory action, two rails refuse' : ''}</span>` : '';
       return el('li', null, `<span class="t-time">${t(new Date().toISOString())}</span><span class="t-body">
-        <span class="t-head"><span class="t-action">${esc(b.action_type)} · ${esc(b.supplier_name)} · ${esc(b.payee_account_ref)} · ${gbp(b.amount)}${k ? ' · #' + k : ''}${b.signer === 'rogue' ? ' · signed with rogue key' : ''}</span><span class="t-verdict t-verdict--${r.decision}">${r.decision}</span><span class="t-rule">rule ${esc(r.rule)} · ${esc(r.code)}</span></span>
-        <span class="t-reason">${esc(r.reason)}</span>${settle}${rails}
+        <span class="t-head"><span class="t-action">${esc(b.action_type)} · ${esc(b.supplier_name)} · ${esc(b.payee_account_ref)} · ${gbp(b.amount)}${k ? ' · #' + k : ''}${b.signer === 'rogue' ? ' · signed with rogue key' : ''}</span><span class="t-verdict t-verdict--${r.decision}">${r.decision}</span><span class="t-rule">${r.decision === 'ALLOW' ? 'all nine checks passed · ' + esc(r.code) : 'rule ' + esc(r.rule) + ' · ' + esc(r.code)}</span></span>
+        <span class="t-reason">${esc(r.reason)}${r.decision === 'DENY' && r.rule === 'R.6' ? ' · Named-beneficiary mandate check (FATF 2025 AML/CFT alignment)' : ''}</span>${settle}${rails}
         <span class="t-trace">${trace}</span>
         <span class="t-meta">audit #${r.audit_id} <b>${esc(r.audit_hash.slice(0, 12))}</b> ← <b>${esc(r.prev_hash.slice(0, 12))}</b> · rule pack <b>${esc(r.rule_pack)}</b> · receipt signed by authority · decision replayable</span>
         <details class="receipt"><summary>receipt</summary>${esc(r.receipt)}</details></span>`);

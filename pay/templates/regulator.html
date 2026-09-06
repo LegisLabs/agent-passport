@@ -5,7 +5,7 @@
   <div class="col-main">
     <div class="alert" id="rg-alert" hidden role="alert"></div>
     <h1 class="h1">Application <span id="rg-ref" class="mono">—</span> <span id="rg-status"></span></h1>
-    <p class="lede lede--tight">Case officer {{ officer }}, {{ issuer }}.</p>
+    <p class="lede lede--tight"><strong>Regulatory Assurance</strong> (proposed FCA Agent Assurance addendum, PSR 2017 extension) · case officer {{ officer }}, {{ issuer }}. The authority certifies the provider and its agent; the customer's own mandate and the bank's own checks stay where they are.</p>
 
     <div class="empty" id="rg-empty"><p>No application in the queue. Submit one from <a href="/provider">Apply</a>.</p></div>
 
@@ -50,6 +50,7 @@
         <h2 class="h2">Passport <span class="mono" id="pp-id"></span> <span id="pp-status"></span></h2>
         <p class="hint">Three claims, three signers, one envelope. Each panel shows who signed it and whether the signature verifies right now.</p>
         <div class="envelope" id="envelope"></div>
+        <ul class="badges" aria-label="Standards used"><li>OAuth 2.0 RFC 9396</li><li>W3C VC JWT</li><li>RFC 7800 cnf</li><li>Ed25519 RFC 8037</li></ul>
 
         <h3 class="h3">Lifecycle</h3>
         <p class="hint">Suspend to freeze during review; reinstate when cleared; revoke permanently. Each change needs a reason and takes effect on the agent's next instruction, because the bank checks the registry in real time. Revocation also revokes the mirrored mandate on the vouch rail.</p>
@@ -67,7 +68,7 @@
         <div class="rail" id="rail"></div>
 
         <details class="jwt">
-          <summary>Decoded envelope (three JWTs, EdDSA / Ed25519)</summary>
+          <summary>Decoded envelope (three JWTs, EdDSA / Ed25519 · JWT (OIDC-compatible))</summary>
           <div id="jwt-panels"></div>
         </details>
       </div>

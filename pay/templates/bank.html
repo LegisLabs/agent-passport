@@ -2,6 +2,7 @@
 {% block title %}Act and check{% endblock %}
 {% block content %}
 <h1 class="h1">The bank checks every instruction</h1>
+<p class="lede lede--tight"><strong>Cryptographic Delegation Verifier</strong> — Zero Trust, deny by default (R.1–R.9). Delegation can only narrow authority, never expand it.</p>
 <p class="lede">{{ agent_name }} signs each payment instruction and presents its passport. {{ bank }} runs nine checks in order and answers ALLOW, ESCALATE or DENY with the rule, a reason and an authority-signed receipt. A redirected invoice, an oversized payment, a structured run of payments, a copied passport or a revoked assurance all stop here.</p>
 
 <div class="strip strip--bank" id="strip">
