@@ -603,3 +603,4 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
 .strip--bank { grid-template-columns: repeat(5, auto); }
 .strip--bank .strip__meters { grid-column: 1 / -1; }
 .meters > div { grid-template-columns: minmax(0, 1fr) auto; }
+@media (max-width: 900px) { .strip--bank { grid-template-columns: minmax(0,1fr) minmax(0,1fr); } }
