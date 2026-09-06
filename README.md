@@ -37,6 +37,12 @@ All names, registers, accounts and documents are synthetic. This is a proposed a
 4. **Act & check** (`/bank`). Eight proposed instructions. The simulated agent signs each; the bank runs R.1–R.9 in order and answers ALLOW / ESCALATE / DENY with rule, reason code, an authority-signed receipt and, on ALLOW, a settlement line. Per-account 30-day meters, and both rails (authority registry, vouch voucher) on every line, so after a revocation the console shows two rails refusing. Three refusals raise an incident.
 5. **Audit** (`/audit`). Hash chain over every event. Replay re-runs any verification from its stored inputs, including the bank's ledger total at the time, and must match.
 
+### Iteration 2: the agentic loop and the manipulation moment
+
+- **Malicious invoice** (`/bank`): Agent 247 reads `INV-9001-clean` or `INV-9001-poisoned` with the model, signs the instruction it derived, and the bank decides. Clean pays the signed-for account; poisoned would pay 60-11-22 10101010 and is refused at R.6. Fixture mode reproduces the extraction exactly.
+- **Standards Review Assistant** (`/regulator`, `POST /api/applications/{id}/review`): evidence read, rule map, five adversarial tests, sandbox run through the real engine, labelled recommendation, human sign-off. Only the officer's decision signs.
+- **Anomaly Detection & Escalation** (`/regulator`, `GET /api/violations`, `POST /api/passports/{id}/investigation`): violations with status, a 2-in-24h same-rule alert, suspend → investigate → revoke or reinstate.
+
 ### The composite passport
 
 Not one JWT. An envelope of three independently signed Ed25519 JWTs, each signed by the party entitled to the claim:

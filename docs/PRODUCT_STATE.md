@@ -1,6 +1,6 @@
 # Agent Passport — product state
 
-**As of:** 6 September 2026, commit `e266b2c` on `main` · **Team:** Lexis Labs (Timotej Cvikl tech, Alexandra Tran product, Bernard Liu law/policy, Jean Burnazyan data/tests) · **Hackathon:** C:\>DIR Global 'Agentic Regulator', Know Your Agent problem space · **Submission:** 8 Sept 2026 23:59 AOE on NayaOne (deck, 3-minute video, GitLab repo, live URL kept up until 18 Sept) · **Demo and vote:** 16 Sept 12:00–15:00 BST · **Winners:** 18 Sept, Cambridge.
+**As of:** 6 September 2026, iteration 2, `main` (see git log; baseline `e266b2c`) · **Team:** Lexis Labs (Timotej Cvikl tech, Alexandra Tran product, Bernard Liu law/policy, Jean Burnazyan data/tests) · **Hackathon:** C:\>DIR Global 'Agentic Regulator', Know Your Agent problem space · **Submission:** 8 Sept 2026 23:59 AOE on NayaOne (deck, 3-minute video, GitLab repo, live URL kept up until 18 Sept) · **Demo and vote:** 16 Sept 12:00–15:00 BST · **Winners:** 18 Sept, Cambridge.
 
 ## 1. What the product is
 
@@ -71,6 +71,14 @@ Each party signs only what it is entitled to say. The assurance is bound to the 
 | | otherwise | ALLOW `WITHIN_MANDATE` |
 
 The limit lives in the mandate; the running total lives at the bank, and the total at decision time is stored in the audit entry so replay is exact. Three DENYs on one passport write an "escalated to supervisor" incident row, visible in the bank terminal and the regulator's incident feed.
+
+## 5a. Iteration 2 (6 Sept): the agentic loop, the manipulation moment, the exception loop
+
+- **Malicious invoice demo** (`/bank`, top panel). Agent 247 reads a clean or a poisoned invoice through the model (verbatim quote per field), signs the instruction it derived, and presents it. Four visible steps: what it read (account marked), the instruction it generated (wrong account in red), the bank's decision (R.6 with the FATF named-beneficiary note), and the caption "The AI read a manipulated invoice and would have paid the wrong account. The mandate stopped it." Every bank DENY now writes a violation row.
+- **Standards Review Assistant** (`/regulator`, runs on opening a submitted case). Six visible steps: evidence read, standards rule map against the versioned pack, five adversarial tests, a sandbox run of those tests through the real R.1 to R.9 engine on a sandbox-signed envelope, a recommendation labelled "AI recommendation, human decision required", and the officer's existing sign-off. Nothing auto-approves.
+- **Anomaly Detection & Escalation** (`/regulator`). Violations table with OPEN / INVESTIGATING / RESOLVED, a supervisor alert when the same rule is refused twice within 24 hours on one passport (policy `pattern_threshold`), and a panel-driven loop: suspend, open investigation (reads the extraction evidence), revoke or reinstate. INVESTIGATING blocks nothing by itself; the registry status does.
+- **Standards labels** on the issuance surfaces (RFC 9396, W3C VC JWT, RFC 7800 cnf, Ed25519 RFC 8037, SPIFFE tooltip, OIDC-compatible JWT), "Regulatory Assurance (proposed FCA Agent Assurance addendum, PSR 2017 extension)" on the regulator, "Cryptographic Delegation Verifier, Zero Trust, deny by default" on the bank, About rewritten in the What it is / What it is not / Why now / Technical standards / Regulatory context structure. Tagline: delegation can only narrow authority, never expand it.
+- Decision logic R.1 to R.9 unchanged. Tests: 56. The Builder Guide A9 copy was not in the repo; the About text follows its structure and should be replaced verbatim by Bernard if wanted.
 
 ## 6. Views and demo beats
 
