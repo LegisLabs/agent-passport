@@ -21,27 +21,22 @@
   </div>
 </header>
 
-<div class="phase" role="note">
-  <div class="wrap">
-    <span class="tag tag--blue">Prototype</span>
-    <p class="phase__text">A proposed Know-Your-Agent assurance framework, shown on synthetic data. No supervisor requires this today; no real firm, bank or account appears anywhere.</p>
-  </div>
-</div>
-
-<nav class="tabs" aria-label="Views">
-  <div class="wrap tabs__row">
-    <a class="tabs__tab" href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}>1 · Apply <span class="tabs__sub">provider · {{ operator }}</span></a>
-    <a class="tabs__tab" href="/regulator" {% if view == 'regulator' %}aria-current="page"{% endif %}>2 · Review &amp; issue <span class="tabs__sub">authority · case officer</span></a>
-    <a class="tabs__tab" href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>3 · Sign mandate <span class="tabs__sub">customer · {{ customer }}</span></a>
-    <a class="tabs__tab" href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>4 · Act &amp; check <span class="tabs__sub">bank · verification console</span></a>
-    <a class="tabs__tab" href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>5 · Audit <span class="tabs__sub">replayable record</span></a>
-    <a class="tabs__tab" href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>About</a>
-  </div>
+<div class="shell">
+<nav class="sidebar" aria-label="Views">
+  <ul class="sidebar__list">
+    <li><a class="sidebar__item" href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}>Provider Panel <span class="sidebar__sub">{{ operator }}</span></a></li>
+    <li><a class="sidebar__item" href="/regulator" {% if view == 'regulator' %}aria-current="page"{% endif %}>Regulator Panel <span class="sidebar__sub">authority · case officer</span></a></li>
+    <li><a class="sidebar__item" href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>Customer Panel <span class="sidebar__sub">{{ customer }}</span></a></li>
+    <li><a class="sidebar__item" href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>Action Terminal <span class="sidebar__sub">bank · verification console</span></a></li>
+    <li><a class="sidebar__item" href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>Audit <span class="sidebar__sub">replayable record</span></a></li>
+    <li class="sidebar__about"><a class="sidebar__item" href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>About</a></li>
+  </ul>
 </nav>
 
-<main id="main" class="wrap">
+<main id="main" class="wrap main">
 {% block content %}{% endblock %}
 </main>
+</div>
 
 <footer class="footer">
   <div class="wrap footer__row">
