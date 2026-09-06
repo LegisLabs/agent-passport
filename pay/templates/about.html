@@ -39,6 +39,9 @@
   <ul>{% for r in pack.application_rules %}<li><code>{{ r.id }}</code> {{ r.title }} <span class="tag tag--{{ 'green' if r.status == 'CURRENT' else 'amber' }}">{{ r.status }}</span> <span class="small">— {{ r.source }}</span></li>{% endfor %}</ul>
   <h3 class="h3">At the bank, in this order (Cryptographic Delegation Verifier)</h3>
   <ul>{% for r in pack.runtime_rules %}<li><code>{{ r.id }}</code> {{ r.title }} → <code>{{ r.on_fail }}</code> <span class="tag tag--{{ 'green' if r.status == 'CURRENT' else 'amber' }}">{{ r.status }}</span> <span class="small">— {{ r.source }}</span></li>{% endfor %}</ul>
+  {% if pack.chain_rules %}<h3 class="h3">With the delegation chain (Part B, optional)</h3>
+  <ul>{% for r in pack.chain_rules %}<li><code>{{ r.id }}</code> {{ r.title }} → <code>{{ r.on_fail }}</code> <span class="tag tag--amber">{{ r.status }}</span> <span class="small">— {{ r.source }}</span></li>{% endfor %}</ul>
+  <p class="small">An AP Orchestrator Agent reads the invoice and delegates a narrowed scope to a Payment Execution Agent, which signs the instruction. The bank verifies S<sub>action</sub> ⊆ S<sub>1</sub> ⊆ S<sub>0</sub> between R.5 and R.6. Off by default; a toggle on the bank console turns it on.</p>{% endif %}
   <p class="small">Unknown action types are refused at R.6. The limit lives in the mandate; the running 30-day total lives at the bank. A repeat of the same refused rule within {{ pack.policy.pattern_threshold.window_hours }} hours ({{ pack.policy.pattern_threshold.count }} or more) raises a supervisor alert; three refusals of any kind raise an incident.</p>
 
   <h2 class="h2">The vouch rail</h2>

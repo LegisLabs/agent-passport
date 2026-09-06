@@ -473,3 +473,18 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
 .stepper .tag { white-space: normal; }
 .rulemap td, .rulemap th { overflow-wrap: anywhere; }
 @media (max-width: 640px) { .rulemap { display: block; overflow-x: auto; max-width: 100%; } .rulemap td:first-child { white-space: normal; } }
+
+/* delegation chain (Part B) */
+.chain-toggle { display: block; margin: .4rem 0 .8rem; font-size: .95rem; }
+.chain-toggle input { margin-right: .4rem; }
+.chain { border: 1px solid var(--line); padding: .6rem .8rem; margin: .6rem 0 0; display: grid; gap: .4rem; font-size: .95rem; }
+.chain__inv { font-family: var(--mono); font-size: .85rem; }
+.chain__scopes { display: grid; grid-template-columns: repeat(auto-fit, minmax(12rem, 1fr)); gap: .5rem; }
+.chain__scopes > div { border: 1px solid var(--line-soft); padding: .4rem .6rem; }
+.chain__scopes strong { display: block; font-family: var(--mono); font-size: .85rem; }
+.chain__checks { list-style: none; margin: 0; padding: 0; display: grid; gap: .2rem; }
+.chain__checks li::before { content: "✓ "; color: var(--green); font-weight: 700; }
+.chain__checks li.fail::before { content: "✗ "; color: var(--red); }
+.chain__checks li.skip::before { content: "· "; color: var(--ink-2); }
+.t-chain { color: var(--term-dim); font-size: .8rem; }
+.t-chain b.ok { color: var(--term-green); } .t-chain b.fail { color: var(--term-red); }

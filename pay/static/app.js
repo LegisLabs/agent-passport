@@ -377,13 +377,39 @@ const AP = (() => {
     if (!p) $('rp-passport').innerHTML = '<div><dt>Passport</dt><dd>none issued yet — approve an application in <a href="/regulator">Review &amp; issue</a></dd></div>';
     else await strip();
 
+    // ── Part B: delegation chain toggle ──
+    const ct = $('chain-toggle'); ct.checked = !!state.delegation_chain;
+    const chainOn = () => ct.checked;
+    const cbw = $('chain-beats-wrap'); cbw.hidden = !ct.checked;
+    ct.onchange = () => { cbw.hidden = !ct.checked; };
+    (state.chain_beats || []).forEach(b => {
+      const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p;
+      btn.innerHTML = `<span class="beat__label">${esc(b.label)}<small>${esc(b.hint)}</small></span><span class="beat__expect">${esc(b.expect)}</span>`;
+      btn.onclick = async () => {
+        btn.disabled = true; btn.dataset.running = 'true';
+        try {
+          const r = await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, invoice_ref: b.invoice_ref, signer: b.signer, chain: true, delegate_amount: b.delegate_amount, delegate_account: b.delegate_account || null });
+          if (lines.querySelector('.terminal__hint')) lines.innerHTML = '';
+          lines.append(termLine(b, r)); lines.scrollTop = lines.scrollHeight;
+          if (r.decision === 'DENY') setDenies(Math.min(3, (r.deny_count || denies + 1)));
+          await strip();
+        } finally { btn.disabled = false; delete btn.dataset.running; }
+      };
+      $('chain-beats').append(el('li').appendChild(btn).parentElement);
+    });
+    function chainHtml(ch, deleg) {
+      if (!ch) return '';
+      const s = ch.scopes;
+      return `<span class="chain__inv">${esc(ch.invariant)}</span><div class="chain__scopes"><div><strong>S0 · root mandate</strong>${s.S0.beneficiaries} beneficiaries · ceiling ${gbp(s.S0.ceiling)} · ${esc(s.S0.actions.join(', '))}</div><div><strong>S1 · delegation</strong>${esc((s.S1.beneficiaries || []).join(', ') || '—')} · ceiling ${gbp(s.S1.ceiling)} · ${esc((s.S1.actions || []).join(', '))}<br><span class="small">${esc(s.S1.issuer || '')} → ${esc(s.S1.delegate || '')}</span></div><div><strong>action</strong>${esc(s.action.action)} · ${esc(s.action.payee)} · ${gbp(s.action.amount)}</div></div><ul class="chain__checks">${ch.checks.map(c => `<li class="${c.ok ? '' : (c.note.startsWith('not evaluated') ? 'skip' : 'fail')}"><b>${esc(c.id)}</b> ${esc(c.title)}: ${esc(c.note)}</li>`).join('')}</ul>`;
+    }
+
     // ── Task 1: the agent reads an invoice ──
     const ib = $('invoice-buttons');
     (state.invoices || []).forEach(inv => {
       const b = el('button', 'btn ' + (inv.id.endsWith('clean') ? 'btn--secondary' : 'btn--warning'), esc(inv.label) + ' <span class="btn__sub mono">' + esc(inv.id) + '</span>'); b.type = 'button'; b.disabled = !p;
       b.onclick = async () => {
         ib.querySelectorAll('button').forEach(x => x.disabled = true); b.textContent = 'Agent reading…';
-        try { const r = await api('POST', '/api/agent/invoice', { passport_id: p.passport_id, invoice_id: inv.id }); await showInvoice(r); await strip(); }
+        try { const r = await api('POST', '/api/agent/invoice', { passport_id: p.passport_id, invoice_id: inv.id, chain: chainOn() }); await showInvoice(r); await strip(); }
         catch (e) { alert(e.message); }
         finally { ib.querySelectorAll('button').forEach(x => x.disabled = false); b.innerHTML = esc(inv.label) + ' <span class="btn__sub mono">' + esc(inv.id) + '</span>'; }
       };
@@ -402,6 +428,10 @@ const AP = (() => {
       // b. the generated instruction
       const i = r.instruction;
       $('inv-instruction').innerHTML = [['Action', esc(i.action_type)], ['Payee', esc(i.supplier_name)], ['Account', `<span class="${ok ? 'right' : 'wrong'}">${esc(acct)}</span>${ok ? ' on the customer-signed mandate' : ` not on the mandate; the customer signed for <span class="mono">${esc(r.registered_payee || '—')}</span>`}`], ['Amount', gbp(i.amount) + ' ' + esc(i.currency)], ['Invoice', esc(i.invoice_ref)], ['Signed by', 'the agent key bound in agent_identity (Ed25519)']].map(([k, v_]) => `<div><dt>${k}</dt><dd>${v_}</dd></div>`).join('');
+      const chv = $('inv-chain');
+      if (r.chain && r.result.chain) { chv.hidden = false; chv.innerHTML = `<strong>Delegation chain</strong> <span class="small">the AP Orchestrator Agent read the invoice and delegated exactly what it read to the Payment Execution Agent, which signed the instruction</span>` + chainHtml(r.result.chain, r.delegation); }
+      else if (r.chain) { chv.hidden = false; chv.innerHTML = '<strong>Delegation chain</strong> <span class="small">presented; the bank refused before reaching it</span>'; }
+      else chv.hidden = true;
       steps.querySelector('[data-step="b"]').hidden = false; await pause(700);
       // c. the bank's decision
       const res = r.result;
@@ -445,11 +475,12 @@ const AP = (() => {
     function termLine(b, r, k) {
       const trace = r.trace.map(s => `<b>${esc(s.rule)}</b> ${s.ok ? '✓' : '✗'} ${esc(s.note)}`).join(' · ');
       const settle = r.settlement ? `<span class="t-settle">${esc(r.settlement.rail_reason)} · 30-day total for this account now ${gbp(r.settlement.ledger_total_after)}</span>` : '';
+      const chainLine = r.chain ? `<span class="t-chain">${esc(r.chain.invariant)} · ${r.chain.checks.map(c => `<b class="${c.ok ? 'ok' : 'fail'}">${esc(c.id)} ${c.ok ? '✓' : '✗'}</b>`).join(' ')} · S1 ${esc((r.chain.scopes.S1.beneficiaries || []).join(', '))} ≤ ${gbp(r.chain.scopes.S1.ceiling)}</span>` : '';
       const rv = r.rails && r.rails.vouch, reg = r.rails && r.rails.authority_registry;
       const rails = r.rails ? `<span class="t-rails">authority registry <b class="${reg !== 'active' ? 'refused' : ''}">${esc(reg)}</b> · vouch rail <b class="${rv.status === 'REVOKED' ? 'refused' : ''}">${esc(rv.status || 'none')}</b>${rv.voucher_id ? ' ' + esc(rv.voucher_id) : ''}${reg !== 'active' && rv.status === 'REVOKED' ? ' · one supervisory action, two rails refuse' : ''}</span>` : '';
       return el('li', null, `<span class="t-time">${t(new Date().toISOString())}</span><span class="t-body">
         <span class="t-head"><span class="t-action">${esc(b.action_type)} · ${esc(b.supplier_name)} · ${esc(b.payee_account_ref)} · ${gbp(b.amount)}${k ? ' · #' + k : ''}${b.signer === 'rogue' ? ' · signed with rogue key' : ''}</span><span class="t-verdict t-verdict--${r.decision}">${r.decision}</span><span class="t-rule">${r.decision === 'ALLOW' ? 'all nine checks passed · ' + esc(r.code) : 'rule ' + esc(r.rule) + ' · ' + esc(r.code)}</span></span>
-        <span class="t-reason">${esc(r.reason)}${r.decision === 'DENY' && r.rule === 'R.6' ? ' · Named-beneficiary mandate check (FATF 2025 AML/CFT alignment)' : ''}</span>${settle}${rails}
+        <span class="t-reason">${esc(r.reason)}${r.decision === 'DENY' && r.rule === 'R.6' ? ' · Named-beneficiary mandate check (FATF 2025 AML/CFT alignment)' : ''}</span>${chainLine}${settle}${rails}
         <span class="t-trace">${trace}</span>
         <span class="t-meta">audit #${r.audit_id} <b>${esc(r.audit_hash.slice(0, 12))}</b> ← <b>${esc(r.prev_hash.slice(0, 12))}</b> · rule pack <b>${esc(r.rule_pack)}</b> · receipt signed by authority · decision replayable</span>
         <details class="receipt"><summary>receipt</summary>${esc(r.receipt)}</details></span>`);

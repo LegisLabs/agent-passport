@@ -15,8 +15,14 @@
     "min_insurance_cover_gbp": 1000000,
     "recognised_software": ["RailPay AP Agent", "LedgerLine Payables", "InvoiceBot"],
     "incident_deny_threshold": 3,
-    "pattern_threshold": {"count": 2, "window_hours": 24, "note": "same rule refused this many times within the window on one passport raises a supervisor alert"}
+    "pattern_threshold": {"count": 2, "window_hours": 24, "note": "same rule refused this many times within the window on one passport raises a supervisor alert"},
+    "delegation_max_gbp": 4000
   },
+  "chain_rules": [
+    {"id": "C.a", "title": "Root mandate scope is well formed", "status": "PROTOTYPE", "source": "Delegation invariant S_n ⊆ … ⊆ S_0", "data": "envelope.mandate", "on_fail": "DENY", "code": "ROOT_SCOPE_INVALID"},
+    {"id": "C.b", "title": "Delegation is a subset of the root mandate", "status": "PROTOTYPE", "source": "Delegation signed by the orchestrator key in agent_identity.cnf; beneficiaries, ceiling, actions, validity ⊆ root", "data": "delegation JWT + envelope.mandate", "on_fail": "DENY", "code": "DELEGATION_EXPANDS_SCOPE"},
+    {"id": "C.c", "title": "Action lies inside the narrowest scope", "status": "PROTOTYPE", "source": "Instruction signed by the delegated execution key named in the delegation", "data": "delegation JWT + instruction", "on_fail": "DENY", "code": "ACTION_OUTSIDE_DELEGATION"}
+  ],
   "application_rules": [
     {"id": "A.1", "title": "Provider licence reference resolves and is active", "status": "CURRENT", "source": "Payment-institution register (analogue of the FCA Financial Services Register)", "check": "licence_active", "fail": "flag"},
     {"id": "A.2", "title": "Companies House number resolves to the provider", "status": "CURRENT", "source": "Companies House register", "check": "companies_house_match", "fail": "flag"},

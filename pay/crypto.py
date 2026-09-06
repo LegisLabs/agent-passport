@@ -148,6 +148,26 @@ def verify_jwt(name: str, token: str | None) -> dict | None:
         return None
 
 
+def sign_jwt_pem(priv_pem: str, payload: dict, typ: str = "JWT") -> str:
+    """Sign with an arbitrary Ed25519 private key (an agent's), kid = thumbprint of its public key."""
+    priv = serialization.load_pem_private_key(priv_pem.encode(), password=None)
+    pub_pem = priv.public_key().public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
+    kid = jwk_thumbprint(public_jwk(pub_pem))[:16]
+    return jwt.encode(payload, priv_pem, algorithm="EdDSA", headers={"kid": kid, "typ": typ})
+
+
+def verify_jwt_jwk(jwk: dict | None, token: str | None) -> dict | None:
+    """Payload if the token verifies against the Ed25519 public key in this JWK, else None."""
+    if not jwk or not token:
+        return None
+    try:
+        pub = Ed25519PublicKey.from_public_bytes(b64u_decode(jwk["x"]))
+        pem = pub.public_bytes(serialization.Encoding.PEM, serialization.PublicFormat.SubjectPublicKeyInfo).decode()
+        return jwt.decode(token, pem, algorithms=["EdDSA"], options={"verify_exp": False, "verify_nbf": False, "verify_aud": False})
+    except Exception:  # noqa: BLE001
+        return None
+
+
 def decode_unverified(token: str) -> tuple[dict, dict]:
     header = jwt.get_unverified_header(token)
     payload = jwt.decode(token, options={"verify_signature": False})

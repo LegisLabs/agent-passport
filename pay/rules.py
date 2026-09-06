@@ -179,10 +179,20 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
     if not step("R.3", bool(ident) and bound, "provider signature verifies; identity bound to this assurance" if ident and bound else ("agent identity does not verify against the provider key" if not ident else "agent identity is not the one this assurance was issued for")):
         return _result("R.3", "DENY", _rule("R.3")["code"], "agent identity signature invalid or not bound to this assurance", trace)
 
-    # R.4 instruction signed by the agent key in agent_identity.cnf
+    # R.4 instruction signed by the agent key in agent_identity.cnf. With a delegation chain (Part B), the
+    # orchestrator's key signs the delegation and the delegated execution key signs the instruction.
     jwk = (ident.get("cnf") or {}).get("jwk")
-    sig_ok = bool(jwk and req.get("agent_signature") and crypto.verify_with_jwk(jwk, request_signing_input(req), req["agent_signature"]))
-    if not step("R.4", sig_ok, "instruction signature matches the agent key" if sig_ok else "instruction not signed by the bound agent key: possible copied passport"):
+    delegation = None
+    if req.get("delegation"):
+        delegation = crypto.verify_jwt_jwk(jwk, req["delegation"])
+        exec_jwk = ((delegation or {}).get("cnf") or {}).get("jwk")
+        sig_ok = bool(delegation and exec_jwk and req.get("agent_signature") and crypto.verify_with_jwk(exec_jwk, request_signing_input(req), req["agent_signature"]))
+        note_ok = "delegation signed by the orchestrator key bound in agent_identity; instruction signed by the delegated execution key"
+        note_bad = "delegation not signed by the bound orchestrator key" if not delegation else "instruction not signed by the key named in the delegation"
+    else:
+        sig_ok = bool(jwk and req.get("agent_signature") and crypto.verify_with_jwk(jwk, request_signing_input(req), req["agent_signature"]))
+        note_ok, note_bad = "instruction signature matches the agent key", "instruction not signed by the bound agent key: possible copied passport"
+    if not step("R.4", sig_ok, note_ok if sig_ok else note_bad):
         return _result("R.4", "DENY", _rule("R.4")["code"], "instruction not signed by the passport's agent key (possession not proven)", trace)
 
     # R.5 mandate present, signed by the customer, unexpired
@@ -196,8 +206,21 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
         step("R.5", False, f"mandate expired {mandate.get('valid_until')}")
         return _result("R.5", "DENY", "MANDATE_EXPIRED", f"mandate expired on {mandate.get('valid_until')}", trace)
 
-    # R.6 action permitted and payee account on the allowlist
     ad = (mandate.get("authorization_details") or [{}])[0]
+
+    # C.a–C.c delegation chain (Part B): only when a delegation is presented. S_action ⊆ S_1 (delegation) ⊆ S_0 (mandate).
+    chain = None
+    if delegation is not None:
+        chain = verify_chain(ad, delegation, req, today)
+        for c in chain["checks"]:
+            trace.append({"rule": c["id"], "title": c["title"], "ok": c["ok"], "note": c["note"]})
+        if not chain["ok"]:
+            failed = next(c for c in chain["checks"] if not c["ok"])
+            out = _result(failed["id"], "DENY", failed["code"], failed["note"], trace)
+            out["chain"] = chain
+            return out
+
+    # R.6 action permitted and payee account on the allowlist
     if req.get("action_type") not in set(ad.get("actions", [])) or req.get("currency") != ad.get("currency"):
         step("R.6", False, f'action "{req.get("action_type")}" {req.get("currency")} not granted (granted: {", ".join(ad.get("actions", []))} {ad.get("currency")})')
         return _result("R.6", "DENY", "OUT_OF_SCOPE", f'action "{req.get("action_type")}" is not within the mandate (granted: {", ".join(ad.get("actions", []))} in {ad.get("currency")})', trace)
@@ -224,4 +247,55 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
         step("R.9", False, f"£{amount:,.0f} above the £{float(thr):,.0f} human-confirmation condition")
         return _result("R.9", "ESCALATE", _rule("R.9")["code"], f"£{amount:,.0f} exceeds the £{float(thr):,.0f} supervisor condition; held for the customer's authorising officer", trace)
     step("R.9", True, f"£{amount:,.0f} within the human-confirmation condition")
-    return _result("R.9", "ALLOW", "WITHIN_MANDATE", "within the customer-signed mandate and the supervisor's conditions", trace)
+    out = _result("R.9", "ALLOW", "WITHIN_MANDATE", "within the customer-signed mandate and the supervisor's conditions", trace)
+    out["chain"] = chain
+    return out
+
+
+# ── Part B: delegation chain ────────────────────────────────────────────────
+CHAIN_RULES = [
+    {"id": "C.a", "title": "Root mandate scope is well formed", "code": "ROOT_SCOPE_INVALID"},
+    {"id": "C.b", "title": "Delegation is a subset of the root mandate (beneficiaries, ceiling, actions, validity)", "code": "DELEGATION_EXPANDS_SCOPE"},
+    {"id": "C.c", "title": "Action lies inside the narrowest scope", "code": "ACTION_OUTSIDE_DELEGATION"},
+]
+
+
+def verify_chain(root_ad: dict, delegation: dict, req: dict, today: date | None = None) -> dict:
+    """S_n ⊆ … ⊆ S_1 ⊆ S_0. Delegation can only narrow authority, never expand it.
+    (a) the root scope is valid; (b) the delegation is a subset of its parent; (c) the action is inside the narrowest scope."""
+    today = today or date.today()
+    checks = []
+    root_accts = {norm_account(x.get("account_ref")) for x in root_ad.get("supplier_allowlist", [])}
+    root_cap = float((root_ad.get("per_payment_limit") or {}).get("amount") or 0)
+    root_actions = set(root_ad.get("actions", []))
+    a_ok = bool(root_accts) and root_cap > 0 and bool(root_actions)
+    checks.append({**CHAIN_RULES[0], "ok": a_ok, "note": f"S0: {len(root_accts)} beneficiaries, ceiling £{root_cap:,.0f}, actions {', '.join(sorted(root_actions))}" if a_ok else "root mandate has no beneficiaries, ceiling or actions"})
+    scope = delegation.get("scope") or {}
+    d_accts = {norm_account(x) for x in scope.get("beneficiaries", [])}
+    d_cap = float(scope.get("max_amount") or 0)
+    d_actions = set(scope.get("actions", []))
+    problems = []
+    if not d_accts or not d_accts <= root_accts:
+        problems.append("beneficiary outside the root mandate")
+    if d_cap <= 0 or d_cap > root_cap:
+        problems.append(f"ceiling £{d_cap:,.0f} above the root £{root_cap:,.0f}")
+    if not d_actions or not d_actions <= root_actions:
+        problems.append("action not granted by the root")
+    if today.isoformat() > str(scope.get("valid_until") or "9999-12-31"):
+        problems.append("delegation expired")
+    b_ok = a_ok and not problems
+    checks.append({**CHAIN_RULES[1], "ok": b_ok, "note": f"S1 ⊆ S0: {len(d_accts)} beneficiar{'y' if len(d_accts) == 1 else 'ies'}, ceiling £{d_cap:,.0f}, actions {', '.join(sorted(d_actions))}" if b_ok else "delegation expands scope: " + "; ".join(problems)})
+    amount = float(req.get("amount") or 0)
+    c_problems = []
+    if req.get("action_type") not in d_actions:
+        c_problems.append(f'action "{req.get("action_type")}" not in the delegation')
+    if norm_account(req.get("payee_account_ref")) not in d_accts:
+        c_problems.append(f"payee {req.get('payee_account_ref')} not in the delegation")
+    if amount > d_cap:
+        c_problems.append(f"£{amount:,.0f} above the delegated ceiling £{d_cap:,.0f}")
+    c_ok = b_ok and not c_problems
+    checks.append({**CHAIN_RULES[2], "ok": c_ok, "note": f"action ⊆ S1: {req.get('action_type')} · {req.get('payee_account_ref')} · £{amount:,.0f}" if c_ok else "; ".join(c_problems) if c_problems else "not evaluated: the delegation itself is invalid"})
+    return {"ok": a_ok and b_ok and c_ok, "checks": checks, "invariant": "S_action ⊆ S_1 ⊆ S_0",
+            "scopes": {"S0": {"beneficiaries": len(root_accts), "ceiling": root_cap, "actions": sorted(root_actions)},
+                       "S1": {"beneficiaries": sorted(x for x in scope.get("beneficiaries", [])), "ceiling": d_cap, "actions": sorted(d_actions), "delegate": delegation.get("sub"), "issuer": delegation.get("iss")},
+                       "action": {"payee": req.get("payee_account_ref"), "amount": amount, "action": req.get("action_type")}}}

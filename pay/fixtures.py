@@ -35,3 +35,17 @@ BEATS = [
     {"n": 8, "label": "Pay Ashby Ironmongery Ltd · invoice AI-3311 · £900", "hint": "lifecycle probe: run it after the officer suspends, reinstates or revokes in Review & issue",
      "action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": ASHBY, "amount": 900, "invoice_ref": "AI-3311", "signer": "agent", "expect": "ALLOW · DENY R.2 after suspend or revoke"},
 ]
+
+
+# Part B: chain beats (shown only when the delegation chain is on). The AP Orchestrator Agent delegates a
+# narrowed scope to the Payment Execution Agent, which signs the instruction. S_action ⊆ S_1 ⊆ S_0.
+CHAIN_BEATS = [
+    {"n": 1, "label": "Orchestrator delegates Fenwick Timber Ltd · ceiling £4,000 · execution agent pays £3,200", "hint": "a valid chain: delegation narrows the £10,000 root, the action sits inside it",
+     "action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": FENWICK, "amount": 3200, "invoice_ref": "FT-2001", "signer": "agent", "delegate_amount": 4000, "expect": "ALLOW · C.a C.b C.c ✓"},
+    {"n": 2, "label": "Same £4,000 delegation · execution agent attempts £4,500", "hint": "the action steps outside the narrowest scope",
+     "action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": FENWICK, "amount": 4500, "invoice_ref": "FT-2002", "signer": "agent", "delegate_amount": 4000, "expect": "DENY C.c"},
+    {"n": 3, "label": "Orchestrator delegates a £12,000 ceiling (root is £10,000) · execution agent pays £3,200", "hint": "a delegation that expands scope is refused before the action is even looked at",
+     "action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": FENWICK, "amount": 3200, "invoice_ref": "FT-2003", "signer": "agent", "delegate_amount": 12000, "expect": "DENY C.b"},
+    {"n": 4, "label": "Orchestrator delegates account 60-11-22 10101010 (not on the mandate) · £2,500", "hint": "the poisoned-invoice chain: the orchestrator narrows to a beneficiary the customer never signed for",
+     "action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 2500, "invoice_ref": "INV-9001", "signer": "agent", "delegate_amount": 4000, "expect": "DENY C.b"},
+]

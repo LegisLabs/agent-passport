@@ -41,6 +41,10 @@ VOUCH_BASE_URL = os.environ.get("API_BASE_URL", "https://cdir.vouch.finance/api/
 # local = the bank executes; vouch = also settle each ALLOW on the vouch rail (needs a seeded kit)
 PAYMENT_RAIL = os.environ.get("PAYMENT_RAIL", "local")
 
+# Part B: delegation chain (AP Orchestrator Agent -> Payment Execution Agent). off | on. Per-request override allowed.
+DELEGATION_CHAIN = os.environ.get("DELEGATION_CHAIN", "off")
+DELEGATION_MAX_GBP = float(os.environ.get("DELEGATION_MAX_GBP", "4000"))
+
 # The cast. Synthetic names; jurisdiction-neutral authority.
 ISSUER = "payments-authority-demo"
 ISSUER_NAME = "National Payments Supervisor (demo)"

@@ -43,6 +43,8 @@ All names, registers, accounts and documents are synthetic. This is a proposed a
 - **Standards Review Assistant** (`/regulator`, `POST /api/applications/{id}/review`): evidence read, rule map, five adversarial tests, sandbox run through the real engine, labelled recommendation, human sign-off. Only the officer's decision signs.
 - **Anomaly Detection & Escalation** (`/regulator`, `GET /api/violations`, `POST /api/passports/{id}/investigation`): violations with status, a 2-in-24h same-rule alert, suspend → investigate → revoke or reinstate.
 
+- **Delegation chain** (Part B, toggle on `/bank`, `DELEGATION_CHAIN=off` by default): AP Orchestrator Agent delegates a narrowed scope to a Payment Execution Agent; the bank verifies S_action ⊆ S_1 ⊆ S_0 as C.a, C.b, C.c between R.5 and R.6. Four boundary beats.
+
 ### The composite passport
 
 Not one JWT. An envelope of three independently signed Ed25519 JWTs, each signed by the party entitled to the claim:

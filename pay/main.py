@@ -94,13 +94,16 @@ def state():
     return {"applications": [public_app(a) for a in apps], "passports": [public_passport(p) for p in pps], "beats": fixtures.BEATS,
             "invoices": [{"id": k, "label": "Clean invoice" if k.endswith("clean") else "Poisoned invoice", "text": t} for k, t in extraction.invoices().items()],
             "incidents": db.list_audit(50, kind="incident"), "violations": db.list_violations(), "alerts": db.pattern_alerts(pat["count"], pat["window_hours"]), "pattern_threshold": pat,
-            "vouch_mode": vouch.mode(), "payment_rail": vouch.rail()}
+            "vouch_mode": vouch.mode(), "payment_rail": vouch.rail(),
+            "delegation_chain": config.DELEGATION_CHAIN == "on", "delegation_max_gbp": config.DELEGATION_MAX_GBP, "chain_beats": fixtures.CHAIN_BEATS, "chain_rules": rules.pack().get("chain_rules", [])}
 
 
 def public_app(a: dict) -> dict:
     a = dict(a)
     ag = a.get("agent") or {}
     a["agent"] = {k: v for k, v in ag.items() if k != "private_pem"}
+    if a["agent"].get("execution"):
+        a["agent"]["execution"] = {k: v for k, v in a["agent"]["execution"].items() if k != "private_pem"}
     return a
 
 
@@ -446,6 +449,30 @@ def minimal_passport(p: dict) -> dict:
     }
 
 
+# ── Part B: AP Orchestrator Agent → Payment Execution Agent ─────────────────
+def execution_key(a: dict) -> dict:
+    """The Payment Execution Agent's own key pair, generated once per application and kept with the agent record (demo)."""
+    ag = a["agent"]
+    if not ag.get("execution"):
+        priv, pub = crypto.generate_keypair()
+        jwk = crypto.public_jwk(pub)
+        ag["execution"] = {"agent_id": f"{ag['agent_id']}-exec", "private_pem": priv, "public_pem": pub, "jwk": jwk, "kid": crypto.jwk_thumbprint(jwk)[:16]}
+        db.update_application(a["id"], agent=ag)
+    return ag["execution"]
+
+
+def make_delegation(a: dict, passport_id: str, beneficiary: str, max_amount: float, valid_until: str) -> str:
+    """The orchestrator (the key bound in agent_identity) delegates a narrowed scope to the execution agent."""
+    ex = execution_key(a)
+    payload = {"iss": a["agent"]["agent_id"], "typ": "delegation", "sub": ex["agent_id"], "passport_id": passport_id, "iat": crypto.now_ts(), "cnf": {"jwk": ex["jwk"]},
+               "scope": {"beneficiaries": [beneficiary], "max_amount": float(max_amount), "currency": "GBP", "actions": ["pay_invoice"], "valid_until": valid_until, "purpose": "pay one supplier invoice"}}
+    return crypto.sign_jwt_pem(a["agent"]["private_pem"], payload, typ="delegation+jwt")
+
+
+def chain_on(flag: bool | None) -> bool:
+    return config.DELEGATION_CHAIN == "on" if flag is None else bool(flag)
+
+
 class ActIn(BaseModel):
     passport_id: str
     action_type: str = "pay_invoice"
@@ -455,6 +482,9 @@ class ActIn(BaseModel):
     currency: str = "GBP"
     invoice_ref: str | None = None
     signer: str = "agent"  # agent | rogue
+    chain: bool | None = None            # None = deployment default (DELEGATION_CHAIN)
+    delegate_amount: float | None = None # orchestrator's ceiling for this delegation
+    delegate_account: str | None = None  # orchestrator's beneficiary (defaults to the instruction's payee)
 
 
 _rogue: dict | None = None
@@ -475,7 +505,11 @@ def agent_act(body: ActIn):
     a = db.get_application(p["application_id"])
     req = {"passport_id": body.passport_id, "action_type": body.action_type, "payee_account_ref": body.payee_account_ref, "supplier_name": body.supplier_name,
            "amount": body.amount, "currency": body.currency, "invoice_ref": body.invoice_ref, "nonce": crypto.new_nonce()}
-    key = a["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
+    if chain_on(body.chain):
+        req["delegation"] = make_delegation(a, body.passport_id, body.delegate_account or body.payee_account_ref, body.delegate_amount or config.DELEGATION_MAX_GBP, p["expires_at"])
+        key = execution_key(a)["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
+    else:
+        key = a["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
     req["agent_signature"] = crypto.sign_bytes(key, rules.request_signing_input(req))
     return verify(VerifyIn(passport_id=body.passport_id, instruction=req))
 
@@ -484,6 +518,7 @@ class InvoiceIn(BaseModel):
     passport_id: str
     invoice_id: str          # INV-9001-clean | INV-9001-poisoned
     signer: str = "agent"
+    chain: bool | None = None
 
 
 @app.post("/api/agent/invoice")
@@ -504,7 +539,12 @@ def agent_invoice(body: InvoiceIn):
     a = db.get_application(p["application_id"])
     req = {"passport_id": body.passport_id, "action_type": "pay_invoice", "payee_account_ref": account_ref, "supplier_name": v("supplier_name"),
            "amount": float(v("amount_gbp") or 0), "currency": "GBP", "invoice_ref": v("invoice_ref"), "nonce": crypto.new_nonce()}
-    key = a["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
+    if chain_on(body.chain):
+        # the orchestrator read the invoice; it delegates exactly what it read to the execution agent
+        req["delegation"] = make_delegation(a, body.passport_id, account_ref, config.DELEGATION_MAX_GBP, p["expires_at"])
+        key = execution_key(a)["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
+    else:
+        key = a["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
     req["agent_signature"] = crypto.sign_bytes(key, rules.request_signing_input(req))
     mandate = p.get("mandate") or p["mandate_proposed"]
     allow = mandate["authorization_details"][0]["supplier_allowlist"]
@@ -512,8 +552,9 @@ def agent_invoice(body: InvoiceIn):
     registered = next((x["account_ref"] for x in allow if (x.get("name") or "").lower() == str(v("supplier_name") or "").lower()), None)
     evidence = {"invoice": body.invoice_id, "extraction_mode": mode, "facts": facts, "instruction_payee": account_ref, "registered_payee": registered}
     result = verify(VerifyIn(passport_id=body.passport_id, instruction=req, evidence=evidence))
-    return {"invoice": body.invoice_id, "text": texts[body.invoice_id], "extraction": facts, "extraction_mode": mode,
-            "instruction": {k: v_ for k, v_ in req.items() if k != "agent_signature"}, "on_allowlist": on_allowlist, "registered_payee": registered, "result": result}
+    return {"invoice": body.invoice_id, "text": texts[body.invoice_id], "extraction": facts, "extraction_mode": mode, "chain": bool(req.get("delegation")),
+            "delegation": crypto.decode_unverified(req["delegation"])[1] if req.get("delegation") else None,
+            "instruction": {k: v_ for k, v_ in req.items() if k not in ("agent_signature", "delegation")}, "on_allowlist": on_allowlist, "registered_payee": registered, "result": result}
 
 
 class VerifyIn(BaseModel):

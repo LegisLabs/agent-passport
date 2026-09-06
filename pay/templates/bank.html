@@ -17,10 +17,11 @@
 <section class="invoice" id="invoice-demo">
   <h2 class="h3">Agent 247 reads an invoice</h2>
   <p class="hint">The model reads the invoice into a payment instruction, verbatim quote per field. Then the bank checks the instruction against the customer-signed mandate. Read the clean invoice first, then the poisoned one.</p>
+  <label class="chain-toggle"><input type="checkbox" id="chain-toggle"> Run with the delegation chain: <strong>AP Orchestrator Agent</strong> reads and delegates a narrowed scope, <strong>Payment Execution Agent</strong> signs and pays. Invariant S<sub>action</sub> ⊆ S<sub>1</sub> ⊆ S<sub>0</sub>.</label>
   <div class="actions" id="invoice-buttons"></div>
   <ol class="invoice__steps" id="invoice-steps" hidden>
     <li class="invoice__step" data-step="a"><h3 class="h4">a · What the agent read</h3><pre class="code code--wrap invoice__text" id="inv-text"></pre><dl class="kv invoice__facts" id="inv-facts"></dl></li>
-    <li class="invoice__step" data-step="b"><h3 class="h4">b · The instruction the agent generated and signed</h3><dl class="kv" id="inv-instruction"></dl></li>
+    <li class="invoice__step" data-step="b"><h3 class="h4">b · The instruction the agent generated and signed</h3><dl class="kv" id="inv-instruction"></dl><div class="chain" id="inv-chain" hidden></div></li>
     <li class="invoice__step" data-step="c"><h3 class="h4">c · The bank's decision</h3><div class="invoice__verdict" id="inv-verdict"></div></li>
     <li class="invoice__step" data-step="d"><p class="invoice__caption" id="inv-caption"></p></li>
   </ol>
@@ -35,6 +36,11 @@
     <h2 class="h3">Proposed instructions</h2>
     <p class="hint">Run them in order for the demo. Repeated ones keep going until the bank refuses.</p>
     <ol class="beats" id="beats"></ol>
+    <div id="chain-beats-wrap" hidden>
+      <h2 class="h3">Boundary tests with the delegation chain</h2>
+      <p class="hint">Delegation can only narrow authority, never expand it. Three checks, shown step by step: C.a root scope valid, C.b delegation ⊆ root, C.c action ⊆ delegation.</p>
+      <ol class="beats" id="chain-beats"></ol>
+    </div>
     <p class="hint">Lifecycle beat: in <a href="/regulator">Review &amp; issue</a>, suspend the passport and rerun instruction 8 (DENY R.2), reinstate (ALLOW), revoke (DENY R.2, and the vouch rail refuses too).</p>
   </div>
   <div class="col-side col-side--terminal">

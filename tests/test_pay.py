@@ -372,3 +372,65 @@ def test_revocation_loop_reinstate_false_positive(client):
     assert act(client, pid, ok)["decision"] == "ALLOW"
     a = client.get("/api/audit").json()
     assert a["chain"]["ok"] and all(client.post(f"/api/audit/{r['id']}/replay").json()["identical"] for r in a["rows"][:8] if r["kind"] == "verify")
+
+
+# ── Part B: delegation chain (off by default) ───────────────────────────────
+FEN = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 44556677", "amount": 3200}
+
+
+def chain_act(client, pid, extra):
+    return client.post("/api/agent/act", json={"passport_id": pid, "invoice_ref": "FT-C", "signer": "agent", "chain": True, **FEN, **extra}).json()
+
+
+def test_chain_off_by_default_single_agent_path_unchanged(client):
+    p, _ = issue_one(client)
+    r = act(client, p["passport_id"], FEN)
+    assert r["decision"] == "ALLOW" and r["chain"] is None and [s["rule"] for s in r["trace"]] == [f"R.{i}" for i in range(1, 10)]
+    assert client.get("/api/state").json()["delegation_chain"] is False
+
+
+def test_valid_chain_passes_and_is_visible(client):
+    p, _ = issue_one(client)
+    r = chain_act(client, p["passport_id"], {"delegate_amount": 4000})
+    assert r["decision"] == "ALLOW" and r["chain"]["ok"] is True
+    assert [c["id"] for c in r["chain"]["checks"]] == ["C.a", "C.b", "C.c"] and all(c["ok"] for c in r["chain"]["checks"])
+    assert [s["rule"] for s in r["trace"]] == ["R.1", "R.2", "R.3", "R.4", "R.5", "C.a", "C.b", "C.c", "R.6", "R.7", "R.8", "R.9"]
+    assert "delegated execution key" in next(s for s in r["trace"] if s["rule"] == "R.4")["note"]
+    assert r["chain"]["scopes"]["S1"]["ceiling"] == 4000 and r["chain"]["scopes"]["S0"]["ceiling"] == 10000
+    # replay of a chained decision is identical
+    assert client.post(f"/api/audit/{r['audit_id']}/replay").json()["identical"] is True
+
+
+def test_action_outside_narrowest_scope_refused_at_c_c(client):
+    p, _ = issue_one(client)
+    r = chain_act(client, p["passport_id"], {"delegate_amount": 4000, "amount": 4500})
+    assert r["decision"] == "DENY" and r["rule"] == "C.c" and r["code"] == "ACTION_OUTSIDE_DELEGATION"
+    assert r["chain"]["checks"][1]["ok"] is True and r["chain"]["checks"][2]["ok"] is False
+    assert r["violation"]["status"] == "OPEN"
+
+
+def test_expanding_delegation_refused_at_c_b(client):
+    p, _ = issue_one(client)
+    r = chain_act(client, p["passport_id"], {"delegate_amount": 12000})
+    assert r["decision"] == "DENY" and r["rule"] == "C.b" and r["code"] == "DELEGATION_EXPANDS_SCOPE" and "above the root" in r["reason"]
+    # a delegation to a beneficiary the customer never signed for is also an expansion
+    r = chain_act(client, p["passport_id"], {"delegate_amount": 4000, "delegate_account": "60-11-22 10101010", "payee_account_ref": "60-11-22 10101010"})
+    assert r["rule"] == "C.b" and "beneficiary outside the root mandate" in r["reason"]
+
+
+def test_poisoned_invoice_with_chain_refused(client):
+    p, _ = issue_one(client)
+    r = client.post("/api/agent/invoice", json={"passport_id": p["passport_id"], "invoice_id": "INV-9001-poisoned", "chain": True}).json()
+    assert r["chain"] is True and r["delegation"]["scope"]["beneficiaries"] == ["60-11-22 10101010"] and r["delegation"]["iss"] == "payrail-agent-247"
+    assert r["result"]["decision"] == "DENY" and r["result"]["rule"] == "C.b"
+    ok = client.post("/api/agent/invoice", json={"passport_id": p["passport_id"], "invoice_id": "INV-9001-clean", "chain": True}).json()
+    assert ok["result"]["decision"] == "ALLOW" and ok["result"]["chain"]["ok"] is True
+
+
+def test_rogue_execution_key_fails_r4_even_with_valid_delegation(client):
+    p, _ = issue_one(client)
+    r = client.post("/api/agent/act", json={"passport_id": p["passport_id"], "invoice_ref": "FT-R", "signer": "rogue", "chain": True, "delegate_amount": 4000, **FEN}).json()
+    assert r["rule"] == "R.4" and "not signed by the key named in the delegation" in next(s for s in r["trace"] if s["rule"] == "R.4")["note"]
+    # execution private key never leaves the server
+    a = client.get("/api/state").json()["applications"][0]
+    assert "private_pem" not in json.dumps(a["agent"])

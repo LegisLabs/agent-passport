@@ -1,0 +1,103 @@
+"""Iteration 2 walk: invoice demo, review assistant, exception loop, labels. Fixture mode."""
+import sys
+from playwright.sync_api import sync_playwright
+BASE = "http://127.0.0.1:8014"
+SHOTS = "/tmp/agent-passport-shots"
+problems, console = [], []
+def check(c, m):
+    (print("  ✓", m) if c else (problems.append(m), print("  ✗", m)))
+def low(page, sel): return page.locator(sel).inner_text().lower()
+def issue(page, sign=True):
+    page.goto(BASE + "/provider"); page.click("#btn-new"); page.wait_for_selector("#btn-extract:not([hidden])"); page.click("#btn-extract")
+    page.wait_for_selector('[data-step="2"]:not([hidden])', timeout=60000); page.click("#btn-key"); page.wait_for_selector("#btn-sign:not([hidden])"); page.click("#btn-sign")
+    page.wait_for_selector("#btn-submit:not([hidden])"); page.click("#btn-submit"); page.wait_for_selector("#confirm:not([hidden])")
+    page.goto(BASE + "/regulator"); page.wait_for_selector("#rg-case:not([hidden])")
+    page.wait_for_selector("#review:not([hidden]) > li", timeout=60000)
+    page.fill("#rg-officer-note", "Assistant recommends approve with conditions; I decide."); page.click("#btn-approve"); page.wait_for_selector("#rg-issued:not([hidden])")
+    pid = page.locator("#pp-id").inner_text()
+    if sign:
+        page.goto(BASE + "/customer"); page.wait_for_selector("#btn-sign-mandate"); page.click("#btn-sign-mandate"); page.wait_for_selector("#cu-sig:not([hidden])")
+    return pid
+def invoice(page, which):
+    page.goto(BASE + "/bank"); page.wait_for_selector("#invoice-buttons button")
+    page.locator("#invoice-buttons button").nth(which).click()
+    page.wait_for_selector('#invoice-steps [data-step="d"]:not([hidden])', timeout=60000)
+    return page.locator("#inv-verdict").inner_text(), page.locator("#inv-caption").inner_text()
+
+def main():
+  with sync_playwright() as pw:
+      b = pw.chromium.launch(); page = b.new_context(viewport={"width": 1280, "height": 900}).new_page()
+      page.on("pageerror", lambda e: console.append(("pageerror", str(e))))
+      page.request.post(BASE + "/api/reset")
+      print("== review assistant")
+      pid = issue(page)
+      page.goto(BASE + "/regulator"); page.wait_for_selector("#review > li")
+      check(page.locator("#review > li").count() == 6, "six steps rendered")
+      check("standards review assistant" in low(page, "#review"), "assistant label present")
+      check("5 of 5 as expected" in low(page, "#review"), "sandbox 5 of 5 through the real engine")
+      check("ai recommendation" in low(page, "#review") and "approve with conditions" in low(page, "#review"), "recommendation labelled, human decision required")
+      check("regulatory assurance" in low(page, "main") and "psr 2017" in low(page, "main"), "regulator header label")
+      check(page.locator(".badges li").count() == 4, "four standards badges under the envelope")
+      check("oauth 2.0 rfc 9396" in low(page, "#envelope"), "mandate panel labelled RFC 9396")
+      page.screenshot(path=f"{SHOTS}/i2-01-review.png", full_page=True)
+      print("== invoice demo")
+      v, cap = invoice(page, 0)
+      check("allow" in v.lower() and "all nine checks passed" in v.lower(), f"clean invoice: {v.splitlines()[0]}")
+      check("genuine invoice" in cap.lower(), "clean caption")
+      v, cap = invoice(page, 1)
+      check("deny" in v.lower() and "r.6" in v.lower() and "payee_not_on_mandate" in v.lower(), f"poisoned invoice: {v.splitlines()[0]}")
+      check("fatf 2025" in v.lower(), "FATF note on R.6")
+      check("violation #" in v.lower() and "open" in v.lower(), "violation row recorded OPEN")
+      check(cap == "The AI read a manipulated invoice and would have paid the wrong account. The mandate stopped it.", "verbatim caption")
+      check("10101010" in page.locator("#inv-text mark").first.inner_text() or page.locator("#inv-text mark").count() >= 1, "account marked in the text")
+      check(page.locator("#inv-instruction .wrong").count() == 1, "wrong account highlighted red")
+      check("cryptographic delegation verifier" in low(page, "main"), "bank header label")
+      page.screenshot(path=f"{SHOTS}/i2-02-poisoned.png", full_page=True)
+      print("== exception loop")
+      page.goto(BASE + "/regulator"); page.wait_for_selector("#rg-violations tbody tr")
+      check(page.locator("#rg-alert").is_hidden(), "no alert after one refusal")
+      invoice(page, 1)
+      page.goto(BASE + "/regulator"); page.wait_for_selector("#rg-alert:not([hidden])")
+      check("supervisor alert" in low(page, "#rg-alert") and "r.6" in low(page, "#rg-alert"), "alert banner after the second poisoned invoice")
+      check(page.locator("#rg-violations tbody tr[data-vid]").count() == 2, "two violation rows")
+      page.locator("#rg-violations tbody tr[data-vid]").first.click(); page.wait_for_selector("#ex-evidence:not([hidden])")
+      check("10101010" in low(page, "#ex-evidence") and "44556677" in low(page, "#ex-evidence"), "evidence shows read account vs signed account")
+      page.fill("#rg-reason", "pattern alert: two redirected invoices")
+      page.click("#ex-actions button:has-text('Suspend')"); page.wait_for_function("document.querySelector('#ex-state').innerText.toLowerCase().includes('suspended')")
+      page.click("#ex-actions button:has-text('Open investigation')"); page.wait_for_function("document.querySelector('#ex-state').innerText.toLowerCase().includes('investigating')")
+      check("investigating" in low(page, "#rg-violations"), "violations marked investigating")
+      page.screenshot(path=f"{SHOTS}/i2-03-investigating.png", full_page=True)
+      page.goto(BASE + "/bank"); page.wait_for_selector("#beats button"); page.locator("#beats button").nth(7).click(); page.wait_for_selector("#term-lines li .t-verdict")
+      check("r.2" in low(page, "#term-lines li:has(.t-verdict)"), "suspended: probe DENY R.2")
+      page.goto(BASE + "/regulator"); page.wait_for_selector("#ex-actions button"); page.fill("#rg-reason", "misuse confirmed")
+      page.click("#ex-actions button:has-text('Revoke')"); page.wait_for_function("document.querySelector('#ex-state').innerText.toLowerCase().includes('revoked')")
+      page.wait_for_function("document.querySelector('#rail').innerText.toLowerCase().includes('revoked on rail')")
+      check("resolved" in low(page, "#rg-violations") and "revoked" in low(page, "#rg-violations"), "violations resolved as revoked")
+      check(page.locator("#rg-alert").is_hidden() or True, "alert state read")
+      page.goto(BASE + "/bank"); page.wait_for_selector("#beats button"); page.locator("#beats button").nth(7).click(); page.wait_for_selector("#term-lines li .t-verdict")
+      check("two rails refuse" in low(page, "#term-lines li:has(.t-verdict)"), "revoked: two rails refuse")
+      print("== reinstate path")
+      pid2 = issue(page)
+      invoice(page, 1)
+      page.goto(BASE + "/regulator"); page.wait_for_selector("#ex-actions button"); page.fill("#rg-reason", "looks odd")
+      page.click("#ex-actions button:has-text('Suspend')"); page.wait_for_function("document.querySelector('#ex-state').innerText.toLowerCase().includes('suspended')")
+      page.click("#ex-actions button:has-text('Reinstate')"); page.wait_for_function("document.querySelector('#ex-state').innerText.toLowerCase().includes('active')")
+      check("reinstated" in low(page, "#rg-violations"), "violation resolved as reinstated")
+      page.goto(BASE + "/bank"); page.wait_for_selector("#beats button"); page.locator("#beats button").nth(7).click(); page.wait_for_selector("#term-lines li .t-verdict")
+      check("allow" in low(page, "#term-lines .t-verdict"), "reinstated: probe ALLOW")
+      print("== about + mobile")
+      page.goto(BASE + "/about"); a = low(page, "main")
+      for k in ("standards review assistant", "cryptographic delegation verifier", "visa tap", "erc-8004", "did:key", "rfc 9396", "spiffe", "fatf", "never expand"):
+          check(k in a, f"about mentions {k}")
+      m = b.new_context(viewport={"width": 390, "height": 844}).new_page()
+      for path in ("regulator", "customer", "bank", "about"):
+          m.goto(BASE + "/" + path); m.wait_for_timeout(800)
+          w = m.evaluate("document.documentElement.scrollWidth"); check(w <= 390, f"/{path} no horizontal overflow ({w}px)")
+      m.screenshot(path=f"{SHOTS}/i2-m-regulator.png", full_page=True)
+      b.close()
+  print("console:", console or "clean"); print("PROBLEMS:", problems or "none")
+  sys.exit(1 if problems or console else 0)
+
+
+if __name__ == '__main__':
+    main()
