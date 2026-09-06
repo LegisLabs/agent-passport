@@ -1,19 +1,20 @@
-Know Your Agent Working Group                                 T. Cvikl
-Recommendation P.1 (09/2026)                                  A. Tran
-Series P: Authority of Software Agents on Payment Rails        B. Liu
+Agent Passport Standards Series                               T. Cvikl
+APS 1001 (2026)                                               A. Tran
+Series 1000: Payment Rails                                     B. Liu
 Category: Proposed Standard                               J. Burnazyan
                                                      Legis Labs Ltd
                                                      6 September 2026
 
 
-                        RECOMMENDATION P.1
+                             APS 1001
 
-        Agent Passport: Authority of Autonomous Agents on Payment Rails
+   Agent Passport Standard: Delegated Authority of Autonomous Agents
+                          on Payment Rails
 
 
 Status of this Memo
 
-   This Recommendation defines the procedure by which a payment institution's
+   APS 1001 specifies the procedure by which a payment institution's
    autonomous software agent proves, before a payment executes, that
    it acts within a current, human-granted authority.  It is a
    proposal for discussion, demonstrated on synthetic data.  It does
@@ -56,8 +57,7 @@ Abstract
                  provider on the customer's behalf.
    Relying party The bank that executes payment instructions.
    Passport      The envelope defined in Section 3.  A passport that
-                 satisfies Sections 3 to 6 is APS 1001-conformant.  A passport that
-                 satisfies Sections 3 to 6 is P.1-conformant.
+                 satisfies Sections 3 to 6 is APS 1001-conformant.
 
 3.  The Passport
 
@@ -135,7 +135,7 @@ Abstract
    invoice appeared.  Compromise of the authority's key, and
    attestation of the running software, are out of scope.
 
-8.  What This Recommendation Does Not Specify
+8.  What APS 1001 Does Not Specify
 
    Settlement.  Know-your-customer, sanctions or funds checks.
    Whether a payment is wise.  Any judgement by a model: models read
@@ -144,8 +144,8 @@ Abstract
 9.  References
 
    APS 1002 (delegation chains, reserved), APS 2001 (tax rails,
-   reserved), RFC 2119, RFC 7519 (JWT), RFC 7800 (cnf), RFC 8037 (EdDSA),
-   RFC 9396 (Rich Authorization Requests), W3C Verifiable
+   reserved), RFC 2119, RFC 7519 (JWT), RFC 7800 (cnf), RFC 8037
+   (EdDSA), RFC 9396 (Rich Authorization Requests), W3C Verifiable
    Credentials (JWT profile), NIST NCCoE 2026 (agent identity and
    authorization), FATF 2025 (AI and AML/CFT).
 
