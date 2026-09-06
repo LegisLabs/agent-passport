@@ -562,3 +562,22 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
 .mandate__form .fields { display: block; }
 .mandate__form .fields .label { display: block; font-weight: 400; font-size: 1.1875rem; margin: .9rem 0 .4rem; }
 .mandate__form .fields .input { width: 100%; max-width: 20rem; display: block; margin-bottom: .2rem; }
+
+/* mirror gov.uk: 960px container centred in the viewport, 30px logotype, 10px vertical padding */
+.masthead__grid { display: block; }
+.masthead__row { max-width: 960px; margin: 0 auto; padding: 10px 0; height: auto; box-sizing: content-box; display: flex; align-items: center; justify-content: space-between; }
+@media (max-width: 1020px) { .masthead__row { margin: 0 30px; } }
+@media (max-width: 640px) { .masthead__row { margin: 0 15px; } }
+.masthead__logo { gap: 8px; height: 30px; }
+.masthead__square { width: 30px; height: 30px; border-width: 5px; }
+.masthead__logotype { font-size: 30px; line-height: 30px; font-weight: 700; letter-spacing: 0; }
+.masthead__dot { width: 8px; height: 8px; margin: 0 4px; background: #fff; }
+.masthead__tag { font-size: 19px; font-weight: 700; text-transform: none; letter-spacing: 0; color: #fff; }
+.shell { min-height: calc(100vh - 50px); }
+.sidebar__list { height: calc(100vh - 50px); }
+@media (max-width: 800px) { .sidebar__list { height: auto; } }
+.masthead__row { padding: 15px 0 16px; }
+.masthead__tag { font-size: 16px; }
+.shell { min-height: calc(100vh - 61px); }
+.sidebar__list { height: calc(100vh - 61px); }
+@media (max-width: 800px) { .sidebar__list { height: auto; } }
