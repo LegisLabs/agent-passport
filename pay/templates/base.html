@@ -12,16 +12,16 @@
 <a href="#main" class="skip">Skip to main content</a>
 
 <header class="masthead" role="banner">
-  <div class="masthead__row">
+  <div class="masthead__grid"><div class="masthead__spacer" aria-hidden="true"></div><div class="wrap masthead__row">
     <a class="masthead__logo" href="/provider" aria-label="GOV DEMO home">
       <span class="masthead__square" aria-hidden="true"></span>
       <span class="masthead__logotype">GOV<span class="masthead__dot" aria-hidden="true"></span>DEMO</span>
     </a>
     <span class="masthead__tag">Prototype v{{ version }} · payments</span>
-  </div>
+  </div></div>
 </header>
 
-<div class="shell wrap">
+<div class="shell">
 <nav class="sidebar" aria-label="Views">
   <ol class="sidebar__list">
     <li><a class="sidebar__item" href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}><span class="sidebar__num">1</span>Provider Panel</a></li>
@@ -33,7 +33,7 @@
   </ol>
 </nav>
 
-<main id="main" class="main">
+<main id="main" class="wrap main">
 {% block content %}{% endblock %}
 </main>
 </div>
