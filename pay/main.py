@@ -597,7 +597,16 @@ def verify(body: VerifyIn):
              "ledger_total_before": ledger_total, "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req)),
              "decision": res["decision"], "rule": res["rule"], "code": res["code"], "reason": res["reason"], "trace": res["trace"], "rule_pack": res["rule_pack"]}
     rec = audit.record("verify", body.passport_id, entry, receipt_for={"passport_id": body.passport_id, "decision": res["decision"], "rule": res["rule"], "code": res["code"], "instruction_hash": entry["instruction_hash"]})
-    out = {**res, "rule_id": res["rule"], "audit_id": rec["id"], "audit_hash": rec["hash"], "audit_ref": rec["hash"], "prev_hash": rec["prev_hash"], "receipt": rec["receipt"],
+    r4 = next((t for t in res["trace"] if t["rule"] == "R.4"), None)
+    agent_kid = None
+    try:
+        ident_jwk = ((crypto.verify_jwt("payrail", env.get("agent_identity")) or {}).get("cnf") or {}).get("jwk")
+        agent_kid = crypto.jwk_thumbprint(ident_jwk)[:16] if ident_jwk else None
+    except Exception:  # noqa: BLE001
+        agent_kid = None
+    signature = {"checked": r4 is not None, "verified": bool(r4 and r4["ok"]), "alg": "Ed25519 (EdDSA, RFC 8037)", "agent_kid": agent_kid,
+                 "signed_fields": list(rules.REQUEST_FIELDS), "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req))}
+    out = {**res, "rule_id": res["rule"], "signature": signature, "audit_id": rec["id"], "audit_hash": rec["hash"], "audit_ref": rec["hash"], "prev_hash": rec["prev_hash"], "receipt": rec["receipt"],
            "ledger_total_before": ledger_total, "settlement": None, "incident": None, "violation": None,
            "rails": {"authority_registry": reg_status, "vouch": {"voucher_id": p.get("vouch_voucher_id") if p else None, "status": p.get("vouch_status") if p else None, "mode": p.get("vouch_mode") if p else None}}}
     if res["decision"] == "ALLOW":

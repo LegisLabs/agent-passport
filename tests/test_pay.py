@@ -112,11 +112,11 @@ def test_oracle(client, issued, case):
 def test_ledger_limit_in_mandate_total_at_bank(client):
     p, _ = issue_one(client)
     pid = p["passport_id"]
-    fen = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 44556677", "amount": 4900}
+    fen = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 4900}
     decisions = [act(client, pid, fen)["decision"] for _ in range(5)]
     assert decisions == ["ALLOW", "ALLOW", "ALLOW", "ALLOW", "DENY"]  # 19,600 allowed, 24,500 refused
     full = client.get(f"/api/passports/{pid}").json()
-    assert full["ledger"]["60-11-22 44556677"]["total"] == 19600 and full["payments"] == 4
+    assert full["ledger"]["60-11-22 10101010"]["total"] == 19600 and full["payments"] == 4
     # another account is unaffected
     assert act(client, pid, {**fen, "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455"})["decision"] == "ALLOW"
 
@@ -124,7 +124,7 @@ def test_ledger_limit_in_mandate_total_at_bank(client):
 def test_three_denies_escalate_to_supervisor(client):
     p, _ = issue_one(client)
     pid = p["passport_id"]
-    bad = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 100}
+    bad = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 99887766", "amount": 100}
     r1, r2, r3 = (act(client, pid, bad) for _ in range(3))
     assert r1["incident"] is None and r2["incident"] is None and r3["incident"]["denies"] == 3
     incidents = client.get("/api/state").json()["incidents"]
@@ -136,7 +136,7 @@ def test_customer_signature_completes_envelope(client):
     p, _ = issue_one(client, sign_mandate=False)
     pid = p["passport_id"]
     assert p["mandate_signed"] is False and client.get(f"/api/passports/{pid}").json()["verification"]["failure"] == "mandate_missing"
-    fen = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 44556677", "amount": 3200}
+    fen = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 3200}
     assert act(client, pid, fen)["rule"] == "R.5"
     client.post(f"/api/passports/{pid}/mandate/sign")
     assert client.get(f"/api/passports/{pid}").json()["verification"]["ok"] is True
@@ -203,7 +203,7 @@ def test_verify_accepts_flat_contract_and_aliases(client):
     """The brief's POST /api/verify shape: flat instruction fields + agent_signature → decision, rule_id, reason, audit_ref, receipt."""
     p, _ = issue_one(client)
     a = db.get_application(db.get_passport(p["passport_id"])["application_id"])
-    flat = {"passport_id": p["passport_id"], "action_type": "pay_invoice", "payee_account_ref": "60-11-22 44556677", "supplier_name": "Fenwick Timber Ltd",
+    flat = {"passport_id": p["passport_id"], "action_type": "pay_invoice", "payee_account_ref": "60-11-22 10101010", "supplier_name": "Fenwick Timber Ltd",
             "amount": 3200, "currency": "GBP", "invoice_ref": "FT-1042", "nonce": "n1"}
     flat["agent_signature"] = crypto.sign_bytes(a["agent"]["private_pem"], rules.request_signing_input(flat))
     r = client.post("/api/verify", json=flat).json()
@@ -215,13 +215,13 @@ def test_verify_accepts_flat_contract_and_aliases(client):
 
 
 def test_vouch_merchant_map_and_rail_fallback(monkeypatch):
-    monkeypatch.setenv("VOUCH_MERCHANTS", '{"60-11-22 44556677": "m-fen"}')
+    monkeypatch.setenv("VOUCH_MERCHANTS", '{"60-11-22 10101010": "m-fen"}')
     monkeypatch.delenv("VOUCH_MERCHANT_ID", raising=False)
-    assert vouch.merchant_for("60-11-22 44556677") == "m-fen"
-    assert vouch.merchant_for("601122 44556677") == "m-fen"  # same account, different punctuation
-    assert vouch.merchant_for("60-11-22 10101010") is None    # redirected account has no merchant on the rail
+    assert vouch.merchant_for("60-11-22 10101010") == "m-fen"
+    assert vouch.merchant_for("601122 10101010") == "m-fen"  # same account, different punctuation
+    assert vouch.merchant_for("60-11-22 99887766") is None    # redirected account has no merchant on the rail
     # local rail: the bank executes, nothing leaves the process
-    assert vouch.settle_payment({"payee_account_ref": "60-11-22 44556677", "amount": 1})["rail"] == "local"
+    assert vouch.settle_payment({"payee_account_ref": "60-11-22 10101010", "amount": 1})["rail"] == "local"
 
 
 # ── Iteration 2, Task 1: the agent reads an invoice ─────────────────────────
@@ -232,8 +232,8 @@ def test_invoice_extraction_fixtures():
     clean, m1 = extraction.extract_invoice("INV-9001-clean", texts["INV-9001-clean"])
     bad, m2 = extraction.extract_invoice("INV-9001-poisoned", texts["INV-9001-poisoned"])
     assert m1 == m2 == "fixture"
-    assert clean["account_number"]["value"] == "44556677" and clean["bank_details_changed"]["value"] is False
-    assert bad["account_number"]["value"] == "10101010" and bad["bank_details_changed"]["value"] is True
+    assert clean["account_number"]["value"] == "10101010" and clean["bank_details_changed"]["value"] is False
+    assert bad["account_number"]["value"] == "99887766" and bad["bank_details_changed"]["value"] is True
     assert clean["amount_gbp"]["value"] == bad["amount_gbp"]["value"] == 2500
     for f in (clean, bad):
         assert all(f[k]["quote"] and f[k]["source_doc"] for k in extraction.INVOICE_FIELDS)
@@ -243,16 +243,16 @@ def test_clean_invoice_allows_and_poisoned_invoice_is_refused_with_violation(cli
     p, _ = issue_one(client)
     pid = p["passport_id"]
     r = client.post("/api/agent/invoice", json={"passport_id": pid, "invoice_id": "INV-9001-clean"}).json()
-    assert r["on_allowlist"] is True and r["instruction"]["payee_account_ref"] == "60-11-22 44556677" and r["instruction"]["amount"] == 2500
+    assert r["on_allowlist"] is True and r["instruction"]["payee_account_ref"] == "60-11-22 10101010" and r["instruction"]["amount"] == 2500
     assert r["result"]["decision"] == "ALLOW" and r["result"]["violation"] is None
     r = client.post("/api/agent/invoice", json={"passport_id": pid, "invoice_id": "INV-9001-poisoned"}).json()
-    assert r["on_allowlist"] is False and r["registered_payee"] == "60-11-22 44556677"
-    assert r["instruction"]["payee_account_ref"] == "60-11-22 10101010"
+    assert r["on_allowlist"] is False and r["registered_payee"] == "60-11-22 10101010"
+    assert r["instruction"]["payee_account_ref"] == "60-11-22 99887766"
     assert r["result"]["decision"] == "DENY" and r["result"]["rule"] == "R.6" and r["result"]["code"] == "PAYEE_NOT_ON_MANDATE"
     vid = r["result"]["violation"]["id"]
     v = db.get_violation(vid)
     assert v["status"] == "OPEN" and v["rule"] == "R.6" and v["evidence"]["invoice"] == "INV-9001-poisoned"
-    assert v["evidence"]["facts"]["account_number"]["value"] == "10101010" and "agent_signature" not in v["instruction"]
+    assert v["evidence"]["facts"]["account_number"]["value"] == "99887766" and "agent_signature" not in v["instruction"]
     state = client.get("/api/state").json()
     assert any(x["id"] == vid for x in state["violations"]) and len(state["invoices"]) == 2
     # unknown invoice is refused
@@ -263,7 +263,7 @@ def test_every_bank_deny_writes_a_violation_row(client):
     p, _ = issue_one(client)
     pid = p["passport_id"]
     before = len(db.list_violations(pid))
-    bad = {"action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455", "amount": 11400}
+    bad = {"action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455", "amount": 12000}
     r = act(client, pid, bad)
     assert r["rule"] == "R.7" and r["violation"]["status"] == "OPEN"
     assert len(db.list_violations(pid)) == before + 1
@@ -327,7 +327,7 @@ def test_pattern_alert_needs_two_same_rule_violations_in_window(client):
     alerts = [x for x in client.get("/api/violations").json()["alerts"] if x["passport_id"] == pid]
     assert alerts == []  # one is not a pattern
     # a different rule does not count towards the R.6 pattern
-    act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455", "amount": 11400})
+    act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455", "amount": 12000})
     assert [x for x in client.get("/api/violations").json()["alerts"] if x["passport_id"] == pid] == []
     assert _poison(client, pid)["rule"] == "R.6"
     alerts = [x for x in client.get("/api/state").json()["alerts"] if x["passport_id"] == pid]
@@ -348,7 +348,7 @@ def test_revocation_loop_suspend_investigate_revoke(client):
     client.post(f"/api/passports/{pid}/status", json={"status": "suspended", "reason": "pattern alert"})
     assert act(client, pid, ok)["rule"] == "R.2"
     v = [x for x in client.get("/api/violations", params={"passport_id": pid}).json()["violations"] if x["evidence"]][0]
-    assert client.get(f"/api/violations/{v['id']}").json()["evidence"]["facts"]["account_number"]["value"] == "10101010"
+    assert client.get(f"/api/violations/{v['id']}").json()["evidence"]["facts"]["account_number"]["value"] == "99887766"
     # REVOKE closes the loop: registry revoked, violations resolved, voucher revoked, investigation cleared
     p = client.post(f"/api/passports/{pid}/status", json={"status": "revoked", "reason": "misuse confirmed"}).json()
     assert p["status"] == "revoked" and p["investigation"] is None and p["vouch_status"] == "REVOKED"
@@ -375,7 +375,7 @@ def test_revocation_loop_reinstate_false_positive(client):
 
 
 # ── Part B: delegation chain (off by default) ───────────────────────────────
-FEN = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 44556677", "amount": 3200}
+FEN = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 3200}
 
 
 def chain_act(client, pid, extra):
@@ -414,14 +414,14 @@ def test_expanding_delegation_refused_at_c_b(client):
     r = chain_act(client, p["passport_id"], {"delegate_amount": 12000})
     assert r["decision"] == "DENY" and r["rule"] == "C.b" and r["code"] == "DELEGATION_EXPANDS_SCOPE" and "above the root" in r["reason"]
     # a delegation to a beneficiary the customer never signed for is also an expansion
-    r = chain_act(client, p["passport_id"], {"delegate_amount": 4000, "delegate_account": "60-11-22 10101010", "payee_account_ref": "60-11-22 10101010"})
+    r = chain_act(client, p["passport_id"], {"delegate_amount": 4000, "delegate_account": "60-11-22 99887766", "payee_account_ref": "60-11-22 99887766"})
     assert r["rule"] == "C.b" and "beneficiary outside the root mandate" in r["reason"]
 
 
 def test_poisoned_invoice_with_chain_refused(client):
     p, _ = issue_one(client)
     r = client.post("/api/agent/invoice", json={"passport_id": p["passport_id"], "invoice_id": "INV-9001-poisoned", "chain": True}).json()
-    assert r["chain"] is True and r["delegation"]["scope"]["beneficiaries"] == ["60-11-22 10101010"] and r["delegation"]["iss"] == "payrail-agent-247"
+    assert r["chain"] is True and r["delegation"]["scope"]["beneficiaries"] == ["60-11-22 99887766"] and r["delegation"]["iss"] == "payrail-agent-247"
     assert r["result"]["decision"] == "DENY" and r["result"]["rule"] == "C.b"
     ok = client.post("/api/agent/invoice", json={"passport_id": p["passport_id"], "invoice_id": "INV-9001-clean", "chain": True}).json()
     assert ok["result"]["decision"] == "ALLOW" and ok["result"]["chain"]["ok"] is True
@@ -434,3 +434,63 @@ def test_rogue_execution_key_fails_r4_even_with_valid_delegation(client):
     # execution private key never leaves the server
     a = client.get("/api/state").json()["applications"][0]
     assert "private_pem" not in json.dumps(a["agent"])
+
+
+# ── Iteration 3, Task 2: instruction-level Ed25519 verification, proven by tamper ──
+def _signed_instruction(client, pid):
+    a = db.get_application(db.get_passport(pid)["application_id"])
+    req = {"passport_id": pid, "action_type": "pay_invoice", "payee_account_ref": "60-11-22 10101010", "supplier_name": "Fenwick Timber Ltd",
+           "amount": 2500, "currency": "GBP", "invoice_ref": "INV-9001", "nonce": "tamper-test"}
+    req["agent_signature"] = crypto.sign_bytes(a["agent"]["private_pem"], rules.request_signing_input(req))
+    return req
+
+
+def test_r4_is_real_ed25519_over_the_canonical_instruction_bytes(client):
+    p, _ = issue_one(client)
+    pid = p["passport_id"]
+    req = _signed_instruction(client, pid)
+    r = client.post("/api/verify", json={"passport_id": pid, "instruction": req}).json()
+    assert r["decision"] == "ALLOW" and r["signature"]["verified"] is True and r["signature"]["alg"].startswith("Ed25519")
+    assert r["signature"]["agent_kid"] == db.get_application(db.get_passport(pid)["application_id"])["agent"]["kid"]
+    assert r["signature"]["signed_fields"] == list(rules.REQUEST_FIELDS)
+    # the bytes that were signed are canonical JSON of exactly those fields
+    assert rules.request_signing_input(req) == crypto.canonical({k: req[k] for k in rules.REQUEST_FIELDS}).encode()
+
+
+def test_flipping_one_byte_of_the_signed_payload_fails_r4(client):
+    p, _ = issue_one(client)
+    pid = p["passport_id"]
+    req = _signed_instruction(client, pid)
+    tampered = dict(req); tampered["invoice_ref"] = "INV-9002"          # one character in a signed field
+    r = client.post("/api/verify", json={"passport_id": pid, "instruction": tampered}).json()
+    assert r["decision"] == "DENY" and r["rule"] == "R.4" and r["signature"]["verified"] is False
+    tampered = dict(req); tampered["amount"] = 2501                     # one unit on the amount
+    assert client.post("/api/verify", json={"passport_id": pid, "instruction": tampered}).json()["rule"] == "R.4"
+    tampered = dict(req); sig = crypto.b64u_decode(req["agent_signature"]); sig = bytes([sig[0] ^ 1]) + sig[1:]  # one bit of the signature
+    tampered["agent_signature"] = crypto.b64u(sig)
+    assert client.post("/api/verify", json={"passport_id": pid, "instruction": tampered}).json()["rule"] == "R.4"
+
+
+def test_rogue_key_signature_fails_r4(client):
+    p, _ = issue_one(client)
+    pid = p["passport_id"]
+    req = _signed_instruction(client, pid)
+    priv, _ = crypto.generate_keypair()
+    req["agent_signature"] = crypto.sign_bytes(priv, rules.request_signing_input(req))
+    r = client.post("/api/verify", json={"passport_id": pid, "instruction": req}).json()
+    assert r["rule"] == "R.4" and r["code"] == "AGENT_SIGNATURE_INVALID"
+
+
+def test_envelope_tamper_each_signer_flips_one_byte(client):
+    p, _ = issue_one(client)
+    pid = p["passport_id"]
+    env = client.get(f"/api/passports/{pid}").json()["envelope"]
+    req = _signed_instruction(client, pid)
+    for part, rule in (("assurance", "R.1"), ("agent_identity", "R.3"), ("mandate", "R.5")):
+        bad = dict(env)
+        header, payload, sig = env[part].split(".")
+        raw = bytearray(crypto.b64u_decode(payload)); raw[5] ^= 1        # one bit inside the signed payload
+        bad[part] = f"{header}.{crypto.b64u(bytes(raw))}.{sig}"
+        r = client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": bad}).json()
+        assert r["decision"] == "DENY" and r["rule"] == rule, (part, r["rule"])
+    assert client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": env}).json()["decision"] == "ALLOW"

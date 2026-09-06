@@ -512,3 +512,6 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
   .sidebar__about { margin-top: 0; margin-left: auto; }
   .sidebar__about .sidebar__item { border-top: 0; }
 }
+
+.t-sig { color: var(--term-dim); font-size: .8rem; }
+.t-sig b.ok { color: var(--term-green); } .t-sig b.fail { color: var(--term-red); }
