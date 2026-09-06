@@ -21,20 +21,22 @@
   </div>
 </header>
 
-<nav class="subnav" aria-label="Views">
-  <ul class="subnav__row wrap">
-    <li><a class="subnav__item" href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}>Provider Panel</a></li>
-    <li><a class="subnav__item" href="/regulator" {% if view == 'regulator' %}aria-current="page"{% endif %}>Regulator Panel</a></li>
-    <li><a class="subnav__item" href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>Customer Panel</a></li>
-    <li><a class="subnav__item" href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>Action Terminal</a></li>
-    <li><a class="subnav__item" href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>Audit</a></li>
-    <li class="subnav__about"><a class="subnav__item" href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>About</a></li>
-  </ul>
+<div class="shell wrap">
+<nav class="sidebar" aria-label="Views">
+  <ol class="sidebar__list">
+    <li><a class="sidebar__item" href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}><span class="sidebar__num">1</span>Provider Panel</a></li>
+    <li><a class="sidebar__item" href="/regulator" {% if view == 'regulator' %}aria-current="page"{% endif %}><span class="sidebar__num">2</span>Regulator Panel</a></li>
+    <li><a class="sidebar__item" href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}><span class="sidebar__num">3</span>Customer Panel</a></li>
+    <li><a class="sidebar__item" href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}><span class="sidebar__num">4</span>Action Terminal</a></li>
+    <li><a class="sidebar__item" href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}><span class="sidebar__num">5</span>Audit</a></li>
+    <li class="sidebar__about"><a class="sidebar__item" href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>About</a></li>
+  </ol>
 </nav>
 
-<main id="main" class="wrap main">
+<main id="main" class="main">
 {% block content %}{% endblock %}
 </main>
+</div>
 
 <footer class="footer">
   <div class="wrap footer__row">
