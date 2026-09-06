@@ -345,11 +345,52 @@ def lifecycle(passport_id: str, body: LifecycleIn):
         _400("a revoked passport cannot change status; a fresh application is needed")
     p = db.set_passport_status(passport_id, body.status, config.OFFICER, body.reason)
     audit.record("lifecycle", passport_id, {"event": f"status changed to {body.status}", "officer": config.OFFICER, "reason": body.reason})
+    if body.status in ("revoked", "active"):
+        # the exception loop closes: REVOKE resolves the open violations as revoked, REINSTATE as false positives
+        n = db.set_violation_status(passport_id, "RESOLVED", "revoked" if body.status == "revoked" else "reinstated")
+        if p.get("investigation") or n:
+            p = db.set_investigation(passport_id, None)
+            audit.record("exception", passport_id, {"event": "investigation closed", "outcome": "revoked" if body.status == "revoked" else "reinstated", "violations_resolved": n, "officer": config.OFFICER, "reason": body.reason})
     if body.status == "revoked":
         r = vouch.revoke_mandate(p.get("vouch_voucher_id"))
         p = db.set_vouch(passport_id, p.get("vouch_voucher_id"), r["mode"], r["status"])
         audit.record("vouch", passport_id, {"event": "mandate revoked on the vouch rail", "mode": r["mode"], "voucher_id": p.get("vouch_voucher_id"), "detail": r["detail"]})
     return public_passport(p)
+
+
+class InvestigationIn(BaseModel):
+    action: str   # open | close
+    note: str = ""
+
+
+@app.post("/api/passports/{passport_id}/investigation")
+def investigation(passport_id: str, body: InvestigationIn):
+    """Task 3: INVESTIGATING is a supervisor state around the lifecycle, not a bank rule. It blocks nothing by itself:
+    the bank still reads active / suspended / revoked. Opening it marks the passport's OPEN violations INVESTIGATING."""
+    p = db.get_passport(passport_id) or _404()
+    if body.action == "open":
+        if p["status"] == "revoked":
+            _400("a revoked passport is closed; nothing to investigate")
+        p = db.set_investigation(passport_id, "investigating")
+        n = db.set_violation_status(passport_id, "INVESTIGATING", None, only_status=("OPEN",))
+        audit.record("exception", passport_id, {"event": "investigation opened", "officer": config.OFFICER, "note": body.note, "violations": n, "passport_status": p["status"]})
+    elif body.action == "close":
+        p = db.set_investigation(passport_id, None)
+        audit.record("exception", passport_id, {"event": "investigation closed without change", "officer": config.OFFICER, "note": body.note})
+    else:
+        _400("action must be open or close")
+    return {**public_passport(p), "violations": db.list_violations(passport_id)}
+
+
+@app.get("/api/violations")
+def violations(passport_id: str | None = None):
+    pat = rules.pack()["policy"].get("pattern_threshold", {"count": 2, "window_hours": 24})
+    return {"violations": db.list_violations(passport_id), "alerts": db.pattern_alerts(pat["count"], pat["window_hours"]), "pattern_threshold": pat}
+
+
+@app.get("/api/violations/{vid}")
+def violation(vid: int):
+    return db.get_violation(vid) or _404()
 
 
 @app.get("/api/passports/{passport_id}/vouch")

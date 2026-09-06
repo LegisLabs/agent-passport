@@ -3,6 +3,7 @@
 {% block content %}
 <div class="grid">
   <div class="col-main">
+    <div class="alert" id="rg-alert" hidden role="alert"></div>
     <h1 class="h1">Application <span id="rg-ref" class="mono">—</span> <span id="rg-status"></span></h1>
     <p class="lede lede--tight">Case officer {{ officer }}, {{ issuer }}.</p>
 
@@ -70,6 +71,16 @@
           <div id="jwt-panels"></div>
         </details>
       </div>
+
+      <h2 class="h2">Anomaly Detection &amp; Escalation <span class="h2__meta" id="ex-meta"></span></h2>
+      <p class="hint">Every instruction the bank refused for this passport. A repeat of the same rule inside the window raises the supervisor alert above. Suspend to freeze, investigate to read the evidence, then revoke or reinstate; the bank reads only the registry status.</p>
+      <div class="exception" id="exception" hidden>
+        <div class="exception__state" id="ex-state"></div>
+        <div class="actions" id="ex-actions"></div>
+        <p class="error" id="ex-error" hidden></p>
+      </div>
+      <table class="checks violations" id="rg-violations"><thead><tr><th>Time</th><th>Agent</th><th>Rule</th><th>Payment attempted</th><th>Outcome</th><th>Status</th></tr></thead><tbody></tbody></table>
+      <div class="evidence" id="ex-evidence" hidden></div>
 
       <h2 class="h2">Incident feed</h2>
       <p class="hint">The bank raises an incident after three refused instructions on one passport. It is a log row, not a workflow.</p>

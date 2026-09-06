@@ -450,3 +450,18 @@ code, .mono { overflow-wrap: anywhere; }
 .verdict { font-size: 1.15rem; font-weight: 700; margin: .2rem 0; }
 .verdict--refer { color: var(--amber-ink); }
 .verdict--approve { color: var(--green-dark); }
+
+/* exception panel + alert (Task 3) */
+.alert { background: var(--red); color: #fff; padding: .8rem 1rem; margin: 0 0 1rem; font-weight: 700; display: grid; gap: .2rem; }
+.alert span { font-weight: 400; }
+.alert a { color: #fff; }
+.exception { border: 3px solid var(--ink); padding: .8rem 1rem; margin: .5rem 0 1rem; display: grid; gap: .6rem; }
+.exception__state { display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }
+.exception__state .stamp { margin-right: .4rem; }
+.violations td:first-child { white-space: nowrap; font-family: var(--mono); font-size: .85rem; }
+.violations tr[data-vid] { cursor: pointer; }
+.violations tr[data-vid]:hover td { background: var(--panel); }
+.violations tr[aria-selected="true"] td { background: var(--panel); }
+.evidence { border: 1px solid var(--line); padding: .8rem 1rem; margin: .5rem 0 1rem; display: grid; gap: .5rem; font-size: .95rem; }
+.evidence pre { max-height: 12rem; }
+@media (max-width: 640px) { .violations tr { grid-template-columns: 6rem minmax(0, 1fr); } }

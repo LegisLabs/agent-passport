@@ -313,3 +313,62 @@ def test_review_refers_when_a_check_flags(client):
     assert "A.4" in [c["id"] for c in a["checks"] if c["result"] == "flag"]
     rv = client.post(f"/api/applications/{a['id']}/review").json()["review"]
     assert rv["steps"][4]["data"]["verdict"] == "REFER" and "A.4" in rv["steps"][1]["data"]["flagged"]
+
+
+# ── Iteration 2, Task 3: exception panel, pattern alert, revocation loop ────
+def _poison(client, pid):
+    return client.post("/api/agent/invoice", json={"passport_id": pid, "invoice_id": "INV-9001-poisoned"}).json()["result"]
+
+
+def test_pattern_alert_needs_two_same_rule_violations_in_window(client):
+    p, _ = issue_one(client)
+    pid = p["passport_id"]
+    assert _poison(client, pid)["rule"] == "R.6"
+    alerts = [x for x in client.get("/api/violations").json()["alerts"] if x["passport_id"] == pid]
+    assert alerts == []  # one is not a pattern
+    # a different rule does not count towards the R.6 pattern
+    act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455", "amount": 11400})
+    assert [x for x in client.get("/api/violations").json()["alerts"] if x["passport_id"] == pid] == []
+    assert _poison(client, pid)["rule"] == "R.6"
+    alerts = [x for x in client.get("/api/state").json()["alerts"] if x["passport_id"] == pid]
+    assert len(alerts) == 1 and alerts[0]["rule"] == "R.6" and alerts[0]["n"] == 2
+    assert client.get("/api/state").json()["pattern_threshold"]["count"] == 2
+
+
+def test_revocation_loop_suspend_investigate_revoke(client):
+    p, _ = issue_one(client)
+    pid = p["passport_id"]
+    _poison(client, pid); _poison(client, pid)
+    ok = {"action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455", "amount": 900}
+    # INVESTIGATING alone blocks nothing
+    r = client.post(f"/api/passports/{pid}/investigation", json={"action": "open", "note": "two redirected invoices"}).json()
+    assert r["investigation"] == "investigating" and all(v["status"] == "INVESTIGATING" for v in r["violations"] if v["rule"] == "R.6")
+    assert act(client, pid, ok)["decision"] == "ALLOW"
+    # SUSPENDED denies at R.2; evidence is readable
+    client.post(f"/api/passports/{pid}/status", json={"status": "suspended", "reason": "pattern alert"})
+    assert act(client, pid, ok)["rule"] == "R.2"
+    v = [x for x in client.get("/api/violations", params={"passport_id": pid}).json()["violations"] if x["evidence"]][0]
+    assert client.get(f"/api/violations/{v['id']}").json()["evidence"]["facts"]["account_number"]["value"] == "10101010"
+    # REVOKE closes the loop: registry revoked, violations resolved, voucher revoked, investigation cleared
+    p = client.post(f"/api/passports/{pid}/status", json={"status": "revoked", "reason": "misuse confirmed"}).json()
+    assert p["status"] == "revoked" and p["investigation"] is None and p["vouch_status"] == "REVOKED"
+    vs = client.get("/api/violations", params={"passport_id": pid}).json()["violations"]
+    assert vs and all(x["status"] == "RESOLVED" and x["resolution"] == "revoked" for x in vs)
+    assert act(client, pid, ok)["rule"] == "R.2"
+    assert client.post(f"/api/passports/{pid}/investigation", json={"action": "open"}).status_code == 400
+
+
+def test_revocation_loop_reinstate_false_positive(client):
+    p, _ = issue_one(client)
+    pid = p["passport_id"]
+    _poison(client, pid)
+    client.post(f"/api/passports/{pid}/investigation", json={"action": "open"})
+    client.post(f"/api/passports/{pid}/status", json={"status": "suspended", "reason": "look"})
+    ok = {"action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455", "amount": 900}
+    assert act(client, pid, ok)["rule"] == "R.2"
+    p = client.post(f"/api/passports/{pid}/status", json={"status": "active", "reason": "false positive"}).json()
+    assert p["status"] == "active" and p["investigation"] is None
+    assert all(x["status"] == "RESOLVED" and x["resolution"] == "reinstated" for x in client.get("/api/violations", params={"passport_id": pid}).json()["violations"])
+    assert act(client, pid, ok)["decision"] == "ALLOW"
+    a = client.get("/api/audit").json()
+    assert a["chain"]["ok"] and all(client.post(f"/api/audit/{r['id']}/replay").json()["identical"] for r in a["rows"][:8] if r["kind"] == "verify")

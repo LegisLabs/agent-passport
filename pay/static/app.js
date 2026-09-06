@@ -190,6 +190,7 @@ const AP = (() => {
       $('rg-decide').hidden = !(a.status === 'submitted' || a.status === 'info_requested');
       $('rg-issued').hidden = !p;
       if (p) renderPassport(p);
+      renderExceptions();
       const inc = $('rg-incidents'); inc.innerHTML = '';
       const mine = (state.incidents || []).filter(i => !p || i.subject === p.passport_id);
       mine.forEach(i => inc.append(el('li', null, `<time>${t(i.ts)}</time><span>${tag('revoked', 'Incident')} ${esc(i.entry.event)}: ${esc(i.entry.reason)} · last refusal ${esc(i.entry.last_rule)} ${esc(i.entry.last_code)} · audit #${i.id} <span class="mono small">${esc(i.hash.slice(0, 12))}</span></span>`)));
@@ -225,6 +226,42 @@ const AP = (() => {
       finally { b.disabled = false; b.textContent = 'Run the six steps again'; }
     }
     $('btn-review').onclick = () => runReview(false);
+
+    let selectedVid = null;
+    function renderExceptions() {
+      const pt = state.pattern_threshold || { count: 2, window_hours: 24 };
+      const mine = (state.violations || []).filter(x => !p || x.passport_id === p.passport_id);
+      const alerts = (state.alerts || []).filter(x => !p || x.passport_id === p.passport_id);
+      const al = $('rg-alert');
+      if (alerts.length) { al.hidden = false; al.innerHTML = alerts.map(x => `SUPERVISOR ALERT · ${esc(x.passport_id)} · ${x.n} refusals at ${esc(x.rule)} ${esc(x.code)} within ${pt.window_hours}h <span>(threshold ${pt.count} in ${pt.window_hours}h, rule pack policy) · pattern, not a single error · <a href="#exception">open the exception panel</a></span>`).join('<br>'); }
+      else al.hidden = true;
+      $('ex-meta').textContent = mine.length ? `${mine.length} refusals · ${mine.filter(x => x.status === 'OPEN').length} open` : 'no refusals yet';
+      const tb = $('rg-violations').querySelector('tbody'); tb.innerHTML = '';
+      mine.forEach(x => { const tr = el('tr', null, `<td>${t(x.ts)}</td><td class="mono small">${esc(x.agent_id || '')}</td><td><span class="mono">${esc(x.rule)}</span><br><span class="small">${esc(x.code)}</span></td><td>${esc(x.instruction.action_type)} · ${esc(x.instruction.supplier_name || '')} · <span class="mono">${esc(x.instruction.payee_account_ref || '')}</span> · ${gbp(x.instruction.amount)}${x.evidence ? ` <span class="tag tag--grey">invoice ${esc(x.evidence.invoice)}</span>` : ''}</td><td>${tag('revoked', x.outcome)}</td><td>${tag(x.status === 'OPEN' ? 'amber' : x.status === 'INVESTIGATING' ? 'blue' : 'green', x.status)}${x.resolution ? `<br><span class="small">${esc(x.resolution)}</span>` : ''}</td>`); tr.dataset.vid = x.id; tr.setAttribute('aria-selected', String(x.id === selectedVid)); tr.onclick = () => { selectedVid = x.id; renderEvidence(x); renderExceptions(); }; tb.append(tr); });
+      if (!mine.length) tb.append(el('tr', null, '<td colspan="6" class="small">Nothing refused yet.</td>'));
+      const ex = $('exception'); ex.hidden = !p; if (!p) return;
+      const inv = p.investigation === 'investigating';
+      $('ex-state').innerHTML = `<span class="stamp stamp--${p.status === 'active' ? 'green' : p.status === 'suspended' ? 'amber' : 'red'}">${esc(p.status)}</span>${inv ? '<span class="stamp stamp--amber">investigating</span>' : ''}<span class="small">${p.status === 'suspended' ? 'payments blocked at R.2 while you look' : p.status === 'revoked' ? 'closed; registry REVOKED, vouch voucher revoked' : 'payments flow; the bank reads the registry on every instruction'}${inv ? ' · investigating blocks nothing by itself; the registry status does' : ''}</span>`;
+      const act = $('ex-actions'); act.innerHTML = '';
+      const btn = (label, cls, fn) => { const b = el('button', 'btn btn--small ' + cls, label); b.type = 'button'; b.onclick = fn; act.append(b); };
+      const reason = () => $('rg-reason').value.trim() || 'via the exception panel';
+      if (p.status === 'active') btn('Suspend', 'btn--secondary', () => lifeFrom('suspended', reason()));
+      if (p.status !== 'revoked' && !inv) btn('Open investigation', 'btn--secondary', async () => { await api('POST', `/api/passports/${p.passport_id}/investigation`, { action: 'open', note: reason() }); await refresh(); });
+      if (p.status !== 'revoked') btn('Revoke', 'btn--warning', () => lifeFrom('revoked', reason()));
+      if (p.status === 'suspended') btn('Reinstate (false positive)', '', () => lifeFrom('active', reason()));
+      if (inv && p.status === 'active') btn('Close investigation, no change', 'btn--secondary', async () => { await api('POST', `/api/passports/${p.passport_id}/investigation`, { action: 'close', note: reason() }); await refresh(); });
+    }
+    async function lifeFrom(status, reason) {
+      $('ex-error').hidden = true;
+      try { await api('POST', `/api/passports/${p.passport_id}/status`, { status, reason }); $('rg-reason').value = ''; await refresh(); }
+      catch (e) { $('ex-error').textContent = e.message; $('ex-error').hidden = false; }
+    }
+    function renderEvidence(x) {
+      const ev = $('ex-evidence'); ev.hidden = false;
+      const e = x.evidence;
+      ev.innerHTML = `<strong>Refusal #${x.id} · ${esc(x.rule)} ${esc(x.code)} · ${t(x.ts)}</strong><div>Instruction: ${esc(x.instruction.action_type)} · ${esc(x.instruction.supplier_name || '')} · <span class="mono">${esc(x.instruction.payee_account_ref || '')}</span> · ${gbp(x.instruction.amount)} · invoice ${esc(x.instruction.invoice_ref || '—')} · audit #${x.audit_id}</div>` +
+        (e ? `<div>Extraction evidence (${esc(e.invoice)}, read by ${esc(modeLabel(e.extraction_mode))}): the agent read account <span class="${e.instruction_payee === e.registered_payee ? 'right' : 'wrong'}">${esc(e.instruction_payee)}</span>; the customer signed for <span class="mono">${esc(e.registered_payee || '—')}</span>.</div><dl class="kv">${Object.entries(e.facts || {}).filter(([k]) => !k.startsWith('_')).map(([k, f]) => `<div><dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${esc(String(f.value))} <span class="prov"><q>${esc(f.quote || '')}</q></span></dd></div>`).join('')}</dl>` : '<div class="small">No document evidence: the instruction came straight from the agent.</div>');
+    }
 
     async function renderPassport(p) {
       $('pp-id').textContent = p.passport_id;
