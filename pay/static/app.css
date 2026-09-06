@@ -545,3 +545,8 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
 .models strong { font-size: 1.05rem; }
 .models .small { color: var(--ink-2); }
 @media (max-width: 560px) { .masthead__tag { display: none; } }
+
+/* header columns follow the sidebar + content grid so the logo lines up with the form */
+.masthead__grid { display: grid; grid-template-columns: 15.5rem minmax(0, 1fr); }
+@media (max-width: 800px) { .masthead__grid { display: block; } .masthead__spacer { display: none; } }
+.masthead__grid > .masthead__row { width: 100%; box-sizing: border-box; }
