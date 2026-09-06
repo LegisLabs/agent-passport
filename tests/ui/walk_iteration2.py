@@ -16,7 +16,7 @@ def issue(page, sign=True):
     page.fill("#rg-officer-note", "Assistant recommends approve with conditions; I decide."); page.click("#btn-approve"); page.wait_for_selector("#rg-issued:not([hidden])")
     pid = page.locator("#pp-id").inner_text()
     if sign:
-        page.goto(BASE + "/customer"); page.wait_for_selector("#btn-sign-mandate"); page.click("#btn-sign-mandate"); page.wait_for_selector("#cu-sig:not([hidden])")
+        page.goto(BASE + "/customer"); page.wait_for_selector("#btn-sign-mandate:not([disabled])"); page.click("#btn-sign-mandate"); page.wait_for_selector("#cu-sig:not([hidden])")
     return pid
 def invoice(page, which):
     page.goto(BASE + "/bank"); page.wait_for_selector("#invoice-buttons button")

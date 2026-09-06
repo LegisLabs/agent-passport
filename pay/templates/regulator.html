@@ -5,16 +5,13 @@
   <div class="col-main">
     <div class="alert" id="rg-alert" hidden role="alert"></div>
     <h1 class="h1">Application <span id="rg-ref" class="mono">—</span> <span id="rg-status"></span></h1>
-    <p class="lede lede--tight"><strong>Regulatory Assurance</strong> (proposed FCA Agent Assurance addendum, PSR 2017 extension) · case officer {{ officer }}, {{ issuer }}. The authority certifies the provider and its agent; the customer's own mandate and the bank's own checks stay where they are.</p>
+    <p class="lede lede--tight"><strong>Regulatory Assurance</strong> (proposed PSR 2017 Agent Assurance function — design prototype) · case officer {{ officer }}, {{ issuer }}. This demonstrates what agent certification within the PSR 2017 framework would look like. <strong>Phase 2</strong> — the authority approves the model once and sets policy ceilings; it does not see or approve individual customer mandates. <span class="small">Layer A, agent assurance: the authority signature. Layer E, regulatory supervision: the anomaly and escalation feed below.</span></p>
 
     <div class="empty" id="rg-empty"><p>No application in the queue. Submit one from <a href="/provider">Apply</a>.</p></div>
 
     <div id="rg-case" hidden>
       <h2 class="h2">What was applied for</h2>
       <dl class="summary" id="rg-summary"></dl>
-
-      <h2 class="h2">Supplier allowlist the customer will sign</h2>
-      <table class="suppliers" id="rg-suppliers"><thead><tr><th>Supplier</th><th>Account</th><th>Source</th></tr></thead><tbody></tbody></table>
 
       <h2 class="h2">Automated checks <span class="h2__meta">rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
       <p class="hint">Each check is a plain rule over the reviewed facts and the authority's own records. Labels say whether the rule reflects current practice or a prototype assumption. The engine drafts; it does not decide.</p>
@@ -34,6 +31,7 @@
       <div id="rg-decide">
         <h2 class="h2">Decision</h2>
         <p>The decision is yours and will be recorded against your name. A note is required. Approval signs the assurance and attaches your condition.</p>
+        <p class="small">Policy ceilings this approval sets for every customer mandate: <span id="rg-ceilings" class="mono"></span></p>
         <label class="label" for="rg-condition">Condition: hold instructions above (£)</label>
         <div class="condition"><input class="input" id="rg-condition" type="number" min="0" step="100" value="5000"> <span class="small">The bank returns ESCALATE above this amount, even inside the customer's limits.</span></div>
         <label class="label" for="rg-officer-note">Officer note or reason</label>
@@ -65,6 +63,7 @@
         <p class="error" id="life-error" hidden></p>
 
         <h3 class="h3">Mandate on the vouch rail</h3>
+        <p class="hint">Mandate anchored as AI Voucher on vouch.finance — demonstrating interoperability with the open agent-authorisation ecosystem.</p>
         <div class="rail" id="rail"></div>
 
         <details class="jwt">

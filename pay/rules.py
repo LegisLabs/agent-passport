@@ -90,29 +90,25 @@ def run_application_checks(fields: dict, agent: dict | None, reg: dict | None = 
         elif c == "proof_of_possession":
             ok = bool(agent and agent.get("pop_verified"))
             out.append(_check(rule, ok, "signed challenge", f"challenge signed by kid {agent.get('kid')}" if ok else "challenge not signed"))
-        elif c == "customer_agreement":
-            cu = fields.get("customer", {})
-            num = _v(cu, "companies_house_number") or ""
-            rec = reg["companies_house"].get(num)
-            ch_ok = bool(rec and rec["status"] == "active" and rec["name"].lower() == (_v(cu, "legal_name") or "").lower())
-            sup = fields.get("suppliers") or []
-            sup_ok = bool(sup) and all(s.get("account_ref") and s.get("name") for s in sup)
-            ok = ch_ok and bool(_v(cu, "authorising_officer")) and bool(_v(cu, "officer_role")) and sup_ok
-            problems = [p for p, bad in (("customer company", not ch_ok), ("authorising officer", not _v(cu, "authorising_officer")), ("supplier allowlist", not sup_ok)) if bad]
-            out.append(_check(rule, ok, f"service agreement; Companies House {num}", f"{_v(cu, 'legal_name')}, officer {_v(cu, 'authorising_officer')}, {len(sup)} suppliers" if ok else "missing: " + ", ".join(problems)))
-        elif c == "limits_within_policy":
-            m = fields.get("mandate", {})
+        elif c == "model_documented":
+            ag = fields.get("agent", {})
+            missing = [k for k in ("model_provider", "model_version", "benchmarks", "training_type") if not _v(ag, k)]
+            ok = not missing
+            out.append(_check(rule, ok, "registration pack, technical description", f"{_v(ag, 'model_provider')} · {_v(ag, 'model_version')} · benchmarks and training type declared" if ok else "missing: " + ", ".join(missing)))
+        elif c == "key_management":
+            ag = fields.get("agent", {})
+            rq = fields.get("requested", {})
             problems = []
-            if _v(m, "action_type") not in pol["action_types"]:
-                problems.append("action type")
-            if float(_v(m, "per_payment_limit_gbp") or 0) > pol["per_payment_ceiling_gbp"] or not _v(m, "per_payment_limit_gbp"):
-                problems.append("per-payment limit")
-            if float(_v(m, "monthly_limit_per_account_gbp") or 0) > pol["monthly_per_account_ceiling_gbp"] or not _v(m, "monthly_limit_per_account_gbp"):
-                problems.append("monthly limit")
-            vu = str(_v(m, "valid_until") or "")
-            if not vu or vu > pol["max_validity"]:
-                problems.append("validity")
-            out.append(_check(rule, not problems, "policy table", "within ceilings" if not problems else "outside policy: " + ", ".join(problems)))
+            if not _v(ag, "key_storage"):
+                problems.append("key storage")
+            if not _v(ag, "key_rotation"):
+                problems.append("key rotation policy")
+            if _v(rq, "action_type") not in pol["action_types"]:
+                problems.append("action type outside policy")
+            thr = _v(rq, "human_confirm_above_gbp")
+            if thr is None or float(thr) > pol["per_payment_ceiling_gbp"]:
+                problems.append("proposed confirmation threshold above the per-payment ceiling")
+            out.append(_check(rule, not problems, "technical description; policy table", f"storage and rotation declared; {_v(rq, 'action_type')} within policy" if not problems else "missing or outside policy: " + ", ".join(problems)))
         elif c == "software_declared":
             sw = _v(fields, "agent", "software")
             ver = _v(fields, "agent", "software_version")
@@ -299,3 +295,31 @@ def verify_chain(root_ad: dict, delegation: dict, req: dict, today: date | None 
             "scopes": {"S0": {"beneficiaries": len(root_accts), "ceiling": root_cap, "actions": sorted(root_actions)},
                        "S1": {"beneficiaries": sorted(x for x in scope.get("beneficiaries", [])), "ceiling": d_cap, "actions": sorted(d_actions), "delegate": delegation.get("sub"), "issuer": delegation.get("iss")},
                        "action": {"payee": req.get("payee_account_ref"), "amount": amount, "action": req.get("action_type")}}}
+
+
+# ── Phase 3: the customer's own mandate must sit within the authority's policy ceilings ──
+def check_mandate_containment(mandate: dict, assurance_valid_until: str | None = None) -> list[dict]:
+    """Ceiling containment at signing. Returns the failed checks (empty = within ceilings)."""
+    pol = pack()["policy"]
+    ad = mandate
+    problems = []
+    if not ad.get("supplier_allowlist"):
+        problems.append({"field": "supplier_allowlist", "problem": "at least one payee account is required"})
+    for s in ad.get("supplier_allowlist", []):
+        if len(norm_account(s.get("account_ref"))) != 14 or not s.get("name"):
+            problems.append({"field": "supplier_allowlist", "problem": f"payee '{s.get('name') or '?'}' needs a name and a sort code plus 8-digit account"})
+    per = float(ad.get("per_payment_limit") or 0)
+    if per <= 0 or per > pol["per_payment_ceiling_gbp"]:
+        problems.append({"field": "per_payment_limit", "problem": f"per-payment limit £{per:,.0f} must be between £1 and the policy ceiling £{pol['per_payment_ceiling_gbp']:,.0f}"})
+    monthly = float(ad.get("monthly_limit_per_account") or 0)
+    if monthly <= 0 or monthly > pol["monthly_per_account_ceiling_gbp"]:
+        problems.append({"field": "monthly_limit_per_account", "problem": f"30-day limit £{monthly:,.0f} must be between £1 and the policy ceiling £{pol['monthly_per_account_ceiling_gbp']:,.0f}"})
+    if per > 0 and monthly > 0 and monthly < per:
+        problems.append({"field": "monthly_limit_per_account", "problem": "30-day limit cannot be below the per-payment limit"})
+    vu = str(ad.get("valid_until") or "")
+    cap = min(pol["max_validity"], assurance_valid_until or pol["max_validity"])
+    if not vu or vu > cap:
+        problems.append({"field": "valid_until", "problem": f"expiry must be on or before {cap}"})
+    if not set(ad.get("actions") or []) <= set(pol["action_types"]) or not ad.get("actions"):
+        problems.append({"field": "actions", "problem": f"actions must be within {', '.join(pol['action_types'])}"})
+    return problems

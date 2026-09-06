@@ -4,7 +4,7 @@
 <div class="grid">
   <div class="col-main">
     <h1 class="h1">{{ customer }} signs the mandate</h1>
-    <p class="lede">The finance director sees exactly what {{ agent_name }} will be allowed to do with the company's money, and signs it with the company's own key. Until then the envelope is incomplete and the bank refuses every instruction.</p>
+    <p class="lede"><strong>Phase 3</strong> — The customer writes and signs its own mandate (payees, per-payment size, monthly ceiling, expiry) within the policy ceilings. Live immediately; no authority review. Until it is signed the envelope is incomplete and the bank refuses every instruction. <span class="small">Layer B, principal mandate.</span></p>
 
     <div class="empty" id="cu-empty"><p>Nothing to sign yet. The authority issues the assurance first, in <a href="/regulator">Review &amp; issue</a>.</p></div>
 
@@ -13,8 +13,18 @@
         <div class="mandate__head"><span>Payment Mandate (OAuth 2.0 RFC 9396 Rich Authorization Request) · <span class="mono" id="cu-id"></span></span><span id="cu-state"></span></div>
         <div class="mandate__body">
           <dl class="kv" id="cu-kv"></dl>
-          <h3 class="h3">Suppliers the agent may pay</h3>
-          <table class="suppliers" id="cu-suppliers"><thead><tr><th>Supplier</th><th>Account</th></tr></thead><tbody></tbody></table>
+          <form class="mandate__form" id="cu-form" hidden>
+            <div class="fields">
+              <label class="label" for="cu-per">Per-payment limit (£)</label><input class="input" id="cu-per" type="number" min="1" step="100">
+              <label class="label" for="cu-monthly">30-day limit per supplier account (£)</label><input class="input" id="cu-monthly" type="number" min="1" step="100">
+              <label class="label" for="cu-until">Valid until</label><input class="input" id="cu-until" type="date">
+            </div>
+            <h3 class="h3">Suppliers the agent may pay</h3>
+            <table class="suppliers" id="cu-suppliers"><thead><tr><th>Supplier</th><th>Account (sort code, number)</th><th></th></tr></thead><tbody></tbody></table>
+            <div class="actions"><button class="btn btn--secondary btn--small" type="button" id="cu-add">Add payee</button></div>
+          </form>
+          <table class="suppliers" id="cu-suppliers-signed" hidden><thead><tr><th>Supplier</th><th>Account</th></tr></thead><tbody></tbody></table>
+          <div class="containment" id="cu-containment"></div>
         </div>
         <div class="mandate__sig" id="cu-sig" hidden></div>
       </div>

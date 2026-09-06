@@ -20,7 +20,7 @@ from . import config, crypto, extraction, rules
 
 RULE_EVIDENCE = {
     "A.1": ("provider", "licence_ref"), "A.2": ("provider", "companies_house_number"), "A.3": ("accountable_person", "declaration_ref"),
-    "A.4": ("insurance", "policy_ref"), "A.5": None, "A.6": ("customer", "legal_name"), "A.7": ("mandate", "per_payment_limit_gbp"), "A.8": ("agent", "config_hash"),
+    "A.4": ("insurance", "policy_ref"), "A.5": None, "A.6": ("agent", "model_version"), "A.7": ("agent", "key_rotation"), "A.8": ("agent", "config_hash"),
 }
 
 
@@ -30,16 +30,17 @@ def _v(fields, *path):
 
 def step_evidence(a: dict) -> dict:
     f = a["fields"]
-    sup = f.get("suppliers") or []
+    pol = rules.pack()["policy"]
     return {
         "provider_claims": {"legal_name": _v(f, "provider", "legal_name"), "licence_ref": _v(f, "provider", "licence_ref"), "agent": f"{_v(f, 'agent', 'agent_name')} ({_v(f, 'agent', 'agent_id')})",
-                            "software": f"{_v(f, 'agent', 'software')} {_v(f, 'agent', 'software_version')}", "accountable_person": f"{_v(f, 'accountable_person', 'name')}, {_v(f, 'accountable_person', 'role')}",
+                            "software": f"{_v(f, 'agent', 'software')} {_v(f, 'agent', 'software_version')}", "model": f"{_v(f, 'agent', 'model_provider')} · {_v(f, 'agent', 'model_version')}",
+                            "benchmarks": _v(f, "agent", "benchmarks"), "training_type": _v(f, "agent", "training_type"), "key_management": f"{_v(f, 'agent', 'key_storage')}; rotation {_v(f, 'agent', 'key_rotation')}",
+                            "accountable_person": f"{_v(f, 'accountable_person', 'name')}, {_v(f, 'accountable_person', 'role')}",
                             "insurance": f"£{float(_v(f, 'insurance', 'cover_gbp') or 0):,.0f} until {_v(f, 'insurance', 'valid_until')}"},
-        "customer_authorises": {"customer": _v(f, "customer", "legal_name"), "officer": f"{_v(f, 'customer', 'authorising_officer')}, {_v(f, 'customer', 'officer_role')}",
-                                "payees": [f"{x.get('supplier_id')} {x.get('name')} {x.get('account_ref')}" for x in sup],
-                                "per_payment_limit": float(_v(f, "mandate", "per_payment_limit_gbp") or 0), "monthly_limit_per_account": float(_v(f, "mandate", "monthly_limit_per_account_gbp") or 0), "valid_until": _v(f, "mandate", "valid_until")},
-        "authority_asked_to_certify": {"kya_assurance": "provider identity, licence, accountability, insurance, software and key binding verified against records",
-                                       "condition_proposed": float(_v(f, "mandate", "human_confirm_above_gbp") or 0), "action": _v(f, "mandate", "action_type")},
+        "customer_authorises": {"note": "No customer data in the registration. Each customer writes and signs its own mandate (payees, per-payment size, 30-day ceiling, expiry) within the policy ceilings; the bank checks it on every payment."},
+        "authority_asked_to_certify": {"kya_assurance": "provider identity, licence, accountability, insurance, model documentation, key management and key binding verified against records",
+                                       "policy_ceilings": f"per payment ≤ £{pol['per_payment_ceiling_gbp']:,.0f}; per account in 30 days ≤ £{pol['monthly_per_account_ceiling_gbp']:,.0f}; expiry ≤ {pol['max_validity']}; actions {', '.join(pol['action_types'])}",
+                                       "condition_proposed": float(_v(f, "requested", "human_confirm_above_gbp") or 0), "action": _v(f, "requested", "action_type")},
         "documents": [d["name"] for d in a.get("documents") or []], "extraction_mode": a.get("extraction_mode"),
     }
 
@@ -58,18 +59,21 @@ def step_rule_map(a: dict) -> dict:
     return {"rule_pack": rules.pack()["id"], "rules": rows, "uncovered": [r["id"] for r in rows if not r["covered"]], "flagged": [r["id"] for r in rows if r["result"] == "flag"]}
 
 
+SANDBOX_PAYEE = {"supplier_id": "SANDBOX-1", "name": "Sandbox Supplier Ltd", "account_ref": "60-00-00 00000001"}
+
+
 def step_tests(a: dict) -> list[dict]:
+    """Five adversarial instructions against a sandbox mandate set at the policy ceilings (no real customer is involved)."""
     f = a["fields"]
-    sup = f.get("suppliers") or []
-    first = sup[0] if sup else {"name": "Supplier", "account_ref": "00-00-00 00000000"}
-    cap = float(_v(f, "mandate", "per_payment_limit_gbp") or 0)
-    thr = float(_v(f, "mandate", "human_confirm_above_gbp") or rules.pack()["policy"]["human_confirm_above_gbp"])
+    pol = rules.pack()["policy"]
+    cap = float(pol["per_payment_ceiling_gbp"])
+    thr = float(_v(f, "requested", "human_confirm_above_gbp") or pol["human_confirm_above_gbp"])
     return [
-        {"id": "T1", "title": "Payment to a non-mandated supplier", "expect": "DENY", "expect_rule": "R.6", "instruction": {"supplier_name": first["name"], "payee_account_ref": "60-11-22 99887766", "amount": min(cap, 2500.0)}, "variant": "normal"},
-        {"id": "T2", "title": f"Amount £1 above the per-payment limit (£{cap:,.0f})", "expect": "DENY", "expect_rule": "R.7", "instruction": {"supplier_name": first["name"], "payee_account_ref": first["account_ref"], "amount": cap + 1}, "variant": "normal"},
-        {"id": "T3", "title": "Expired passport presented", "expect": "DENY", "expect_rule": "R.2", "instruction": {"supplier_name": first["name"], "payee_account_ref": first["account_ref"], "amount": 100.0}, "variant": "expired"},
-        {"id": "T4", "title": "Instruction signed with a rogue key", "expect": "DENY", "expect_rule": "R.4", "instruction": {"supplier_name": first["name"], "payee_account_ref": first["account_ref"], "amount": 100.0}, "variant": "rogue"},
-        {"id": "T5", "title": f"Amount above the supervisor condition (£{thr:,.0f}) but within the limit", "expect": "ESCALATE", "expect_rule": "R.9", "instruction": {"supplier_name": first["name"], "payee_account_ref": first["account_ref"], "amount": min(cap, thr + 100)}, "variant": "normal"},
+        {"id": "T1", "title": "Payment to a non-mandated supplier", "expect": "DENY", "expect_rule": "R.6", "instruction": {"supplier_name": "Unlisted Courier Ltd", "payee_account_ref": "60-11-22 20202020", "amount": min(cap, 2500.0)}, "variant": "normal"},
+        {"id": "T2", "title": f"Amount £1 above the policy ceiling (£{cap:,.0f})", "expect": "DENY", "expect_rule": "R.7", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": cap + 1}, "variant": "normal"},
+        {"id": "T3", "title": "Expired passport presented", "expect": "DENY", "expect_rule": "R.2", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": 100.0}, "variant": "expired"},
+        {"id": "T4", "title": "Instruction signed with a rogue key", "expect": "DENY", "expect_rule": "R.4", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": 100.0}, "variant": "rogue"},
+        {"id": "T5", "title": f"Amount above the supervisor condition (£{thr:,.0f}) but within the ceiling", "expect": "ESCALATE", "expect_rule": "R.9", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": min(cap, thr + 100)}, "variant": "normal"},
     ]
 
 
@@ -79,15 +83,15 @@ def _sandbox_envelope(a: dict, condition: float, expired: bool) -> dict:
     pol = rules.pack()["policy"]
     pid = f"SANDBOX-{a['ref']}"
     ident = a.get("agent_identity_jwt")
-    valid_until = (date.today() - timedelta(days=1)).isoformat() if expired else min(str(_v(f, "mandate", "valid_until") or pol["max_validity"]), pol["max_validity"])
+    valid_until = (date.today() - timedelta(days=1)).isoformat() if expired else pol["max_validity"]
     assurance = crypto.sign_jwt("authority", {"iss": config.ISSUER, "typ": "assurance", "sandbox": True, "jti": pid, "iat": crypto.now_ts(), "valid_until": valid_until,
                                               "provider": {"legal_name": _v(f, "provider", "legal_name"), "licence_ref": _v(f, "provider", "licence_ref")}, "agent_id": ag["agent_id"],
                                               "condition": {"human_confirm_above": {"amount": condition, "currency": "GBP"}}, "binds": {"agent_identity_sha256": crypto.sha256_hex(ident)}}, typ="assurance+jwt")
-    mandate = crypto.sign_jwt("northgate", {"iss": "northgate-joinery-ltd", "typ": "mandate", "sandbox": True, "passport_id": pid, "valid_until": valid_until, "iat": crypto.now_ts(),
-                                            "authorization_details": [{"type": "payment_initiation", "actions": [_v(f, "mandate", "action_type") or "pay_invoice"], "currency": pol["currency"],
-                                                                       "supplier_allowlist": [{"supplier_id": s.get("supplier_id"), "name": s.get("name"), "account_ref": s.get("account_ref")} for s in f.get("suppliers", [])],
-                                                                       "per_payment_limit": {"amount": float(_v(f, "mandate", "per_payment_limit_gbp") or 0), "currency": pol["currency"]},
-                                                                       "monthly_limit_per_account": {"amount": float(_v(f, "mandate", "monthly_limit_per_account_gbp") or 0), "currency": pol["currency"], "window": pol["monthly_window"]}}]}, typ="mandate+jwt")
+    mandate = crypto.sign_jwt("northgate", {"iss": "sandbox-customer", "typ": "mandate", "sandbox": True, "passport_id": pid, "valid_until": valid_until, "iat": crypto.now_ts(),
+                                            "authorization_details": [{"type": "payment_initiation", "actions": list(pol["action_types"]), "currency": pol["currency"],
+                                                                       "supplier_allowlist": [SANDBOX_PAYEE],
+                                                                       "per_payment_limit": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
+                                                                       "monthly_limit_per_account": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]}}]}, typ="mandate+jwt")
     return {"passport_id": pid, "assurance": assurance, "agent_identity": ident, "mandate": mandate}
 
 
@@ -129,7 +133,7 @@ def step_recommendation(a: dict, rule_map: dict, sandbox: list[dict], condition:
 def run(a: dict, condition: float | None = None) -> dict:
     if not a.get("fields") or not a.get("checks"):
         raise ValueError("application not submitted")
-    thr = float(condition if condition is not None else (_v(a["fields"], "mandate", "human_confirm_above_gbp") or rules.pack()["policy"]["human_confirm_above_gbp"]))
+    thr = float(condition if condition is not None else (_v(a["fields"], "requested", "human_confirm_above_gbp") or rules.pack()["policy"]["human_confirm_above_gbp"]))
     evidence = step_evidence(a)
     rule_map = step_rule_map(a)
     tests = step_tests(a)

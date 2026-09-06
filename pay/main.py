@@ -95,7 +95,16 @@ def state():
             "invoices": [{"id": k, "label": "Clean invoice" if k.endswith("clean") else "Poisoned invoice", "text": t} for k, t in extraction.invoices().items()],
             "incidents": db.list_audit(50, kind="incident"), "violations": db.list_violations(), "alerts": db.pattern_alerts(pat["count"], pat["window_hours"]), "pattern_threshold": pat,
             "vouch_mode": vouch.mode(), "payment_rail": vouch.rail(),
+            "mandate_draft": mandate_draft(), "policy": {k: pol[k] for k in ("per_payment_ceiling_gbp", "monthly_per_account_ceiling_gbp", "max_validity", "action_types", "currency", "human_confirm_above_gbp")},
             "delegation_chain": config.DELEGATION_CHAIN == "on", "delegation_max_gbp": config.DELEGATION_MAX_GBP, "chain_beats": fixtures.CHAIN_BEATS, "chain_rules": rules.pack().get("chain_rules", [])}
+
+
+def mandate_draft() -> dict:
+    """The customer's own draft mandate (Phase 3 prefill). Never part of the provider's registration."""
+    import json as _json
+    d = _json.loads((config.FIXTURES_DIR / "customer" / "mandate_draft.json").read_text())
+    d.pop("_comment", None)
+    return d
 
 
 def public_app(a: dict) -> dict:
@@ -196,7 +205,9 @@ def agent_identity_payload(a: dict) -> dict:
         "operator": {"legal_name": rules._v(f, "provider", "legal_name"), "licence_ref": rules._v(f, "provider", "licence_ref")},
         "agent": {"name": rules._v(f, "agent", "agent_name"), "agent_id": ag["agent_id"], "software": rules._v(f, "agent", "software"),
                   "software_version": rules._v(f, "agent", "software_version"), "model_provider": rules._v(f, "agent", "model_provider"),
+                  "model_version": rules._v(f, "agent", "model_version"), "training_type": rules._v(f, "agent", "training_type"),
                   "config_sha256": rules._v(f, "agent", "config_hash")},
+        "key_management": {"storage": rules._v(f, "agent", "key_storage"), "rotation": rules._v(f, "agent", "key_rotation")},
         "cnf": {"jwk": ag["jwk"]},
     }
 
@@ -278,10 +289,12 @@ def issue_passport(a: dict, note: str, condition: dict) -> dict:
     ident_jwt = a.get("agent_identity_jwt") or _400("agent identity not signed by the provider")
     ident = crypto.verify_jwt("payrail", ident_jwt) or _400("agent identity signature does not verify")
     pol = rules.pack()["policy"]
-    m = f["mandate"]
-    valid_until = min(str(rules._v(m, "valid_until") or pol["max_validity"]), pol["max_validity"])
+    valid_until = pol["max_validity"]
     exp = int(datetime.fromisoformat(valid_until + "T23:59:59+00:00").timestamp())
     checks = a.get("checks") or []
+    ceilings = {"per_payment_ceiling": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
+                "monthly_per_account_ceiling": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]},
+                "max_validity": pol["max_validity"], "action_types": list(pol["action_types"])}
     assurance = {
         "iss": config.ISSUER, "typ": "assurance", "jti": a["ref"], "iat": crypto.now_ts(), "nbf": crypto.now_ts(), "exp": exp,
         "valid_until": valid_until, "rule_pack_version": rules.pack()["id"],
@@ -289,28 +302,27 @@ def issue_passport(a: dict, note: str, condition: dict) -> dict:
         "agent_id": ag["agent_id"],
         "assurance": {"kya_status": "ASSURED", "checks_passed": sum(c["result"] == "pass" for c in checks), "checks_flagged": [c["id"] for c in checks if c["result"] != "pass"]},
         "condition": condition,
+        "policy_ceilings": ceilings,
         "accountable_person": {"name": rules._v(f, "accountable_person", "name"), "role": rules._v(f, "accountable_person", "role"), "declaration_ref": rules._v(f, "accountable_person", "declaration_ref")},
         "binds": {"agent_identity_sha256": crypto.sha256_hex(ident_jwt), "agent_kid": ag["kid"]},
         "status": {"registry": f"/api/status/{a['ref']}"},
         "issued_by": config.OFFICER,
     }
+    # Phase 3 belongs to the customer: until it signs, the envelope carries only the ceilings the mandate must fit in.
     mandate_proposed = {
-        "iss": "northgate-joinery-ltd", "typ": "mandate", "passport_id": a["ref"], "valid_until": valid_until, "exp": exp,
-        "customer": {"legal_name": rules._v(f, "customer", "legal_name"), "companies_house_number": rules._v(f, "customer", "companies_house_number")},
-        "authorising_officer": {"name": rules._v(f, "customer", "authorising_officer"), "role": rules._v(f, "customer", "officer_role")},
-        "provider": rules._v(f, "provider", "legal_name"), "agent_id": ag["agent_id"], "agent_kid": ag["kid"],
+        "typ": "mandate", "passport_id": a["ref"], "valid_until": valid_until, "exp": exp, "customer": None, "authorising_officer": None,
+        "provider": rules._v(f, "provider", "legal_name"), "agent_id": ag["agent_id"], "agent_kid": ag["kid"], "written_by": "customer",
         "authorization_details": [{
-            "type": "payment_initiation", "actions": [rules._v(m, "action_type") or "pay_invoice"], "currency": pol["currency"],
-            "supplier_allowlist": [{"supplier_id": s.get("supplier_id"), "name": s.get("name"), "account_ref": s.get("account_ref")} for s in f.get("suppliers", [])],
-            "per_payment_limit": {"amount": float(rules._v(m, "per_payment_limit_gbp") or 0), "currency": pol["currency"]},
-            "monthly_limit_per_account": {"amount": float(rules._v(m, "monthly_limit_per_account_gbp") or 0), "currency": pol["currency"], "window": pol["monthly_window"]},
+            "type": "payment_initiation", "actions": list(pol["action_types"]), "currency": pol["currency"], "supplier_allowlist": [],
+            "per_payment_limit": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
+            "monthly_limit_per_account": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]},
         }],
+        "ceilings": ceilings,
     }
     token = crypto.sign_jwt("authority", assurance, typ="assurance+jwt")
     p = db.create_passport(a["ref"], a["id"], token, assurance, ident_jwt, ident, mandate_proposed, valid_until, config.OFFICER)
-    audit.record("issue", a["ref"], {"event": "assurance signed and entered in registry as ACTIVE; mandate awaiting the customer's signature",
-                                     "authority_kid": crypto.signer("authority")["kid"], "agent_kid": ag["kid"], "condition": condition,
-                                     "scope_proposed": mandate_proposed["authorization_details"][0]})
+    audit.record("issue", a["ref"], {"event": "assurance signed and entered in registry as ACTIVE; policy ceilings set; the customer writes its own mandate",
+                                     "authority_kid": crypto.signer("authority")["kid"], "agent_kid": ag["kid"], "condition": condition, "policy_ceilings": ceilings})
     return p
 
 
@@ -403,17 +415,69 @@ def passport_vouch(passport_id: str):
 
 
 # ── API: customer ──────────────────────────────────────────────────────────
+class MandateIn(BaseModel):
+    """The customer's own mandate (Phase 3). Omitted fields fall back to the customer's draft."""
+    customer: dict | None = None
+    authorising_officer: dict | None = None
+    supplier_allowlist: list[dict] | None = None
+    per_payment_limit: float | None = None
+    monthly_limit_per_account: float | None = None
+    valid_until: str | None = None
+    actions: list[str] | None = None
+
+
+@app.post("/api/passports/{passport_id}/mandate/check")
+def check_mandate(passport_id: str, body: MandateIn | None = None):
+    """Ceiling containment preview: the same check that runs at signing, without signing."""
+    p = db.get_passport(passport_id) or _404()
+    m = _merge_mandate(body)
+    problems = rules.check_mandate_containment(m, p["assurance"]["valid_until"])
+    return {"within_ceilings": not problems, "problems": problems, "ceilings": p["mandate_proposed"].get("ceilings"), "mandate": m}
+
+
+def _merge_mandate(body: MandateIn | None) -> dict:
+    d = mandate_draft()
+    if body:
+        for k in ("customer", "authorising_officer", "supplier_allowlist", "per_payment_limit", "monthly_limit_per_account", "valid_until", "actions"):
+            v = getattr(body, k)
+            if v is not None:
+                d[k] = v
+    d["supplier_allowlist"] = [{"supplier_id": (x.get("supplier_id") or f"SUP-{i + 1:03d}"), "name": (x.get("name") or "").strip(), "account_ref": (x.get("account_ref") or "").strip()} for i, x in enumerate(d.get("supplier_allowlist") or [])]
+    return d
+
+
 @app.post("/api/passports/{passport_id}/mandate/sign")
-def sign_mandate(passport_id: str):
-    """Northgate's finance director signs the proposed mandate with the customer's key. Completes the envelope."""
+def sign_mandate(passport_id: str, body: MandateIn | None = None):
+    """Phase 3: the customer writes and signs its own mandate with the customer key. Live at once; no authority review.
+    The only gate is ceiling containment against the policy ceilings the authority set at Phase 2."""
     p = db.get_passport(passport_id) or _404()
     if p.get("mandate_jwt"):
         _400("mandate already signed")
-    payload = {**p["mandate_proposed"], "iat": crypto.now_ts(), "signed_by": p["mandate_proposed"]["authorising_officer"]}
+    if p["status"] == "revoked":
+        _400("passport revoked; nothing to sign")
+    m = _merge_mandate(body)
+    problems = rules.check_mandate_containment(m, p["assurance"]["valid_until"])
+    if problems:
+        raise HTTPException(422, {"message": "mandate outside the policy ceilings", "problems": problems})
+    pol = rules.pack()["policy"]
+    mp = p["mandate_proposed"]
+    payload = {
+        "iss": "northgate-joinery-ltd", "typ": "mandate", "passport_id": passport_id, "iat": crypto.now_ts(), "valid_until": m["valid_until"],
+        "exp": int(datetime.fromisoformat(m["valid_until"] + "T23:59:59+00:00").timestamp()),
+        "customer": m["customer"], "authorising_officer": m["authorising_officer"], "signed_by": m["authorising_officer"],
+        "provider": mp["provider"], "agent_id": mp["agent_id"], "agent_kid": mp["agent_kid"], "written_by": "customer",
+        "authorization_details": [{"type": "payment_initiation", "actions": list(m["actions"]), "currency": pol["currency"], "supplier_allowlist": m["supplier_allowlist"],
+                                   "per_payment_limit": {"amount": float(m["per_payment_limit"]), "currency": pol["currency"]},
+                                   "monthly_limit_per_account": {"amount": float(m["monthly_limit_per_account"]), "currency": pol["currency"], "window": pol["monthly_window"]}}],
+        "within_ceilings": True,
+    }
     token = crypto.sign_jwt("northgate", payload, typ="mandate+jwt")
     p = db.set_mandate(passport_id, token, payload)
-    audit.record("mandate", passport_id, {"event": "mandate signed by the customer; envelope complete", "signer": payload["signed_by"], "customer_kid": crypto.signer("northgate")["kid"],
-                                          "suppliers": len(payload["authorization_details"][0]["supplier_allowlist"])})
+    with db.tx() as con:
+        con.execute("UPDATE passports SET mandate_proposed_json=? WHERE passport_id=?", (__import__("json").dumps({**mp, **{k: payload[k] for k in ("customer", "authorising_officer", "valid_until", "authorization_details")}}), passport_id))
+    p = db.get_passport(passport_id)
+    audit.record("mandate", passport_id, {"event": "customer wrote and signed its mandate; ceiling containment passed; envelope complete; live at once", "signer": payload["signed_by"], "customer_kid": crypto.signer("northgate")["kid"],
+                                          "suppliers": len(m["supplier_allowlist"]), "per_payment_limit": float(m["per_payment_limit"]), "monthly_limit_per_account": float(m["monthly_limit_per_account"]), "valid_until": m["valid_until"]})
     return public_passport(p)
 
 
@@ -441,7 +505,7 @@ def minimal_passport(p: dict) -> dict:
     a, i, m = p["assurance"], p["agent_identity"], p.get("mandate")
     ad = (m or p["mandate_proposed"])["authorization_details"][0]
     return {
-        "passport_id": p["passport_id"], "issuer": a["iss"], "provider": a["provider"]["legal_name"], "licence_ref": a["provider"]["licence_ref"],
+        "passport_id": p["passport_id"], "issuer": a["iss"], "provider": a["provider"]["legal_name"], "licence_ref": a["provider"]["licence_ref"], "policy_ceilings": a.get("policy_ceilings"),
         "agent": i["agent"]["name"], "agent_id": i["agent"]["agent_id"], "agent_kid": crypto.jwk_thumbprint(i["cnf"]["jwk"])[:16],
         "condition": a["condition"], "valid_until": a["valid_until"], "status": p["status"], "mandate_signed": bool(m),
         "scope": {"actions": ad["actions"], "currency": ad["currency"], "suppliers": len(ad["supplier_allowlist"]), "per_payment_limit": ad["per_payment_limit"], "monthly_limit_per_account": ad["monthly_limit_per_account"]},

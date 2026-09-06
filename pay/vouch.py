@@ -83,7 +83,7 @@ def mint_mandate(passport: dict) -> dict:
     ad = (proposed.get("authorization_details") or [{}])[0]
     monthly = float((ad.get("monthly_limit_per_account") or {}).get("amount") or 0)
     per = float((ad.get("per_payment_limit") or {}).get("amount") or 0)
-    label = f"Agent Passport {passport['passport_id']} · {passport['agent_identity']['agent']['name']} for {proposed.get('customer', {}).get('legal_name')}"
+    label = f"Agent Passport {passport['passport_id']} · {passport['agent_identity']['agent']['name']} for {(proposed.get('customer') or {}).get('legal_name') or 'customer mandates within policy ceilings'}"
     body = {
         "label": label[:120],
         "policy": {"quota": {"totalCostUsd": monthly}},
@@ -91,7 +91,7 @@ def mint_mandate(passport: dict) -> dict:
             "passport_id": passport["passport_id"],
             "issuer": config.ISSUER,
             "agent_id": passport["agent_identity"]["agent"]["agent_id"],
-            "customer": proposed.get("customer", {}).get("legal_name"),
+            "customer": (proposed.get("customer") or {}).get("legal_name"),
             "per_payment_limit": per, "monthly_limit_per_account": monthly, "currency": ad.get("currency"),
             "status_url": f"/api/status/{passport['passport_id']}",
             "compat": "docs/KYA_extension_for_purpose_bound_value.md",

@@ -1,5 +1,5 @@
 {
- "_comment": "Deterministic stand-in for the Gemini extraction of the PayRail evidence pack. Same schema, same provenance shape. Used when EXTRACTION_MODE=fixture or when the API is unavailable.",
+ "_comment": "Deterministic stand-in for the Gemini extraction of PayRail's registration pack (Phase 1: provider, accountable person, insurance, agent model documentation and key management, requested authority). No customer data.",
  "provider": {
   "legal_name": {
    "value": "PayRail Ltd",
@@ -97,82 +97,47 @@
    "source_doc": "02_agent_technical_description.txt",
    "quote": "Model provider:          Anthropic (Claude)"
   },
+  "model_version": {
+   "value": "claude-sonnet-5",
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "Model version:         claude-sonnet-5 (pinned; changes require re-registration)"
+  },
+  "benchmarks": {
+   "value": "invoice field extraction 99.2% exact match on the RailPay AP-2026 test set (1,200 invoices); payee-change detection 100% recall on 300 seeded redirection attempts",
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "invoice field extraction 99.2% exact match on the RailPay AP-2026 test"
+  },
+  "training_type": {
+   "value": "foundation model, no fine-tuning; retrieval and tool use only; no customer data used for training",
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "Training type:         foundation model, no fine-tuning; retrieval and tool use only"
+  },
   "config_hash": {
    "value": "3461e119a630aec53b47b3cc7777d99b1fcfb89c03a075938519896148df628b",
    "source_doc": "02_agent_technical_description.txt",
    "quote": "SHA-256:               3461e119a630aec53b47b3cc7777d99b1fcfb89c03a075938519896148df628b"
+  },
+  "key_storage": {
+   "value": "hardware-backed key store in PayRail's deployment; not exportable",
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "Private key storage:   hardware-backed key store in PayRail's deployment; not exportable"
+  },
+  "key_rotation": {
+   "value": "every 12 months, or immediately on suspected compromise",
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "Key rotation:          every 12 months, or immediately on suspected compromise"
   }
  },
- "customer": {
-  "legal_name": {
-   "value": "Northgate Joinery Ltd",
-   "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "Northgate Joinery Ltd, Companies House number 11223344"
-  },
-  "companies_house_number": {
-   "value": "11223344",
-   "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "Companies House number 11223344"
-  },
-  "authorising_officer": {
-   "value": "Helen Marsh",
-   "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "Authorising officer for the Customer: Helen Marsh, Finance Director."
-  },
-  "officer_role": {
-   "value": "Finance Director",
-   "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "Helen Marsh, Finance Director"
-  }
- },
- "mandate": {
+ "requested": {
   "action_type": {
    "value": "pay_invoice",
-   "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "Action:                           pay_invoice only; no amendments, refunds or new payees"
-  },
-  "per_payment_limit_gbp": {
-   "value": 10000,
-   "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "Per payment:                      not more than GBP 10,000"
-  },
-  "monthly_limit_per_account_gbp": {
-   "value": 20000,
-   "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "Per supplier account, 30 days:    not more than GBP 20,000 in any rolling 30-day period"
-  },
-  "valid_until": {
-   "value": "2027-03-31",
-   "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "This mandate expires on 31 March 2027"
+   "source_doc": "02_agent_technical_description.txt",
+   "quote": "Action type:           pay_invoice (initiate a payment to an allowlisted supplier account)"
   },
   "human_confirm_above_gbp": {
    "value": 5000,
    "source_doc": "02_agent_technical_description.txt",
    "quote": "instructions above GBP 5,000 are held for confirmation by the customer's authorising officer"
   }
- },
- "suppliers": [
-  {
-   "supplier_id": "SUP-001",
-   "name": "Fenwick Timber Ltd",
-   "account_ref": "60-11-22 10101010",
-   "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "SUP-001       Fenwick Timber Ltd       60-11-22    10101010"
-  },
-  {
-   "supplier_id": "SUP-002",
-   "name": "Ashby Ironmongery Ltd",
-   "account_ref": "30-98-76 22334455",
-   "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "SUP-002       Ashby Ironmongery Ltd    30-98-76    22334455"
-  },
-  {
-   "supplier_id": "SUP-003",
-   "name": "Coastline Glass Ltd",
-   "account_ref": "20-13-57 77665544",
-   "source_doc": "05_northgate_service_agreement.txt",
-   "quote": "SUP-003       Coastline Glass Ltd      20-13-57    77665544"
-  }
- ]
+ }
 }

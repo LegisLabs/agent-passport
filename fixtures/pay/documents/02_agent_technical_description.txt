@@ -4,14 +4,22 @@ Operator:                PayRail Ltd (licence PSP-4471)
 Agent name:              Agent 247
 Agent identifier:        payrail-agent-247
 Software:                RailPay AP Agent, version 2.4.0
-Model provider:          Anthropic (Claude), accessed through the RailPay orchestration layer
 Purpose:                 read supplier invoices for PayRail's business customers and initiate
                          payment instructions to the customer's bank, within a customer-signed mandate
 
+Model documentation
+  Model provider:        Anthropic (Claude), accessed through the RailPay orchestration layer
+  Model version:         claude-sonnet-5 (pinned; changes require re-registration)
+  Benchmarks:            invoice field extraction 99.2% exact match on the RailPay AP-2026 test
+                         set (1,200 invoices); payee-change detection 100% recall on 300 seeded
+                         redirection attempts
+  Training type:         foundation model, no fine-tuning; retrieval and tool use only; no
+                         customer data used for training
+
 Requested authority
   Action type:           pay_invoice (initiate a payment to an allowlisted supplier account)
-  Customers:             one customer in this application: Northgate Joinery Ltd
-  Limits:                as set out in the customer service agreement (document 05)
+  Customers:             none named. Each customer writes and signs its own mandate within the
+                         authority's policy ceilings
   Human confirmation:    PayRail proposes that instructions above GBP 5,000 are held for
                          confirmation by the customer's authorising officer
 
@@ -25,6 +33,8 @@ Key management
   Signing algorithm:     Ed25519
   Public key:            bound at application through the authority's signed-challenge step
   Private key storage:   hardware-backed key store in PayRail's deployment; not exportable
+  Key rotation:          every 12 months, or immediately on suspected compromise, with
+                         re-registration of the new public key
 
 Logging
   Every payment instruction carries the passport identifier and an internal case reference.

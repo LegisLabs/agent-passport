@@ -494,3 +494,44 @@ def test_envelope_tamper_each_signer_flips_one_byte(client):
         r = client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": bad}).json()
         assert r["decision"] == "DENY" and r["rule"] == rule, (part, r["rule"])
     assert client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": env}).json()["decision"] == "ALLOW"
+
+
+# ── Iteration 3, Task 3: Issuance Flow v4 — customer writes its own mandate within policy ceilings ──
+def test_registration_carries_no_customer_and_assurance_carries_ceilings(client):
+    p, a = issue_one(client, sign_mandate=False)
+    assert "customer" not in a["fields"] and "suppliers" not in a["fields"] and "mandate" not in a["fields"]
+    assert a["fields"]["agent"]["model_version"]["value"] == "claude-sonnet-5" and a["fields"]["agent"]["key_rotation"]["value"]
+    assert [c["id"] for c in a["checks"] if c["result"] != "pass"] == []
+    assert p["assurance"]["policy_ceilings"]["per_payment_ceiling"]["amount"] == 10000 and p["assurance"]["policy_ceilings"]["monthly_per_account_ceiling"]["amount"] == 50000
+    assert p["mandate_proposed"]["customer"] is None and p["mandate_proposed"]["authorization_details"][0]["supplier_allowlist"] == []
+    assert p["agent_identity"]["agent"]["model_version"] == "claude-sonnet-5" and p["agent_identity"]["key_management"]["rotation"]
+
+
+def test_customer_mandate_is_gated_only_by_ceiling_containment(client):
+    p, _ = issue_one(client, sign_mandate=False)
+    pid = p["passport_id"]
+    draft = client.get("/api/state").json()["mandate_draft"]
+    ok = client.post(f"/api/passports/{pid}/mandate/check", json=draft).json()
+    assert ok["within_ceilings"] is True and ok["problems"] == []
+    for bad, field in (({"per_payment_limit": 10001}, "per_payment_limit"), ({"monthly_limit_per_account": 60000}, "monthly_limit_per_account"),
+                       ({"valid_until": "2027-06-01"}, "valid_until"), ({"supplier_allowlist": []}, "supplier_allowlist"), ({"actions": ["refund"]}, "actions"),
+                       ({"supplier_allowlist": [{"name": "X", "account_ref": "12-34"}]}, "supplier_allowlist")):
+        r = client.post(f"/api/passports/{pid}/mandate/check", json={**draft, **bad}).json()
+        assert r["within_ceilings"] is False and any(x["field"] == field for x in r["problems"]), (bad, r)
+        s = client.post(f"/api/passports/{pid}/mandate/sign", json={**draft, **bad})
+        assert s.status_code == 422 and s.json()["detail"]["problems"]
+    assert client.get(f"/api/passports/{pid}").json()["mandate_signed"] is False
+    # the customer tightens its own mandate below the ceilings, adds a payee, and signs: live at once
+    mine = {**draft, "per_payment_limit": 7500, "monthly_limit_per_account": 15000, "supplier_allowlist": draft["supplier_allowlist"] + [{"name": "Delta Fixings Ltd", "account_ref": "40-40-40 12121212"}]}
+    p = client.post(f"/api/passports/{pid}/mandate/sign", json=mine).json()
+    assert p["mandate_signed"] is True and p["mandate"]["within_ceilings"] is True and p["mandate"]["written_by"] == "customer"
+    ad = p["mandate"]["authorization_details"][0]
+    assert ad["per_payment_limit"]["amount"] == 7500 and len(ad["supplier_allowlist"]) == 4 and ad["supplier_allowlist"][3]["supplier_id"] == "SUP-004"
+    assert client.get(f"/api/passports/{pid}").json()["verification"]["ok"] is True
+    # the bank enforces the customer's tighter limit, not the ceiling
+    r = act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 8000})
+    assert r["rule"] == "R.7"
+    assert act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Delta Fixings Ltd", "payee_account_ref": "40-40-40 12121212", "amount": 900})["decision"] == "ALLOW"
+    # the authority never had the mandate content in the registration
+    a = client.get("/api/state").json()["applications"][0]
+    assert "Delta" not in json.dumps(a["fields"])

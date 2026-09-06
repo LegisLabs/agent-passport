@@ -16,7 +16,7 @@ import time
 
 from . import config
 
-SECTIONS = ("provider", "accountable_person", "insurance", "agent", "customer", "mandate")
+SECTIONS = ("provider", "accountable_person", "insurance", "agent", "requested")
 
 
 def fixture() -> dict:
@@ -106,17 +106,10 @@ def _validate(out: dict) -> dict:
             v = out[section].get(k)
             if not isinstance(v, dict) or "value" not in v:
                 out[section][k] = {"value": None, "source_doc": None, "quote": None}
-    if not isinstance(out.get("suppliers"), list):
-        raise ValueError("suppliers must be a list")
-    for s in out["suppliers"]:
-        s["account_ref"] = _account(s.get("account_ref"))
-        s["supplier_id"] = str(s.get("supplier_id") or "").strip().upper()
-    m = out["mandate"]
-    at = str(m["action_type"]["value"] or "").lower()
-    m["action_type"]["value"] = "pay_invoice" if "pay" in at or "invoice" in at else m["action_type"]["value"]
-    for k in ("per_payment_limit_gbp", "monthly_limit_per_account_gbp", "human_confirm_above_gbp"):
-        m[k]["value"] = _num(m[k]["value"])
-    m["valid_until"]["value"] = _iso_date(m["valid_until"]["value"])
+    rq = out["requested"]
+    at = str(rq["action_type"]["value"] or "").lower()
+    rq["action_type"]["value"] = "pay_invoice" if "pay" in at or "invoice" in at else rq["action_type"]["value"]
+    rq["human_confirm_above_gbp"]["value"] = _num(rq["human_confirm_above_gbp"]["value"])
     ins = out["insurance"]
     ins["cover_gbp"]["value"] = _num(ins["cover_gbp"]["value"])
     ins["valid_until"]["value"] = _iso_date(ins["valid_until"]["value"])
@@ -126,9 +119,8 @@ def _validate(out: dict) -> dict:
     decl["value"] = decl["value"] is True or str(decl["value"]).lower() in ("true", "yes") or "accept responsibility" in quote
     ag = out["agent"]
     ag["config_hash"]["value"] = str(ag["config_hash"]["value"] or "").strip().lower() or None
-    for sec in ("provider", "customer"):
-        ch = out[sec]["companies_house_number"]
-        ch["value"] = re.sub(r"\D", "", str(ch["value"] or "")) or None
+    ch = out["provider"]["companies_house_number"]
+    ch["value"] = re.sub(r"\D", "", str(ch["value"] or "")) or None
     return out
 
 
@@ -142,9 +134,9 @@ def extract(documents: list[dict]) -> tuple[dict, str]:
         "Rules: copy values verbatim from the documents; for every field give source_doc (the FILE name) and quote "
         "(the exact words the value came from); if a value is absent use null; do not infer, summarise or judge; "
         "do not add fields. Booleans must be true/false. Numbers must be plain numbers (no currency symbols). "
-        "Dates must be ISO (YYYY-MM-DD). Supplier rows: one object per supplier in the allowlist table, account_ref "
-        "as 'sort-code accountnumber' e.g. '60-11-22 10101010'. action_type is pay_invoice when the agreement permits "
-        "paying invoices. config_hash is the SHA-256 hex string in the technical description. declaration_accepted is "
+        "Dates must be ISO (YYYY-MM-DD). action_type is pay_invoice when the requested authority is initiating invoice "
+        "payments. config_hash is the SHA-256 hex string in the technical description. benchmarks and training_type are "
+        "the sentences under Model documentation; key_storage and key_rotation the lines under Key management. declaration_accepted is "
         "true when the named person states in writing that they accept responsibility for the agent's actions. "
         "human_confirm_above_gbp is the amount above which instructions are held for human confirmation.\n\n"
         f"SCHEMA:\n{json.dumps(_blank_schema(fixture()), indent=1)}\n\nDOCUMENTS:\n{docs_text}\n\nReturn only the JSON."
@@ -167,8 +159,7 @@ def draft_file_note(ref: str, fields: dict, checks: list[dict]) -> tuple[str, st
         "reference": ref,
         "provider": fields["provider"]["legal_name"]["value"],
         "agent": fields["agent"]["agent_name"]["value"],
-        "customer": fields["customer"]["legal_name"]["value"],
-        "requested": {k: v["value"] for k, v in fields["mandate"].items()},
+        "requested": {k: v["value"] for k, v in fields["requested"].items()},
         "checks": [{"id": c["id"], "title": c["title"], "result": c["result"], "detail": c["detail"]} for c in checks],
     }
     prompt = (
@@ -190,12 +181,12 @@ def draft_file_note(ref: str, fields: dict, checks: list[dict]) -> tuple[str, st
 
 
 def _fixture_note(ref, fields, checks, flagged) -> str:
-    m = {k: v["value"] for k, v in fields["mandate"].items()}
+    rq = {k: v["value"] for k, v in fields["requested"].items()}
     passed = sum(1 for c in checks if c["result"] == "pass")
-    s = (f"Application {ref} from {fields['provider']['legal_name']['value']} seeks assurance for agent "
-         f"{fields['agent']['agent_name']['value']} to initiate supplier payments for {fields['customer']['legal_name']['value']}: "
-         f"up to £{float(m['per_payment_limit_gbp'] or 0):,.0f} per payment and £{float(m['monthly_limit_per_account_gbp'] or 0):,.0f} per supplier account in 30 days, "
-         f"until {m['valid_until']}. {passed} of {len(checks)} automated checks passed.")
+    s = (f"Application {ref} from {fields['provider']['legal_name']['value']} registers agent "
+         f"{fields['agent']['agent_name']['value']} ({fields['agent']['model_provider']['value']}, {fields['agent']['model_version']['value']}) for {rq['action_type']}, "
+         f"proposing human confirmation above £{float(rq['human_confirm_above_gbp'] or 0):,.0f}. Customer mandates are written by customers within the policy ceilings. "
+         f"{passed} of {len(checks)} automated checks passed.")
     if flagged:
         s += " Flagged: " + "; ".join(f"{c['id']} {c['detail']}" for c in flagged) + "."
     return s

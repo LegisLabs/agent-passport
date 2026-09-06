@@ -4,12 +4,12 @@
 <div class="grid">
   <div class="col-main">
     <h1 class="h1">{{ operator }} applies to deploy {{ agent_name }}</h1>
-    <p class="lede">The provider submits its evidence pack. The authority's system reads the documents into structured facts, shows exactly where each fact came from, and lets you correct them before anything is checked. Then the agent proves it holds its own key.</p>
+    <p class="lede"><strong>Phase 1</strong> — Provider registers the agent model once: model documentation (model and version, benchmarks, training type), agent public key, configuration hash, insurance. No customer data. The authority's system reads the documents into structured facts, shows exactly where each fact came from, and lets you correct them before anything is checked. Then the agent proves it holds its own key.</p>
 
     <ol class="steps" id="steps">
       <li class="step" data-step="1">
         <h2 class="h2">1 · Evidence pack</h2>
-        <p class="hint">Five synthetic documents the provider would already hold. Select a name to read it.</p>
+        <p class="hint">Four synthetic documents the provider would already hold. Select a name to read it.</p>
         <ul class="docs" id="docs"></ul>
         <div class="actions">
           <button class="btn" id="btn-new">Start application</button>
@@ -55,7 +55,7 @@
     <p class="small">Three trust relationships the passport builds on, none of which it replaces:</p>
     <ol class="layers">
       <li><strong>Provider licence</strong><span>the national payments supervisor's register; permission to initiate payments</span></li>
-      <li><strong>Customer contract</strong><span>{{ customer }} engages {{ operator }} and names an authorising officer</span></li>
+      <li><strong>Customer contract</strong><span>each customer engages {{ operator }} and writes its own mandate; the authority never sees it</span></li>
       <li><strong>Bank account mandate</strong><span>the customer's bank executes instructions on the customer's authority</span></li>
       <li class="layers__new"><strong>Agent Passport</strong><span>recognises <em>this</em> agent, for <em>this</em> customer, <em>these</em> payees, <em>these</em> limits. Three signatures, revocable at action level</span></li>
     </ol>
