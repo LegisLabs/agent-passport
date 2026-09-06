@@ -37,6 +37,13 @@ All names, registers, accounts and documents are synthetic. This is a proposed a
 4. **Act & check** (`/bank`). Eight proposed instructions. The simulated agent signs each; the bank runs R.1–R.9 in order and answers ALLOW / ESCALATE / DENY with rule, reason code, an authority-signed receipt and, on ALLOW, a settlement line. Per-account 30-day meters, and both rails (authority registry, vouch voucher) on every line, so after a revocation the console shows two rails refusing. Three refusals raise an incident.
 5. **Audit** (`/audit`). Hash chain over every event. Replay re-runs any verification from its stored inputs, including the bank's ledger total at the time, and must match.
 
+### Iteration 3: Issuance Flow v4, signature evidence, demo readiness
+
+- **Issuance Flow v4.** Phase 1: the provider registers the agent model once (model documentation, key management, key, config hash, insurance; no customer data). Phase 2: the authority approves once and sets policy ceilings, carried in the assurance. Phase 3: the customer writes and signs its own mandate on the Customer Panel; the only gate is ceiling containment (`POST /api/passports/{id}/mandate/check` previews it, `/mandate/sign` enforces it with a 422). The regulator never sees mandate content.
+- **Instruction-level signature.** Every instruction is signed by the agent key over the canonical JSON of `passport_id, action_type, payee_account_ref, supplier_name, amount, currency, invoice_ref, nonce` (integral floats written as integers). R.4 verifies the signature bytes with a real Ed25519 call; every verdict carries `signature` (verified, agent key fingerprint, payload hash) and the terminal prints it. Tamper tests flip one byte of the payload, one bit of the signature, use a rogue key, and flip one bit inside each of the three envelope JWTs.
+- **Demo baseline.** `bash scripts/demo_reset.sh [base-url]` (or the footer link) restores the exact pre-demo state: one registration reviewed and approved, the customer mandate signed, passport ACTIVE, no payments, no violations. `STAGE=submitted` stops before approval for Stage 1. Deterministic, fixture extraction.
+- **Eight-stage walk:** `tests/ui/walk_eight_stages.py`.
+
 ### Iteration 2: the agentic loop and the manipulation moment
 
 - **Malicious invoice** (`/bank`): Agent 247 reads `INV-9001-clean` or `INV-9001-poisoned` with the model, signs the instruction it derived, and the bank decides. Clean pays the signed-for account; poisoned would pay 60-11-22 99887766 and is refused at R.6. Fixture mode reproduces the extraction exactly.
@@ -65,7 +72,7 @@ Public keys for all three signers: `GET /api/signers`. Remove any one signature 
 
 ### Rules (rule pack `payments-2026.09`, data not code)
 
-Application, authority side: A.1 licence resolves and active · A.2 Companies House resolves · A.3 accountable person with signed declaration · A.4 insurance evidenced · A.5 agent key proof-of-possession · A.6 customer agreement evidenced · A.7 limits within policy ceilings · A.8 software declared and config hash matches the deployed file.
+Registration, authority side: A.1 licence resolves and active · A.2 Companies House resolves · A.3 accountable person with signed declaration · A.4 insurance evidenced · A.5 agent key proof-of-possession · A.6 model documentation declared · A.7 key management declared and requested authority within policy · A.8 software declared and config hash matches the deployed file. Ceiling containment runs when the customer signs its mandate.
 
 | Bank side, in order | Fails to |
 |---|---|
@@ -89,7 +96,7 @@ The limit lives in the mandate; the running total lives at the bank. `fixtures/p
 | 0 | Any instruction before the customer signs | DENY R.5 mandate not signed |
 | 1 | Fenwick Timber Ltd · £3,200 · on the allowlist | ALLOW, receipt, settled |
 | 2 | Fenwick Timber Ltd · £2,750 · account 60-11-22 99887766 | DENY R.6 · invoice redirection fraud stopped by the customer-signed allowlist |
-| 3 | Ashby Ironmongery Ltd · £12,000 | DENY R.7 · above the £10,000 cap |
+| 3 | Ashby Ironmongery Ltd · £12,000 | DENY R.7 · above the £10,000 cap (the customer's own limit, within the authority's ceiling) |
 | 4 | Coastline Glass Ltd · £5,600 | ESCALATE R.9 · above the £5,000 supervisor condition |
 | 5 | Fenwick Timber Ltd · £4,900 · repeated | ALLOW ×3, then DENY R.8 when the 30-day total would pass £20,000 |
 | 6 | Fenwick Timber Ltd · £1,150 · signed with a rogue key | DENY R.4 · copied passport |

@@ -72,6 +72,14 @@ Each party signs only what it is entitled to say. The assurance is bound to the 
 
 The limit lives in the mandate; the running total lives at the bank, and the total at decision time is stored in the audit entry so replay is exact. Three DENYs on one passport write an "escalated to supervisor" incident row, visible in the bank terminal and the regulator's incident feed.
 
+## 5b. Iteration 3 (6 Sept): Issuance Flow v4, signature evidence, demo readiness
+
+- Registration carries no customer data; A.6 and A.7 now check model documentation and key management. The assurance carries policy ceilings. The customer writes and signs its own mandate on the Customer Panel (prefilled from `fixtures/pay/customer/mandate_draft.json`), gated only by ceiling containment. The regulator's envelope panel shows the mandate as customer-signed with counts, never its content.
+- Every verdict carries the R.4 signature result, the agent key fingerprint and the payload hash; tamper tests cover payload bytes, signature bits, rogue keys and each envelope JWT.
+- Fixtures realigned to the script: Fenwick 10101010, poisoned invoice 99887766, boundary £12,000. Labels: interoperability line, ALL THREE VERIFY, credential format, five-layer captions. About carries the v9 A9 copy with the four adjustments.
+- `POST /api/demo/seed?stage=issued|submitted` and `scripts/demo_reset.sh` restore a deterministic baseline; the audit page replays every verification on load. Tests: 69. Walks: `tests/ui/walk_eight_stages.py` plus the iteration-2, beats and chain walks.
+- Deviation from the work order: it said the Issuance Flow v4 panels already existed. They did not; Task 3 built them.
+
 ## 5a. Iteration 2 (6 Sept): the agentic loop, the manipulation moment, the exception loop
 
 - **Malicious invoice demo** (`/bank`, top panel). Agent 247 reads a clean or a poisoned invoice through the model (verbatim quote per field), signs the instruction it derived, and presents it. Four visible steps: what it read (account marked), the instruction it generated (wrong account in red), the bank's decision (R.6 with the FATF named-beneficiary note), and the caption "The AI read a manipulated invoice and would have paid the wrong account. The mandate stopped it." Every bank DENY now writes a violation row.
