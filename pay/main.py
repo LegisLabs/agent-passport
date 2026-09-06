@@ -725,6 +725,33 @@ def reset():
     return {"ok": True}
 
 
+@app.post("/api/demo/seed")
+def demo_seed(stage: str = "issued"):
+    """Restore the exact pre-demo baseline between takes. stage=submitted: registration submitted and reviewed,
+    ready for the officer (Stage 1). stage=issued (default): approved, customer mandate signed, passport ACTIVE,
+    no payments, no violations. Deterministic: fixture extraction, the customer's draft mandate, the default condition."""
+    if stage not in ("submitted", "issued"):
+        _400("stage must be submitted or issued")
+    db.reset_all()
+    audit.record("system", None, {"event": "demo baseline seeded", "stage": stage})
+    n = db.count_applications() + 107
+    a = db.create_application(f"AP-2026-{n:04d}", fixtures.evidence_pack())
+    audit.record("application", a["ref"], {"event": "draft created", "provider": config.OPERATOR, "documents": [d["name"] for d in a["documents"]]})
+    facts = extraction.fixture()
+    a = db.update_application(a["id"], extraction=facts, fields=facts, extraction_mode="fixture")
+    audit.record("extraction", a["ref"], {"event": "documents read into structured facts", "mode": "fixture", "fields": sum(len(v) for k, v in facts.items() if isinstance(v, dict) and not k.startswith("_")), "model": None})
+    a = agent_key(a["id"]); a = sign_challenge(a["id"]); a = submit(a["id"])
+    r = run_review(a["id"], ReviewIn())
+    out = {"ok": True, "stage": stage, "application": r["application"]["ref"], "recommendation": r["review"]["steps"][4]["data"]["verdict"]}
+    if stage == "issued":
+        d = decide(a["id"], DecisionIn(decision="approve", note="Baseline: eight checks pass, sandbox 5 of 5, condition £5,000.", human_confirm_above=rules.pack()["policy"]["human_confirm_above_gbp"]))
+        pid = d["passport"]["passport_id"]
+        p = sign_mandate(pid, MandateIn())
+        out.update({"passport_id": pid, "status": p["status"], "mandate_signed": p["mandate_signed"], "vouch": {"voucher_id": p.get("vouch_voucher_id"), "mode": p.get("vouch_mode")}})
+    out["audit_entries"] = len(db.list_audit())
+    return out
+
+
 def _404():
     raise HTTPException(404, "not found")
 

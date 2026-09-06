@@ -524,3 +524,5 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
 .containment--ok { border-color: var(--green); background: var(--green-soft); color: var(--green-dark); }
 .containment--bad { border-color: var(--red); background: var(--red-soft); color: var(--red-dark); }
 .containment ul { margin: .3rem 0 0 1rem; padding: 0; }
+
+.envelope__stamp { margin: .2rem 0 .6rem; display: flex; gap: .6rem; align-items: center; flex-wrap: wrap; }

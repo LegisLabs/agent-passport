@@ -267,6 +267,7 @@ const AP = (() => {
       const env = $('envelope');
       env.innerHTML = envelopePanels(full);
       env.classList.toggle('envelope--incomplete', !full.mandate_signed);
+      const stamp = $('envelope-stamp'); if (stamp) { const ok = full.verification.ok; stamp.innerHTML = ok ? '<span class="stamp stamp--green">ALL THREE VERIFY</span> <span class="small">authority, provider and customer signatures checked with real Ed25519 calls just now</span>' : `<span class="stamp stamp--amber">${esc(String(full.verification.failure || '').replace('_', ' '))}</span> <span class="small">the envelope is not complete</span>`; }
       env.classList.toggle('envelope--revoked', p.status === 'revoked');
       renderRail(p, null);
       $('jwt-panels').innerHTML = ['assurance', 'agent_identity', 'mandate'].map(k => full.envelope[k] ? `<h4 class="h4">${k} <span class="small">JWT (OIDC-compatible) · header ${esc(JSON.stringify(full.headers[k]))}</span></h4><pre class="code">${esc(JSON.stringify(full[k], null, 2))}</pre><pre class="code code--wrap">${esc(full.envelope[k])}</pre>` : `<h4 class="h4">${k}</h4><p class="small">not yet signed</p>`).join('');
@@ -536,12 +537,14 @@ const AP = (() => {
       $('au-replays').textContent = `${run} run · ${same} identical`;
     }
     tb.addEventListener('click', e => { const b = e.target.closest('[data-replay]'); if (b) replay(+b.dataset.replay); });
-    $('btn-replay-all').onclick = async () => { for (const r of data.rows.filter(x => x.kind === 'verify')) await replay(r.id); $('replay-note').textContent = `${same} of ${run} verifications replayed identically`; };
+    const replayAll = async () => { run = 0; same = 0; for (const r of data.rows.filter(x => x.kind === 'verify')) await replay(r.id); $('replay-note').textContent = run ? `${same} of ${run} verifications replayed identically` : 'no verifications yet'; };
+    $('btn-replay-all').onclick = replayAll;
+    replayAll();
   }
 
   document.addEventListener('DOMContentLoaded', () => {
     const rb = $('demo-reset');
-    if (rb) rb.onclick = async () => { if (confirm('Reset the whole demo? All applications, passports, payments and audit entries are deleted.')) { await api('POST', '/api/reset'); location.href = '/provider'; } };
+    if (rb) rb.onclick = async () => { if (confirm('Reset the demo to its baseline? Everything is deleted, then one registration is reviewed, approved and the customer mandate signed, so the passport is ACTIVE with no payments and no violations.')) { rb.disabled = true; rb.textContent = 'seeding…'; await api('POST', '/api/demo/seed?stage=issued'); location.href = '/bank'; } };
   });
 
   return { provider, regulator, customer, bank, audit };

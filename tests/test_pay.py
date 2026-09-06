@@ -535,3 +535,22 @@ def test_customer_mandate_is_gated_only_by_ceiling_containment(client):
     # the authority never had the mandate content in the registration
     a = client.get("/api/state").json()["applications"][0]
     assert "Delta" not in json.dumps(a["fields"])
+
+
+# ── Iteration 3, Task 7: demo baseline seed is deterministic and repeatable ──
+def test_demo_seed_twice_gives_identical_baselines(client):
+    def baseline():
+        r = client.post("/api/demo/seed?stage=issued").json()
+        st = client.get("/api/state").json()
+        p = st["passports"][0]
+        au = client.get("/api/audit").json()
+        return {"seed": {k: r[k] for k in ("stage", "application", "recommendation", "status", "mandate_signed", "audit_entries")},
+                "passport": {"id": p["passport_id"], "status": p["status"], "payees": len(p["mandate"]["authorization_details"][0]["supplier_allowlist"]), "payments": p["payments"], "ledger": p["ledger"]},
+                "violations": len(st["violations"]), "alerts": len(st["alerts"]), "audit_kinds": [x["kind"] for x in au["rows"]], "chain_ok": au["chain"]["ok"]}
+    b1, b2 = baseline(), baseline()
+    assert b1 == b2, (b1, b2)
+    assert b1["passport"]["status"] == "active" and b1["passport"]["payees"] == 3 and b1["passport"]["payments"] == 0 and b1["violations"] == 0
+    assert b1["seed"]["recommendation"] == "APPROVE WITH CONDITIONS" and b1["chain_ok"]
+    s = client.post("/api/demo/seed?stage=submitted").json()
+    assert s["stage"] == "submitted" and "passport_id" not in s and client.get("/api/state").json()["applications"][0]["status"] == "submitted"
+    assert client.post("/api/demo/seed?stage=nope").status_code == 400

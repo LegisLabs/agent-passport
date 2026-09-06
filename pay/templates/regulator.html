@@ -48,7 +48,9 @@
         <h2 class="h2">Passport <span class="mono" id="pp-id"></span> <span id="pp-status"></span></h2>
         <p class="hint">Three claims, three signers, one envelope. Each panel shows who signed it and whether the signature verifies right now.</p>
         <div class="envelope" id="envelope"></div>
+        <p class="envelope__stamp" id="envelope-stamp"></p>
         <ul class="badges" aria-label="Standards used"><li>OAuth 2.0 RFC 9396</li><li>W3C VC JWT</li><li>RFC 7800 cnf</li><li>Ed25519 RFC 8037</li></ul>
+        <p class="small">Credential format: W3C VC (JWT profile, RFC 7519). The three-signature envelope realises the Passport / Principal Mandate / Action Intent Manifest model.</p>
 
         <h3 class="h3">Lifecycle</h3>
         <p class="hint">Suspend to freeze during review; reinstate when cleared; revoke permanently. Each change needs a reason and takes effect on the agent's next instruction, because the bank checks the registry in real time. Revocation also revokes the mirrored mandate on the vouch rail.</p>
