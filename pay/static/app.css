@@ -1266,3 +1266,5 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .standard-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: start; }
 .standard-split .standard-one { align-items: center; justify-self: stretch; }
 .standard-split .home__lede { text-align: left; }
+.standard-split .standard-one { order: 2; }
+.standard-split .home__lede { order: 1; }
