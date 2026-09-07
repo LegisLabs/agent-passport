@@ -1078,3 +1078,34 @@ body[data-view="bank"] .footer__h, body[data-view="bank"] .footer__list a, body[
 .powered-badge:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 body[data-view="bank"] .powered-badge { background: #fff; color: var(--ink); font-family: var(--font); }
 @media (max-width: 640px) { .powered-badge { right: 10px; bottom: 10px; padding: 6px 10px; font-size: 13px; } .powered-badge span { display: none; } }
+
+/* full-width charts with a row of facts beneath */
+.chart--wide { margin: 8px 0 0; }
+.chart--wide .chart__title { font-size: 16px; }
+.chart--wide .chart__tick { font-size: 13px; }
+.chart--wide .chart__val { font-size: 14px; }
+.chart--wide .chart__note { font-size: 12px; }
+.facts--row { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px 40px; margin: 24px 0 10px; }
+@media (max-width: 720px) { .facts--row { grid-template-columns: minmax(0, 1fr); } }
+
+/* vouch band, restyled; proposal intro; brand slot in the marquee */
+.marquee__brand { gap: 10px; font-weight: 700; color: var(--ink-2); }
+.marquee__brand img { width: 30px; height: 26px; margin: 0; flex: 0 0 auto; filter: grayscale(1); }
+.vouch { background: var(--panel); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); margin-top: 50px; padding: 40px 0 36px; }
+.vouch__head { display: flex; align-items: center; gap: 16px; margin: 0 0 18px; }
+.vouch__head img { width: 46px; height: 40px; }
+.vouch__head .h2 { margin: 0; font-size: 32px; }
+.vouch__head .h2 a { color: var(--ink); text-decoration: none; }
+.vouch__head .h2 a:hover { text-decoration: underline; }
+.vouch__cols { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+.vouch__lede { font-size: 22px; line-height: 1.35; margin: 0; }
+.vouch__facts { margin: 0; }
+.vouch__facts div { padding: 10px 0; border-bottom: 1px solid var(--line); }
+.vouch__facts div:first-child { border-top: 1px solid var(--line); }
+.vouch__facts dt { font-weight: 700; font-size: 19px; margin: 0 0 4px; }
+.vouch__facts dd { margin: 0; font-size: 16px; line-height: 1.4; color: var(--ink-2); }
+.vouch__links { margin: 22px 0 0; font-size: 19px; }
+.proposal { padding: 50px 0 10px; }
+.proposal .h2 { margin-top: 0; }
+.proposal .home__lede { max-width: 36em; }
+@media (max-width: 720px) { .vouch__cols { grid-template-columns: minmax(0, 1fr); gap: 20px; } .vouch__head .h2 { font-size: 26px; } }
