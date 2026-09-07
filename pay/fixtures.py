@@ -14,6 +14,13 @@ FENWICK = "60-11-22 10101010"
 ASHBY = "30-98-76 22334455"
 COASTLINE = "20-13-57 77665544"
 
+# The accounts-payable task queue: what the agent was asked to do, known BEFORE it opens the document. The grounds
+# declaration is built from this and the mandate (the registered account for that supplier), never from the document.
+INVOICE_TASKS = {
+    "INV-9001-clean": {"invoice_ref": "INV-9001", "supplier_name": "Fenwick Timber Ltd"},
+    "INV-9001-poisoned": {"invoice_ref": "INV-9001", "supplier_name": "Fenwick Timber Ltd"},
+}
+
 # The bank console beats, in demo order. `signer` = agent (bound key) or rogue (copied passport).
 # `repeat` fires the same instruction up to N times and stops at the first non-ALLOW.
 BEATS = [

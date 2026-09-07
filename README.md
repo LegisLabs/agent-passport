@@ -93,6 +93,8 @@ The limit lives in the mandate; the running total lives at the bank. `fixtures/p
 
 Two things on a black page: the arena and the actions. The arena shows one instruction walking the nine checks, resolving one by one down the list (slowed for demonstration; the real check is sub-10ms), the first failure ending it with the rest marked "not evaluated · denied by default", then the verdict: one word, the deciding rule and code, the reason, the violation and audit handoffs, the authority-signed receipt hash. When the agent reads an invoice, what it read and the instruction it signed appear above the checks, and the caption below the verdict. A "full-screen" toggle turns the arena into the video rendering. Underneath, the actions: the clean and poisoned invoice, the delegation-chain toggle, the eight proposed instructions with their expected outcome. The raw response stays in the DOM, unrendered, for the record and the tests.
 
+**Grounds declaration (first element of the planned J layer).** Before the agent opens an invoice it declares its intent from the task queue and the mandate: the task, the supplier, and the payee account the customer signed for that supplier. The declaration is an `intent` entry in the audit chain; the `agent` entry that follows records the payee the instruction actually carried and whether it matches. With the altered invoice the two differ, and the record says so: the document changed the destination, the agent did not. That line separates a manipulated document from an agent error, and it is in the chain before the bank's verdict.
+
 ### Demo beats (the `/bank` console, in order; doubles as the video storyboard)
 
 | # | Instruction | Expected |

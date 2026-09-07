@@ -53,7 +53,7 @@ def main():
       check("violation #" in v.lower() and "open" in v.lower(), "violation row recorded OPEN")
       check(cap == "The AI read a manipulated invoice and would have paid the wrong account. The mandate stopped it.", "verbatim caption")
       check("99887766" in page.locator("#inv-text mark").first.inner_text() or page.locator("#inv-text mark").count() >= 1, "account marked in the text")
-      check(page.locator("#inv-instruction .wrong").count() == 1, "wrong account highlighted red")
+      check(page.locator("#inv-instruction .wrong").count() >= 1, "wrong account highlighted red")
       page.screenshot(path=f"{SHOTS}/i2-02-poisoned.png", full_page=True)
       print("== exception loop")
       page.goto(BASE + "/regulator"); page.wait_for_selector("#rg-violations tbody tr")

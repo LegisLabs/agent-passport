@@ -103,7 +103,7 @@ def state():
     pol = rules.pack()["policy"]
     pat = pol.get("pattern_threshold", {"count": 2, "window_hours": 24})
     return {"applications": [public_app(a) for a in apps], "passports": [public_passport(p) for p in pps], "beats": fixtures.BEATS,
-            "invoices": [{"id": k, "label": "Clean invoice" if k.endswith("clean") else "Poisoned invoice", "text": t} for k, t in extraction.invoices().items()],
+            "invoices": [{"id": k, "label": "Genuine invoice" if k.endswith("clean") else "Altered invoice · payment destination changed", "text": t} for k, t in extraction.invoices().items()],
             "registered_models": fixtures.registered_models(),
             "models": [model_summary(a) for a in apps if a["status"] == "approved"],
             "incidents": db.list_audit(50, kind="incident"), "violations": db.list_violations(), "alerts": db.pattern_alerts(pat["count"], pat["window_hours"]), "pattern_threshold": pat,
@@ -670,12 +670,26 @@ def agent_invoice(body: InvoiceIn):
     texts = extraction.invoices()
     if body.invoice_id not in texts:
         _400("unknown invoice")
+    mandate = p.get("mandate") or p["mandate_proposed"]
+    allow = mandate["authorization_details"][0]["supplier_allowlist"]
+    # Grounds declaration (first element of the planned J layer): before the document is opened, the agent declares what it
+    # intends to do from the task queue and the mandate. Declared payee comes from the customer-signed mandate, never from the document.
+    task = fixtures.INVOICE_TASKS.get(body.invoice_id, {"invoice_ref": body.invoice_id, "supplier_name": None})
+    declared_payee = next((x["account_ref"] for x in allow if (x.get("name") or "").lower() == str(task.get("supplier_name") or "").lower()), None)
+    intent_rec = audit.record("intent", body.passport_id, {"event": "grounds declaration: intent declared before the document was read", "invoice": body.invoice_id,
+                                                          "task": f"pay invoice {task['invoice_ref']} from {task['supplier_name']}", "supplier_name": task["supplier_name"],
+                                                          "invoice_ref": task["invoice_ref"], "declared_payee": declared_payee, "action_type": "pay_invoice",
+                                                          "detail": f"declared payee {declared_payee} (the account the customer signed for this supplier)"})
     facts, mode = extraction.extract_invoice(body.invoice_id, texts[body.invoice_id])
     v = lambda k: (facts.get(k) or {}).get("value")  # noqa: E731
     account_ref = f"{v('sort_code')} {v('account_number')}".strip()
+    matches = bool(declared_payee) and rules.norm_account(declared_payee) == rules.norm_account(account_ref)
     audit.record("agent", body.passport_id, {"event": "agent read an invoice into a payment instruction", "invoice": body.invoice_id, "mode": mode,
                                              "model": config.GEMINI_MODEL if mode == "gemini" else None, "payee_account_ref": account_ref, "amount": v("amount_gbp"),
-                                             "bank_details_changed": v("bank_details_changed")})
+                                             "bank_details_changed": v("bank_details_changed"), "declared_payee": declared_payee, "attempted_payee": account_ref,
+                                             "matches_intent": matches, "intent_audit_id": intent_rec["id"],
+                                             "detail": (f"attempted payee {account_ref} matches the declared intent" if matches else
+                                                        f"attempted payee {account_ref} differs from the declared {declared_payee}: the document changed the destination, the agent did not")})
     req = {"passport_id": body.passport_id, "action_type": "pay_invoice", "payee_account_ref": account_ref, "supplier_name": v("supplier_name"),
            "amount": float(v("amount_gbp") or 0), "currency": "GBP", "invoice_ref": v("invoice_ref"), "nonce": crypto.new_nonce()}
     if chain_on(body.chain):
@@ -685,15 +699,14 @@ def agent_invoice(body: InvoiceIn):
     else:
         key = p["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
     req["agent_signature"] = crypto.sign_bytes(key, rules.request_signing_input(req))
-    mandate = p.get("mandate") or p["mandate_proposed"]
-    allow = mandate["authorization_details"][0]["supplier_allowlist"]
     on_allowlist = any(rules.norm_account(x["account_ref"]) == rules.norm_account(account_ref) for x in allow)
     registered = next((x["account_ref"] for x in allow if (x.get("name") or "").lower() == str(v("supplier_name") or "").lower()), None)
-    evidence = {"invoice": body.invoice_id, "extraction_mode": mode, "facts": facts, "instruction_payee": account_ref, "registered_payee": registered}
+    intent = {"task": f"pay invoice {task['invoice_ref']} from {task['supplier_name']}", "declared_payee": declared_payee, "attempted_payee": account_ref, "matches": matches, "audit_id": intent_rec["id"]}
+    evidence = {"invoice": body.invoice_id, "extraction_mode": mode, "facts": facts, "instruction_payee": account_ref, "registered_payee": registered, "intent": intent}
     result = verify(VerifyIn(passport_id=body.passport_id, instruction=req, evidence=evidence))
     return {"invoice": body.invoice_id, "text": texts[body.invoice_id], "extraction": facts, "extraction_mode": mode, "chain": bool(req.get("delegation")),
             "delegation": crypto.decode_unverified(req["delegation"])[1] if req.get("delegation") else None,
-            "instruction": {k: v_ for k, v_ in req.items() if k not in ("agent_signature", "delegation")}, "on_allowlist": on_allowlist, "registered_payee": registered, "result": result}
+            "instruction": {k: v_ for k, v_ in req.items() if k not in ("agent_signature", "delegation")}, "on_allowlist": on_allowlist, "registered_payee": registered, "intent": intent, "result": result}
 
 
 class VerifyIn(BaseModel):

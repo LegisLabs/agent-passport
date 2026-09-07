@@ -768,6 +768,7 @@ body[data-view="bank"] .kv dt { color: var(--term-dim); }
 body[data-view="bank"] .prov { color: var(--term-dim); font-size: .72rem; }
 body[data-view="bank"] .right { color: var(--term-green); font-weight: 700; }
 body[data-view="bank"] .wrong { color: var(--term-red); font-weight: 700; }
+body[data-view="bank"] .intent-miss { color: var(--term-red); font-weight: 700; }
 body[data-view="bank"] .chain { border-color: var(--tm-line); background: #060707; color: var(--term-fg); font-size: .78rem; }
 body[data-view="bank"] .chain__scopes > div { background: #16191a; border-color: var(--tm-line); }
 body[data-view="bank"] .chain__checks li.fail { color: var(--term-red); }
@@ -779,6 +780,8 @@ body[data-view="bank"] .invoice__verdict--ALLOW { border-color: var(--term-green
 body[data-view="bank"] .invoice__verdict--ESCALATE { border-color: var(--term-amber); }
 body[data-view="bank"] .invoice__verdict .t-verdict { font-size: .8rem; }
 body[data-view="bank"] .invoice__verdict b { color: #fff; }
+body[data-view="bank"] .invoice__contrast { margin: 0; padding: .5rem .9rem; border-left: 3px solid var(--term-red); color: #b9bdbf; font-size: .85rem; }
+body[data-view="bank"] .invoice__contrast b { color: #fff; }
 body[data-view="bank"] .invoice__caption { background: #fff; color: var(--term-bg); font-family: var(--font); font-size: 1.15rem; font-weight: 700; margin: 0; padding: .7rem .9rem; }
 
 /* full-screen rendering of the arena, for the video */

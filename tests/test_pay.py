@@ -572,3 +572,21 @@ def test_model_revoke_cascades_to_passports_and_passport_revoke_is_unchanged(cli
         assert client.get(f"/api/passports/{pid}").json()["vouch_status"] == "REVOKED"
     assert client.post(f"/api/models/{a['id']}/status", json={"status": "active", "reason": "undo"}).status_code == 400
     a2 = client.get("/api/audit").json(); assert a2["chain"]["ok"]
+
+
+# ── Grounds declaration: intent declared before the document is read; mismatch recorded ──────────────────────
+def test_grounds_declaration_records_intent_before_reading_and_flags_mismatch(client):
+    p, _ = issue_one(client)
+    pid = p["passport_id"]
+    r = client.post("/api/agent/invoice", json={"passport_id": pid, "invoice_id": "INV-9001-clean"}).json()
+    assert r["intent"]["declared_payee"] == "60-11-22 10101010" and r["intent"]["matches"] is True and "INV-9001" in r["intent"]["task"]
+    r = client.post("/api/agent/invoice", json={"passport_id": pid, "invoice_id": "INV-9001-poisoned"}).json()
+    assert r["intent"]["declared_payee"] == "60-11-22 10101010" and r["intent"]["attempted_payee"] == "60-11-22 99887766" and r["intent"]["matches"] is False
+    rows = client.get("/api/audit").json()["rows"]
+    intent = next(x for x in rows if x["id"] == r["intent"]["audit_id"])
+    assert intent["kind"] == "intent" and intent["entry"]["declared_payee"] == "60-11-22 10101010" and "before the document was read" in intent["entry"]["event"]
+    agent = next(x for x in rows if x["kind"] == "agent" and x["entry"].get("intent_audit_id") == intent["id"])
+    assert agent["id"] > intent["id"] and agent["entry"]["matches_intent"] is False and "the document changed the destination" in agent["entry"]["detail"]
+    # the violation carries the declared intent as evidence
+    v = db.get_violation(r["result"]["violation"]["id"])
+    assert v["evidence"]["intent"]["matches"] is False and v["evidence"]["intent"]["declared_payee"] == "60-11-22 10101010"

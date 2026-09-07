@@ -484,7 +484,7 @@ const AP = (() => {
       else if (r.decision === 'DENY') setDenies(Math.min(3, (r.deny_count || denies + 1)));
     }
     async function present(b, r, k, fast) { await judge(b, r, k, fast); logLine(b, r, k); }
-    const hideSteps = () => { $('invoice-steps').hidden = true; $('invoice-outcome').hidden = true; };
+    const hideSteps = () => { $('invoice-steps').hidden = true; $('invoice-outcome').hidden = true; $('inv-contrast').hidden = true; };
 
     // ── Part B: delegation chain toggle ──
     const ct = $('chain-toggle'); ct.checked = !!state.delegation_chain;
@@ -521,7 +521,7 @@ const AP = (() => {
     });
     async function showInvoice(r) {
       const steps = $('invoice-steps'), out = $('invoice-outcome'); steps.hidden = false; out.hidden = true;
-      steps.querySelectorAll('.invoice__step').forEach(x => x.hidden = true); out.querySelectorAll('[data-step]').forEach(x => x.hidden = true);
+      steps.querySelectorAll('.invoice__step').forEach(x => x.hidden = true); out.querySelectorAll('[data-step]').forEach(x => x.hidden = true); $('inv-contrast').hidden = true;
       const acct = r.instruction.payee_account_ref, ok = r.on_allowlist;
       const digits = (r.extraction.account_number || {}).value || '';
       $('g-subject').innerHTML = `<span class="mono">${esc(r.invoice)}</span> · read by ${esc(modeLabel(r.extraction_mode))}`;
@@ -532,7 +532,7 @@ const AP = (() => {
       steps.querySelector('[data-step="a"]').hidden = false; await pause(900);
       // b. the generated instruction
       const i = r.instruction;
-      $('inv-instruction').innerHTML = [['Action', esc(i.action_type)], ['Payee', esc(i.supplier_name)], ['Account', `<span class="${ok ? 'right' : 'wrong'}">${esc(acct)}</span>${ok ? ' · on the customer-signed mandate' : ` · not on the mandate; the customer signed for <span class="mono">${esc(r.registered_payee || '—')}</span>`}`], ['Amount', gbp(i.amount) + ' ' + esc(i.currency)], ['Signed by', 'the agent key bound in agent_identity (Ed25519)']].map(([k, v_]) => `<div><dt>${k}</dt><dd>${v_}</dd></div>`).join('');
+      $('inv-instruction').innerHTML = [['Action', esc(i.action_type)], ['Payee', esc(i.supplier_name)], ['Account', `<span class="${ok ? 'right' : 'wrong'}">${esc(acct)}</span>${ok ? ' · on the customer-signed mandate' : ` · not on the mandate; the customer signed for <span class="mono">${esc(r.registered_payee || '—')}</span>`}`], ['Amount', gbp(i.amount) + ' ' + esc(i.currency)], ['Signed by', 'the agent key bound in agent_identity (Ed25519)']].concat(r.intent ? [['Declared intent', `${esc(r.intent.task)} → <span class="mono">${esc(r.intent.declared_payee || '—')}</span> <span class="prov">declared before the document was opened · audit #${r.intent.audit_id}</span>${r.intent.matches ? ' <span class="right">attempted payee matches</span>' : ` <span class="intent-miss">attempted payee differs: the document changed the destination, the agent did not</span>`}`]] : []).map(([k, v_]) => `<div><dt>${k}</dt><dd>${v_}</dd></div>`).join('');
       const chv = $('inv-chain');
       if (r.chain && r.result.chain) { chv.hidden = false; chv.innerHTML = `<strong>Delegation chain</strong> <span class="small">the orchestrator read the invoice and delegated exactly what it read to the execution agent, which signed</span>` + chainHtml(r.result.chain); }
       else if (r.chain) { chv.hidden = false; chv.innerHTML = '<strong>Delegation chain</strong> <span class="small">presented; the bank refused before reaching it</span>'; }
@@ -552,6 +552,8 @@ const AP = (() => {
         ? 'The AI read a genuine invoice and paid the account the customer signed for. Same agent, same mandate: the next invoice is the test.'
         : 'The AI read a manipulated invoice and would have paid the wrong account. The mandate stopped it.';
       $('inv-caption').hidden = false;
+      const con = $('inv-contrast'); con.hidden = ok;
+      if (!ok) con.innerHTML = '<b>Today:</b> a disputed payment, no record of what the agent was permitted to do. <b>Here:</b> a refused instruction, a flagged entry for the supervisor, and a replayable record showing the document changed the destination, not the agent.';
     }
 
     // ── the eight instructions ──
