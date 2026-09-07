@@ -98,36 +98,23 @@
       <li><strong>Nine questions per payment.</strong> The bank checks the authority's signature, the registry, the agent's key, the mandate, the payee, the limits, and the supervisor's condition, in order, deny by default, with a signed receipt.</li>
       <li><strong>Every decision replayable.</strong> Refusals reach the authority. Two on the same rule in a day raise an alert. Suspension or revocation takes effect on the next instruction, on every rail.</li>
     </ul>
-    <p class="standard-links"><a class="btn btn--start" href="/static/APS_1001.pdf">Read the standard <span class="btn__arrow" aria-hidden="true"></span></a><a href="/about" class="standard-links__a">How it works on this site</a></p>
   </div>
 
+
+  <h2 class="h2">Powered by vouch.finance</h2>
+  <div class="vouch__cols">
+    <p class="home__lede">A passport is a promise. On <a href="https://vouch.finance">vouch.finance</a> the promise becomes money that can only be spent the way it was promised. Every mandate a customer signs is minted as an AI Voucher that carries the agent's limits, its payees and its passport.</p>
+    <dl class="vouch__facts">
+      <div><dt>Minted at signing</dt><dd>The voucher exists the moment the passport is issued, with the customer's limits as its policy.</dd></div>
+      <div><dt>Two rails, one answer</dt><dd>The bank runs the nine checks. The vouch policy engine authorises the settlement. A refusal on one is a refusal on both.</dd></div>
+      <div><dt>Revoked in seconds</dt><dd>Suspend or revoke a passport and the voucher goes with it. The next instruction fails on every rail.</dd></div>
+    </dl>
+  </div>
+  <p class="vouch__links"><a href="/regulator">See the rail on a live passport</a></p>
+
+  <h2 class="h2">Our proposal</h2>
+  <p class="home__lede">A payments authority keeps a register of approved AI models, the way it keeps a register of licensed firms. A business puts an agent on an approved model and signs, once, exactly what that agent may pay. A bank checks every instruction against both before money moves, and can prove afterwards why it said yes or no. No new licence for every agent. No review of anyone's invoices. One approval, one signature, nine questions, and a receipt.</p>
+  <p class="standard-links"><a class="btn btn--start" href="/static/APS_1001.pdf">Read the standard <span class="btn__arrow" aria-hidden="true"></span></a><a href="/about" class="standard-links__a">How it works on this site</a></p>
 </div>
 {% endblock %}
-{% block after %}
-<section class="vouch" aria-labelledby="vouch-h">
-  <div class="wrap">
-    <div class="vouch__head"><img src="/static/logos/vouch.svg" alt="" width="46" height="40"><h2 class="h2" id="vouch-h">Powered by <a href="https://vouch.finance">vouch.finance</a></h2></div>
-    <div class="vouch__cols">
-      <p class="vouch__lede">A passport is a promise. On vouch.finance the promise becomes money that can only be spent the way it was promised. Every mandate a customer signs is minted as an AI Voucher that carries the agent's limits, its payees and its passport.</p>
-      <dl class="vouch__facts">
-        <div><dt>Minted at signing</dt><dd>The voucher exists the moment the passport is issued, with the customer's limits as its policy.</dd></div>
-        <div><dt>Two rails, one answer</dt><dd>The bank runs the nine checks. The vouch policy engine authorises the settlement. A refusal on one is a refusal on both.</dd></div>
-        <div><dt>Revoked in seconds</dt><dd>Suspend or revoke a passport and the voucher goes with it. The next instruction fails on every rail.</dd></div>
-      </dl>
-    </div>
-    <p class="vouch__links"><a href="/regulator">See the rail on a live passport</a></p>
-  </div>
-</section>
-<section class="proposal" aria-labelledby="proposal-h">
-  <div class="wrap">
-    <h2 class="h2" id="proposal-h">Our proposal</h2>
-    <p class="home__lede">A payments authority keeps a register of approved AI models, the way it keeps a register of licensed firms. A business puts an agent on an approved model and signs, once, exactly what that agent may pay. A bank checks every instruction against both before money moves, and can prove afterwards why it said yes or no. No new licence for every agent. No review of anyone's invoices. One approval, one signature, nine questions, and a receipt.</p>
-    <p class="standard-links"><a class="btn btn--start" href="/static/APS_1001.pdf">Read the standard <span class="btn__arrow" aria-hidden="true"></span></a><a href="/about" class="standard-links__a">How it works on this site</a></p>
-  </div>
-</section>
-<div class="wrap home">
-  <p class="live" id="live" hidden></p>
-  <p class="small">A design prototype of a proposed assurance framework. Not a current legal requirement. <a href="/about">How it works</a></p>
-</div>
-{% endblock %}
-{% block scripts %}<script>AP.home();</script>{% endblock %}
+{% block scripts %}{% endblock %}
