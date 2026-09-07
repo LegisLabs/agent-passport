@@ -1183,11 +1183,37 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 @media (max-width: 720px) { .proposal__flow { min-width: 760px; } .home { overflow-x: hidden; } .proposal-wrap { overflow-x: auto; } }
 
 /* standard text smaller; problem diagram only */
-.standard-block .home__lede { font-size: 19px; line-height: 1.4; margin-bottom: 16px; }
-.standard-list { font-size: 16px; }
+.standard-block .home__lede { margin-bottom: 16px; }
+.standard-list { font-size: 19px; }
 .problem__arrow--down { stroke-dasharray: 4 4; }
 .problem__instr rect { fill: var(--panel); stroke: var(--line); stroke-width: 1; }
 .problem__q rect { fill: #fff; stroke: var(--red); stroke-width: 1.5; }
 .problem__ql { font-size: 14px; font-weight: 700; fill: var(--ink); }
 .problem__qa { font-size: 12.5px; fill: var(--red-dark); }
 .problem__t { font-size: 18px; }
+
+/* library charts and diagrams */
+.chartbox { position: relative; height: 320px; margin: 8px 0 0; }
+.chartbox .chart__title { font-size: 16px; font-weight: 700; margin: 0 0 6px; }
+.chartbox canvas { display: block; }
+.diagram { margin: 8px 0 16px; overflow-x: auto; }
+.diagram .mermaid { margin: 0; font-family: var(--font); background: transparent; border: 0; padding: 0; white-space: normal; }
+.diagram svg { display: block; max-width: 100%; height: auto; }
+.diagram .node rect, .diagram .node polygon { rx: 2; ry: 2; stroke-width: 2px; }
+.diagram .node.agent rect { fill: var(--blue) !important; stroke: var(--blue) !important; }
+.diagram .node.agent .nodeLabel, .diagram .node.agent .nodeLabel * { color: #fff !important; }
+.diagram .node.out rect { fill: var(--red-soft) !important; stroke: var(--red) !important; }
+.diagram .node.q rect { fill: #fff !important; stroke: var(--red) !important; stroke-dasharray: 5 4; }
+.diagram .node.ok rect { fill: var(--green-soft) !important; stroke: var(--green) !important; }
+.diagram .node.warn rect { fill: var(--amber-soft) !important; stroke: var(--amber) !important; }
+.diagram .node.bad rect { fill: var(--red-soft) !important; stroke: var(--red) !important; }
+.diagram .edgeLabel { font-size: 13px; color: var(--ink-2); background: var(--ground); }
+.diagram .nodeLabel { line-height: 1.3; }
+
+.chartbox { height: 380px; }
+.diagram .nodeLabel { font-size: 15px; }
+.diagram .edgeLabel { font-size: 13px; }
+
+.chartbox { height: auto; }
+.chartbox__canvas { position: relative; height: 340px; }
+.chartbox + .chart__src { margin-top: 12px; }

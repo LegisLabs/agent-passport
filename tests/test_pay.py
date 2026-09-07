@@ -590,3 +590,12 @@ def test_grounds_declaration_records_intent_before_reading_and_flags_mismatch(cl
     # the violation carries the declared intent as evidence
     v = db.get_violation(r["result"]["violation"]["id"])
     assert v["evidence"]["intent"]["matches"] is False and v["evidence"]["intent"]["declared_payee"] == "60-11-22 10101010"
+
+
+# ── Action Terminal: the scenario page, and the console behind ?console=1 ─────────────────────────────────────
+def test_action_terminal_scenario_and_console(client):
+    h = client.get("/bank").text
+    assert "Before the standard" in h and "After the standard" in h and "terminal.js" in h and "MONEY GONE" in h and "AGENT PASSPORT" in h
+    assert 'id="beats"' not in h
+    c = client.get("/bank?console=1").text
+    assert 'id="beats"' in c and 'id="gauntlet"' in c and "terminal.js" not in c

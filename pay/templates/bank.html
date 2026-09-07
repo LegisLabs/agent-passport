@@ -1,10 +1,9 @@
 {% extends "base.html" %}
 {% block title %}Action Terminal{% endblock %}
-{% if request.query_params.get('console') %}
-{% block content %}{% include "bank_console.html" %}{% endblock %}
-{% block scripts %}<script>AP.bank();</script>{% endblock %}
-{% else %}
-{% block hero %}
+{% set console = request.query_params.get('console') %}
+{% block content %}{% if console %}{% include "bank_console.html" %}{% endif %}{% endblock %}
+{% block scripts %}{% if console %}<script>AP.bank();</script>{% else %}<script>AT.init();</script>{% endif %}{% endblock %}
+{% block hero %}{% if not console %}
 <link rel="stylesheet" href="/static/terminal.css">
 <div class="sc-page" id="sc-page">
 
@@ -143,6 +142,4 @@
 </footer>
 </div>
 <script src="/static/terminal.js"></script>
-{% endblock %}
-{% block scripts %}<script>AT.init();</script>{% endblock %}
-{% endif %}
+{% endif %}{% endblock %}

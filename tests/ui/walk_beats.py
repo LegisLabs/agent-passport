@@ -8,7 +8,7 @@ bad=[]
 with sync_playwright() as pw:
     b=pw.chromium.launch(); page=b.new_page()
     page.request.post(BASE+"/api/reset"); issue(page)
-    page.goto(BASE+"/bank"); page.wait_for_selector("#beats button")
+    page.goto(BASE+"/bank?console=1"); page.wait_for_selector("#beats button")
     for i,(d,r) in enumerate(exp):
         n=page.locator("#term-lines li:has(.t-verdict)").count()
         page.locator("#beats button").nth(i).click()

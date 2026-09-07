@@ -605,13 +605,30 @@ const AP = (() => {
     replayAll();
   }
 
-  async function home() {
-    const st = await api('GET', '/api/state');
-    const live = st.passports.filter(x => x.status !== 'pending');
-    const verified = live.reduce((n, x) => n + (x.payments || 0), 0);
-    const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
-    $('live').textContent = `On this deployment right now: ${n((st.models || []).filter(m => m.model_status === 'active').length, 'model approved', 'models approved')}, ${n(live.filter(x => x.status === 'active').length, 'agent live', 'agents live')}, ${n(verified, 'instruction verified', 'instructions verified')}, ${n((st.violations || []).length, 'refused', 'refused')}.`;
-    $('live').hidden = false;
+
+  function home() {
+    const ink = '#0b0c0c', ink2 = '#505a5f', blue = '#1d70b8', line = '#e5e7e8', font = '"Helvetica Neue", Arial, Helvetica, sans-serif';
+    if (window.Chart) {
+      Chart.defaults.font.family = font; Chart.defaults.font.size = 13; Chart.defaults.color = ink2;
+      const values = { id: 'values', afterDatasetsDraw(c) { const { ctx } = c; ctx.save(); ctx.font = `700 14px ${font}`; ctx.fillStyle = ink; ctx.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((bar, i) => { const d = c.data.datasets[0]; ctx.fillText(d.labelsText ? d.labelsText[i] : d.data[i], bar.x, bar.y - 8); }); ctx.restore(); } };
+      const bars = (id, labels, data, labelsText, notes, opts = {}) => new Chart($(id), { type: 'bar', plugins: [values], data: { labels, datasets: [{ data, labelsText, backgroundColor: data.map((_, i) => opts.proj && i >= opts.proj ? '#fff' : blue), borderColor: blue, borderWidth: data.map((_, i) => opts.proj && i >= opts.proj ? 2 : 0), borderDash: [6, 4], borderSkipped: false, maxBarThickness: 160, categoryPercentage: .7 }] },
+        options: { animation: { duration: 700 }, responsive: true, maintainAspectRatio: false, layout: { padding: { top: 24, bottom: 4 } }, plugins: { legend: { display: false }, tooltip: { enabled: false } },
+          scales: { x: { grid: { display: false }, border: { color: ink }, ticks: { color: ink, font: { size: 14 }, callback: (v, i) => notes && notes[i] ? [labels[i], notes[i]] : labels[i] } }, y: { beginAtZero: true, max: opts.max, grid: { color: line }, border: { display: false }, ticks: { stepSize: opts.step } } } } });
+      if ($('chart-shift')) {
+        const pts = [{ x: 2024, y: 229 }, { x: 2025, y: 262 }, { x: 2030, y: 1500 }];
+        const lbl = { 229: '$229bn', 262: '$262bn', 1500: '$1.5tn' };
+        const pointLabels = { id: 'pointLabels', afterDatasetsDraw(c) { const { ctx } = c; ctx.save(); ctx.font = `700 14px ${font}`; ctx.fillStyle = ink; ctx.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((p, i) => { ctx.fillText(lbl[pts[i].y], p.x, p.y - 14); }); ctx.restore(); } };
+        new Chart($('chart-shift'), { type: 'line', plugins: [pointLabels], data: { datasets: [{ data: pts, borderColor: blue, backgroundColor: 'rgba(29,112,184,.12)', fill: true, tension: .45, borderWidth: 3, pointRadius: 6, pointBackgroundColor: blue, pointBorderColor: '#fff', pointBorderWidth: 2, segment: { borderDash: (s) => s.p1.parsed.x > 2025 ? [8, 6] : undefined } }] },
+          options: { animation: { duration: 900 }, responsive: true, maintainAspectRatio: false, layout: { padding: { top: 28, right: 24 } }, plugins: { legend: { display: false }, tooltip: { enabled: false } },
+            scales: { x: { type: 'linear', min: 2023.6, max: 2030.4, grid: { display: false }, border: { color: ink }, ticks: { stepSize: 1, color: ink, font: { size: 14 }, callback: (v) => Number.isInteger(v) ? String(v) : '' } }, y: { beginAtZero: true, max: 1600, grid: { color: line }, border: { display: false }, ticks: { stepSize: 400 } } } } });
+      }
+      if ($('chart-app')) bars('chart-app', ['2021', '2022', '2023', '2024', '2025'], [583, 485, 460, 451, 576], ['£583m', '£485m', '£460m', '£451m', '£576m'], null, { max: 700, step: 175 });
+    }
+    if (window.mermaid) {
+      mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'loose', fontFamily: font, themeVariables: { primaryColor: '#ffffff', primaryBorderColor: ink, primaryTextColor: ink, lineColor: ink, secondaryColor: '#f3f2f1', tertiaryColor: '#f3f2f1', fontSize: '16px', fontFamily: font },
+        flowchart: { htmlLabels: true, curve: 'basis', nodeSpacing: 36, rankSpacing: 56, padding: 14, useMaxWidth: true } });
+      mermaid.run({ querySelector: '.mermaid' });
+    }
   }
 
   document.addEventListener('DOMContentLoaded', () => {
