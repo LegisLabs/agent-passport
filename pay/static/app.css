@@ -1221,3 +1221,5 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .home .steps-nav--tight h3 { font-size: 22px; }
 .home .steps-nav--tight p { font-size: 19px; color: var(--ink); }
 .home .steps-nav--tight li { padding-bottom: 22px; }
+
+.claim { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
