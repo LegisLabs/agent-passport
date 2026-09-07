@@ -8,11 +8,12 @@
 
     <ol class="steps" id="steps">
       <li class="step" data-step="1">
-        <h2 class="h2">1 · Registration <span class="h2__meta" id="facts-meta"></span></h2>
+        <div class="step__head">
+          <h2 class="h2">1 · Registration</h2>
+          <button class="btn btn--secondary btn--small" id="btn-prefill" hidden>Prefill demo data</button>
+        </div>
         <div class="actions">
           <button class="btn" id="btn-new">Start registration</button>
-          <button class="btn btn--secondary" id="btn-prefill" hidden>Prefill demo data</button>
-          <span class="actions__note" id="extract-note"></span>
         </div>
         <div id="facts"></div>
         <div class="actions"><button class="btn btn--secondary" id="btn-save-fields" hidden>Save</button><span class="actions__note" id="save-note"></span></div>

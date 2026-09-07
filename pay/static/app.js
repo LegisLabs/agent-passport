@@ -54,8 +54,6 @@ const AP = (() => {
       $('btn-new').hidden = draft;
       $('btn-new').textContent = has ? 'Start another registration' : 'Start registration';
       $('btn-prefill').hidden = !draft;
-      $('facts-meta').textContent = has ? `${a.ref} · ${a.status.replace('_', ' ')}` : '';
-      $('extract-note').textContent = draft ? 'Fill in the fields by hand, or prefill the demo data (OpenPay Ltd registering PayGPT 6.0).' : '';
       document.querySelector('[data-step="3"]').hidden = !has;
       if (has) { renderFacts(a.fields, draft); } else { $('facts').innerHTML = ''; $('btn-save-fields').hidden = true; }
       const submitted = has && a.status !== 'draft';

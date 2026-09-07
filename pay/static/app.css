@@ -941,3 +941,6 @@ body[data-view="bank"] .beat[data-running="true"]::before { content: "▮"; anim
   .exhaust li { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
   body[data-view="bank"] .tm-h { font-size: .85rem; }
 }
+
+.step__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 .5rem; }
+.step__head .h2 { margin: 0; }
