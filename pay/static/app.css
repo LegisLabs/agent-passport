@@ -830,8 +830,9 @@ body[data-view="bank"] .chain__checks li.skip { color: var(--term-dim); }
 .g-band[data-state="pass"] .g-band__q::after { content: "✓"; color: var(--term-green); margin-left: auto; }
 .g-band[data-state="fail"] .g-band__q::after { content: "✗"; color: var(--term-red); margin-left: auto; font-weight: 700; }
 .g-band[data-state="hold"] .g-band__q::after { content: "⏸"; color: var(--term-amber); margin-left: auto; }
-.g-band__cells { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(auto-fit, minmax(8.5rem, 1fr)); gap: .35rem; }
-.g-band[data-band="human"] .g-band__cells { grid-template-columns: minmax(0, 20rem); }
+.g-band__cells { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: .35rem; }
+.g-band__cells:has(li:nth-child(5)) { grid-template-columns: repeat(auto-fit, minmax(6.5rem, 1fr)); }
+.g-band[data-band="human"] .g-band__cells { grid-template-columns: minmax(0, 1fr) repeat(3, minmax(0, 1fr)); }
 .g-cell { border: 1px solid var(--tm-line); padding: .4rem .6rem .45rem; display: grid; gap: .15rem; min-width: 0; color: var(--term-dim); background: var(--term-bg); transition: border-color 160ms, background-color 160ms; }
 .g-cell b { font-size: .95rem; color: #fff; letter-spacing: .04em; white-space: nowrap; }
 .g-cell__t { color: #b9bdbf; text-transform: uppercase; letter-spacing: .05em; font-size: .66rem; line-height: 1.3; }
@@ -870,25 +871,27 @@ body[data-view="bank"] .chain__checks li.skip { color: var(--term-dim); }
 .g__close { margin: .8rem 0 0; font-size: .8rem; text-align: center; }
 
 /* full-screen rendering of the same stage, for the video */
-.judgment.is-full .g { position: fixed; inset: 0; z-index: 60; margin: 0; padding: 4vh 5vw; overflow: auto; display: flex; flex-direction: column; justify-content: center; cursor: pointer; border: 0; }
+.judgment.is-full .g { position: fixed; inset: 0; z-index: 60; margin: 0; padding: 3vh 5vw; overflow: auto; display: flex; flex-direction: column; cursor: pointer; border: 0; }
+.judgment.is-full .g::before { margin-top: auto; }
+.judgment.is-full .g__close { margin-bottom: auto; padding-bottom: 1rem; }
 .judgment.is-full .g::before { content: "THE JUDGMENT · nine rules, in order, deny by default"; display: block; color: var(--term-dim); letter-spacing: .14em; font-size: .85rem; margin-bottom: 1.2rem; }
 .judgment.is-full .g__bar { font-size: 1rem; }
 .judgment.is-full .g__bands { gap: .8rem; }
-.judgment.is-full .g-band { padding: .8rem 1rem .9rem; gap: .7rem; }
-.judgment.is-full .g-band__q { font-size: 1.35rem; }
+.judgment.is-full .g-band { padding: .7rem 1rem .8rem; gap: .6rem; }
+.judgment.is-full .g-band__q { font-size: 1.2rem; }
 .judgment.is-full .g-band__q span { font-size: 1rem; }
 .judgment.is-full .g-band__cells { gap: .6rem; }
-.judgment.is-full .g-cell { padding: .7rem .9rem .8rem; gap: .3rem; }
+.judgment.is-full .g-cell { padding: .55rem .9rem .65rem; gap: .25rem; }
 .judgment.is-full .g__note { font-size: 1.1rem; margin-top: 1rem; }
 .judgment.is-full .g-cell b { font-size: 1.5rem; }
 .judgment.is-full .g-cell__t { font-size: .8rem; }
-.judgment.is-full .g__verdict { margin-top: 1.6rem; padding: 1.2rem 1.4rem; gap: .5rem; }
-.judgment.is-full .g-word { font-size: clamp(3rem, 9vw, 7rem); }
+.judgment.is-full .g__verdict { margin-top: 1rem; padding: 1rem 1.3rem; gap: .45rem; }
+.judgment.is-full .g-word { font-size: clamp(2.4rem, 5.5vw, 4.5rem); }
 .judgment.is-full .g-cite { font-size: 1.3rem; }
 .judgment.is-full .g-reason { font-size: 1.25rem; }
 .judgment.is-full .g-notes { font-size: .95rem; }
 .judgment.is-full .g__full { cursor: pointer; }
-@media (max-width: 900px) { .judgment.is-full .g { justify-content: flex-start; padding: 3vh 4vw; } }
+@media (max-width: 900px) { .judgment.is-full .g { padding: 3vh 4vw; } }
 
 /* the expert console inside the terminal page */
 body[data-view="bank"] .terminal { border: 1px solid var(--tm-line); min-height: 14rem; font-size: .8rem; }
@@ -934,6 +937,7 @@ body[data-view="bank"] .beat[data-running="true"]::before { content: "▮"; anim
   .tm-title__h { font-size: 1.35rem; }
   .g__verdict { grid-template-columns: minmax(0, 1fr); }
   .g-word { font-size: 1.8rem; }
+  .g-band__cells, .g-band__cells:has(li:nth-child(5)), .g-band[data-band="human"] .g-band__cells { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .exhaust li { grid-template-columns: minmax(0, 1fr); gap: .1rem; }
   body[data-view="bank"] .tm-h { font-size: .85rem; }
 }
