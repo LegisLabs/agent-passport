@@ -22,7 +22,7 @@ def issue(page, sign=True):
 def invoice(page, which):
     page.goto(BASE + "/bank"); page.wait_for_selector("#invoice-buttons button")
     page.locator("#invoice-buttons button").nth(which).click()
-    page.wait_for_selector('#invoice-outcome [data-step="d"]:not([hidden])', timeout=60000)
+    page.wait_for_selector('#invoice-steps [data-step="d"]:not([hidden])', timeout=60000)
     return page.locator("#inv-verdict").inner_text(), page.locator("#inv-caption").inner_text()
 
 def main():
@@ -37,7 +37,7 @@ def main():
       check("standards review assistant" in low(page, "#review"), "assistant label present")
       check("5 of 5 as expected" in low(page, "#review"), "sandbox 5 of 5 through the real engine")
       check("ai recommendation" in low(page, "#review") and "approve with conditions" in low(page, "#review"), "recommendation labelled, human decision required")
-      check("regulatory assurance" in low(page, "main") and "psr 2017" in low(page, "main"), "regulator header label")
+      check("phase 2" in low(page, "main") and "psr 2017" in low(page, "main"), "regulator header label")
       check(page.locator(".badges li").count() == 4, "four standards badges under the envelope")
       check("oauth 2.0 rfc 9396" in low(page, "#envelope"), "mandate panel labelled RFC 9396")
       page.screenshot(path=f"{SHOTS}/i2-01-review.png", full_page=True)

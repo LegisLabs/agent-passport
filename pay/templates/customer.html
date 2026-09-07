@@ -4,7 +4,7 @@
 <div class="grid">
   <div class="col-main">
     <h1 class="h1">Register your agent</h1>
-    <p class="lede"><strong>Phase 3</strong> — A model becomes an agent when a customer gives it a mandate. {{ customer }} picks an approved model and registers its agent on it: the agent gets its own key (proof of possession, configuration hash, key custody), and the finance director writes and signs the mandate within the policy ceilings. Live immediately; no authority review. <span class="small">Layer B, principal mandate.</span></p>
+    <p class="lede lede--tight">Phase 3. {{ customer }} registers its agent on an approved model and signs its mandate within the policy ceilings. Live immediately; no authority review.</p>
 
     <div class="empty" id="cu-empty"><p>No approved model yet. The authority approves models in the <a href="/regulator">Regulator Panel</a>.</p></div>
 
@@ -43,7 +43,7 @@
         <span class="actions__note" id="cu-signer"></span>
       </div>
       <p class="error" id="cu-error" hidden></p>
-      <div class="notice" id="cu-after" hidden><p>The envelope is complete. Open the <a href="/bank">bank console</a>: the same instruction that failed R.5 a moment ago now passes.</p></div>
+      <div class="notice" id="cu-after" hidden><p>The envelope is complete. Continue in the <a href="/bank">Action Terminal</a>.</p></div>
       <details class="jwt" id="cu-jwt-wrap" hidden>
         <summary>Signed mandate (JWT (OIDC-compatible), EdDSA / Ed25519, {{ customer }} key)</summary>
         <pre class="code" id="cu-jwt-payload"></pre>
@@ -53,15 +53,6 @@
   </div>
 
   <aside class="col-side">
-    <h2 class="h3">What the customer is signing</h2>
-    <ul class="side-list">
-      <li><strong>Who may act</strong><span>one named agent, by its public key</span></li>
-      <li><strong>Who may be paid</strong><span>the allowlist, by account, not by name</span></li>
-      <li><strong>How much</strong><span>a per-payment cap and a rolling 30-day cap per supplier account</span></li>
-      <li><strong>Until when</strong><span>an expiry date; the customer can withdraw sooner</span></li>
-    </ul>
-    <h2 class="h3">What it does not say</h2>
-    <p class="small">No bank details of the customer, no personal contact data, no running balance. The passport carries permission, not the customer's records.</p>
     <h2 class="h3">Your agents</h2>
     <ul class="applist" id="cu-list"></ul>
   </aside>

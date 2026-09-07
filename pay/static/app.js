@@ -168,7 +168,7 @@ const AP = (() => {
         ['Attestation', `${esc(v(f, 'attestation', 'name'))}, ${esc(v(f, 'attestation', 'role'))} · declaration <span class="mono">${esc(v(f, 'attestation', 'declaration_ref'))}</span> · documentation accuracy only, no liability for agents' actions`],
         ['Model', `<strong>${esc(v(f, 'model', 'model_name'))}</strong> <span class="mono">${esc(v(f, 'model', 'model_id'))}</span> · release ${esc(v(f, 'model', 'release'))} · ${esc(v(f, 'model', 'model_provider'))} <span class="mono">${esc(v(f, 'model', 'model_version'))}</span>`],
         ['Documentation', `<a href="${esc(v(f, 'model', 'documentation_url'))}">model card</a> · <a href="${esc(v(f, 'model', 'benchmarks_url'))}">benchmark data</a> · <a href="${esc(v(f, 'model', 'training_details_url'))}">training details</a>`],
-        ['Registered use domain', `<strong>${esc(v(f, 'intended_use', 'action_type'))}</strong> · ${esc(v(f, 'intended_use', 'description'))} · no customer named: each customer creates its own agent and mandate within the policy ceilings`],
+        ['Registered use domain', `<strong>${esc(v(f, 'intended_use', 'action_type'))}</strong> · ${esc(v(f, 'intended_use', 'description'))} · no customer named: each customer registers its own agent and mandate within the policy ceilings`],
       ].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       const pol = state.policy || {};
       if ($('rg-ceilings')) $('rg-ceilings').textContent = `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp)} · expiry ≤ ${pol.max_validity} · actions ${(pol.action_types || []).join(', ')}`;
@@ -443,13 +443,12 @@ const AP = (() => {
     function subjectHtml(b, k) {
       return `<b>instruction under test</b> ${esc(b.action_type)} · ${esc(b.supplier_name)} · <span class="mono">${esc(b.payee_account_ref)}</span> · ${gbp(b.amount)}${k ? ' · #' + k : ''}${b.signer === 'rogue' ? ' · <span class="tm-warn">signed with a rogue key</span>' : ''}${b.invoice ? ` · from invoice <span class="mono">${esc(b.invoice)}</span>` : ''}`;
     }
-    const BAND = (id) => id === 'R.9' ? 'human' : ['R.1', 'R.2', 'R.3', 'R.4'].includes(id) ? 'identity' : 'scope';
     function cellIds(trace) {
       const ids = [];
       rules.forEach(r => { if (r.id === 'R.6') trace.filter(t => t.rule.startsWith('C.')).forEach(t => ids.push(t.rule)); ids.push(r.id); });
       return ids;
     }
-    const note = (html) => { $('g-note').innerHTML = html; };
+    function setCell(li, state, note) { li.dataset.state = state; li.querySelector('.g-cell__s').innerHTML = note; }
     async function judge(b, r, k, fast) {
       const step = fast ? 110 : 240;
       const byRule = Object.fromEntries(r.trace.map(t => [t.rule, t]));
@@ -457,31 +456,28 @@ const AP = (() => {
       judgment.classList.add('is-live'); gWrap.dataset.decision = '';
       if (fullBox.checked) openFull(); else if (!inView(gWrap)) gWrap.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' });
       $('g-subject').innerHTML = subjectHtml(b, k); $('g-count').textContent = '';
-      gCells.querySelectorAll('.g-band__cells').forEach(ol => { ol.innerHTML = ''; });
-      gCells.querySelectorAll('.g-band').forEach(x => { x.dataset.state = 'idle'; });
-      const cells = ids.map(id => { const li = el('li', 'g-cell'); li.dataset.rule = id; li.dataset.state = 'idle'; li.innerHTML = `<b>${esc(id)}</b><span class="g-cell__t">${esc(SHORT[id] || (rules.find(x => x.id === id) || {}).title || '')}</span>`; gCells.querySelector(`.g-band[data-band="${BAND(id)}"] .g-band__cells`).append(li); return li; });
-      gVerdict.className = 'g__verdict'; gVerdict.innerHTML = '<span class="tm-dim">evaluating…</span>'; note('<span class="tm-dim">…</span>');
-      let stopped = false, stopAt = null;
+      gCells.innerHTML = ''; ids.forEach(id => { const li = el('li', 'g-cell'); li.dataset.rule = id; li.dataset.state = 'idle'; li.innerHTML = `<b>${esc(id)}</b><span class="g-cell__t">${esc(SHORT[id] || (rules.find(x => x.id === id) || {}).title || '')}</span><span class="g-cell__s">—</span>`; gCells.append(li); });
+      gVerdict.className = 'g__verdict'; gVerdict.innerHTML = '<span class="tm-dim">evaluating…</span>';
+      const cells = [...gCells.children];
+      let stopped = false;
       for (let i = 0; i < ids.length; i++) {
-        const li = cells[i], tr = byRule[ids[i]], band = li.closest('.g-band');
-        if (stopped || !tr) { li.dataset.state = 'skip'; await pause(step / 4); continue; }
-        $('g-count').textContent = `check ${i + 1} of ${ids.length}`; band.dataset.state = 'live';
-        li.dataset.state = 'checking'; note(`<b>${esc(ids[i])}</b> ${esc(SHORT[ids[i]] || '')} · checking…`); await pause(step);
-        li.dataset.state = tr.ok ? 'pass' : (r.decision === 'ESCALATE' ? 'hold' : 'fail');
-        note(`<b class="${li.dataset.state}">${esc(ids[i])} ${tr.ok ? '✓' : '✗'}</b> ${esc(tr.note)}`);
-        if (!tr.ok) { stopped = true; stopAt = i; $('g-count').textContent = `stopped at ${ids[i]}`; band.dataset.state = li.dataset.state; }
-        else if (i === ids.length - 1 || BAND(ids[i + 1]) !== BAND(ids[i])) band.dataset.state = 'pass';
+        const li = cells[i], tr = byRule[ids[i]];
+        if (stopped || !tr) { setCell(li, 'skip', 'not evaluated · denied by default'); await pause(step / 4); continue; }
+        $('g-count').textContent = `check ${i + 1} of ${ids.length}`;
+        setCell(li, 'checking', 'checking…'); await pause(step);
+        setCell(li, tr.ok ? 'pass' : (r.decision === 'ESCALATE' ? 'hold' : 'fail'), esc(tr.note));
+        if (!tr.ok) { stopped = true; $('g-count').textContent = `stopped at ${ids[i]}`; }
       }
-      if (!stopped) { $('g-count').textContent = `${ids.length} of ${ids.length} passed`; }
-      else if (stopAt < ids.length - 1) note($('g-note').innerHTML + ` <span class="tm-dim">· ${esc(ids.slice(stopAt + 1).join(', '))} not evaluated · denied by default</span>`);
+      if (!stopped) $('g-count').textContent = `${ids.length} of ${ids.length} passed`;
       await pause(step * 1.2);
       const cite = r.decision === 'ALLOW' ? `all ${ids.length} checks passed · ${esc(r.code)}` : `${esc(r.rule)} · ${esc(r.code)}`;
-      const sig = r.signature && r.signature.checked ? `agent signature <b class="${r.signature.verified ? 'ok' : 'fail'}">${r.signature.verified ? 'verified' : 'failed'}</b> · ` : '';
+      const sig = r.signature ? `<span>R.4 instruction signature <b class="${r.signature.verified ? 'ok' : 'fail'}">${r.signature.checked ? (r.signature.verified ? 'VERIFIED' : 'FAILED') : 'not reached'}</b> · ${esc(r.signature.alg)} · agent key <span class="mono">${esc(r.signature.agent_kid || '—')}</span> · payload sha256 <span class="mono">${esc((r.signature.instruction_hash || '').slice(0, 12))}</span></span>` : '';
+      const settle = r.settlement ? `<span class="ok">${esc(r.settlement.rail_reason)} · 30-day total for this account now ${gbp(r.settlement.ledger_total_after)}</span>` : '';
       const reg = r.rails && r.rails.authority_registry, rv = r.rails && r.rails.vouch;
       const rails = r.rails && (reg !== 'active' || (rv && rv.status === 'REVOKED')) ? `<span>authority registry <b class="${reg !== 'active' ? 'fail' : ''}">${esc(reg)}</b> · vouch rail <b class="${rv.status === 'REVOKED' ? 'fail' : ''}">${esc(rv.status || 'none')}</b>${reg !== 'active' && rv.status === 'REVOKED' ? ' · one supervisory action, two rails refuse' : ''}</span>` : '';
-      const settle = r.settlement ? `<span class="ok">${esc(r.settlement.rail_reason)}</span>` : '';
+      const fatf = r.decision === 'DENY' && r.rule === 'R.6' ? '<span>Named-beneficiary mandate check (FATF 2025 AML/CFT alignment): the customer signed for accounts, not names.</span>' : '';
       gVerdict.className = 'g__verdict g__verdict--' + r.decision; gWrap.dataset.decision = r.decision;
-      gVerdict.innerHTML = `<span class="g-word">${r.decision}</span><span class="g-cite">${cite}</span><span class="g-reason">${esc(r.reason)}</span><span class="g-notes">${settle}${rails}<span class="tm-dim">${sig}receipt signed by the authority · audit #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> · replayable</span></span>`;
+      gVerdict.innerHTML = `<span class="g-word">${r.decision}</span><span class="g-cite">${cite}</span><span class="g-reason">${esc(r.reason)}</span><span class="g-notes">${fatf}${sig}${settle}${rails}<span class="tm-dim">receipt signed by the authority · audit #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> ← <span class="mono">${esc(r.prev_hash.slice(0, 12))}</span> · rule pack ${esc(r.rule_pack)} · decision replayable</span></span>`;
       judgment.classList.remove('is-live');
     }
 
@@ -497,7 +493,7 @@ const AP = (() => {
       else body = `<b class="x-k x-k--ALLOW">executed</b> ${who}${r.settlement ? ` · payment #${r.settlement.payment_id} on the ${esc(r.settlement.rail)} rail` : ''} · ${audit}`;
       ex.prepend(el('li', null, `<span class="x-time">${t(new Date().toISOString())}</span><span>${body}</span>`));
       if (r.incident) ex.prepend(el('li', 'x-incident', `<span class="x-time">${t(new Date().toISOString())}</span><span><b>INCIDENT</b> escalated to supervisor · ${r.incident.denies} refused instructions · audit #${r.incident.audit_id} <span class="mono">${esc(r.incident.hash.slice(0, 12))}</span> <a href="/regulator">→ Regulator Panel incident feed</a></span>`));
-      while (ex.children.length > 6) ex.lastChild.remove();
+      while (ex.children.length > 14) ex.lastChild.remove();
     }
     function logLine(b, r, k) {
       if (lines.querySelector('.terminal__hint')) lines.innerHTML = '';
@@ -515,10 +511,10 @@ const AP = (() => {
     const cbw = $('chain-beats-wrap'); cbw.hidden = !ct.checked;
     ct.onchange = () => { cbw.hidden = !ct.checked; };
     (state.chain_beats || []).forEach(b => {
-      const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p; btn.title = b.hint;
-      btn.innerHTML = `<span class="beat__label">${esc(b.label)}</span><span class="beat__expect">${esc(b.expect)}</span>`;
+      const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p;
+      btn.innerHTML = `<span class="beat__label">${esc(b.label)}<small>${esc(b.hint)}</small></span><span class="beat__expect">${esc(b.expect)}</span>`;
       btn.onclick = async () => {
-        btn.disabled = true; btn.dataset.running = 'true'; $('invoice-steps').hidden = true; $('invoice-outcome').hidden = true;
+        btn.disabled = true; btn.dataset.running = 'true';
         try {
           const r = await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, invoice_ref: b.invoice_ref, signer: b.signer, chain: true, delegate_amount: b.delegate_amount, delegate_account: b.delegate_account || null });
           await present(b, r);
@@ -546,48 +542,46 @@ const AP = (() => {
       ib.append(b);
     });
     async function showInvoice(r) {
-      const steps = $('invoice-steps'), out = $('invoice-outcome'); steps.hidden = false; out.hidden = true;
-      steps.querySelectorAll('.invoice__step').forEach(x => x.hidden = true); out.querySelectorAll('[data-step]').forEach(x => x.hidden = true);
+      const steps = $('invoice-steps'); steps.hidden = false;
+      steps.querySelectorAll('.invoice__step').forEach(x => x.hidden = true);
       const acct = r.instruction.payee_account_ref, ok = r.on_allowlist;
       const digits = (r.extraction.account_number || {}).value || '';
-      $('g-subject').innerHTML = `<b>${esc(r.invoice)}</b> ${esc(modeLabel(r.extraction_mode))}`;
-      gWrap.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' });
       // a. what the agent read, account number marked
       $('inv-text').innerHTML = esc(r.text).replace(new RegExp('(Account number:\\s*)(' + digits + ')'), `$1<mark class="${ok ? 'ok' : ''}">$2</mark>`).replace(/(IMPORTANT: our bank details have changed[^\n]*)/, '<mark>$1</mark>');
-      $('inv-facts').innerHTML = Object.entries(r.extraction).filter(([k]) => !k.startsWith('_')).map(([k, f]) => `<div><dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${k === 'account_number' ? `<span class="${ok ? 'right' : 'wrong'}">${esc(f.value)}</span>` : esc(String(f.value))} <span class="prov"><q>${esc(f.quote || '')}</q></span></dd></div>`).join('');
-      steps.querySelector('[data-step="a"]').hidden = false; await pause(900);
+      $('inv-facts').innerHTML = Object.entries(r.extraction).filter(([k]) => !k.startsWith('_')).map(([k, f]) => `<div><dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${k === 'account_number' ? `<span class="${ok ? 'right' : 'wrong'}">${esc(f.value)}</span>` : esc(String(f.value))} <span class="prov">from <span class="mono">${esc(f.source_doc || '')}</span>: <q>${esc(f.quote || '')}</q></span></dd></div>`).join('') + `<div><dt>read by</dt><dd>${esc(modeLabel(r.extraction_mode))}</dd></div>`;
+      steps.querySelector('[data-step="a"]').hidden = false; steps.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' }); await pause(900);
       // b. the generated instruction
       const i = r.instruction;
-      $('inv-instruction').innerHTML = [['Action', esc(i.action_type)], ['Payee', esc(i.supplier_name)], ['Account', `<span class="${ok ? 'right' : 'wrong'}">${esc(acct)}</span>${ok ? ' · on the customer-signed mandate' : ` · not on the mandate; the customer signed for <span class="mono">${esc(r.registered_payee || '—')}</span>`}`], ['Amount', gbp(i.amount) + ' ' + esc(i.currency)], ['Signed by', 'the agent key bound in agent_identity (Ed25519)']].map(([k, v_]) => `<div><dt>${k}</dt><dd>${v_}</dd></div>`).join('');
+      $('inv-instruction').innerHTML = [['Action', esc(i.action_type)], ['Payee', esc(i.supplier_name)], ['Account', `<span class="${ok ? 'right' : 'wrong'}">${esc(acct)}</span>${ok ? ' on the customer-signed mandate' : ` not on the mandate; the customer signed for <span class="mono">${esc(r.registered_payee || '—')}</span>`}`], ['Amount', gbp(i.amount) + ' ' + esc(i.currency)], ['Invoice', esc(i.invoice_ref)], ['Signed by', 'the agent key bound in agent_identity (Ed25519)']].map(([k, v_]) => `<div><dt>${k}</dt><dd>${v_}</dd></div>`).join('');
       const chv = $('inv-chain');
-      if (r.chain && r.result.chain) { chv.hidden = false; chv.innerHTML = `<strong>Delegation chain</strong> <span class="small">the orchestrator read the invoice and delegated exactly what it read to the execution agent, which signed</span>` + chainHtml(r.result.chain, r.delegation); }
+      if (r.chain && r.result.chain) { chv.hidden = false; chv.innerHTML = `<strong>Delegation chain</strong> <span class="small">the AP Orchestrator Agent read the invoice and delegated exactly what it read to the Payment Execution Agent, which signed the instruction</span>` + chainHtml(r.result.chain, r.delegation); }
       else if (r.chain) { chv.hidden = false; chv.innerHTML = '<strong>Delegation chain</strong> <span class="small">presented; the bank refused before reaching it</span>'; }
       else chv.hidden = true;
       steps.querySelector('[data-step="b"]').hidden = false; await pause(900);
-      // c. the gauntlet runs; then one compact line with what only the invoice path adds
+      // c. the bank's decision: the gauntlet runs, then the compact verdict is written back into the actor's panel
       const res = r.result;
       const subject = { action_type: i.action_type, supplier_name: i.supplier_name, payee_account_ref: acct, amount: i.amount, signer: 'agent', invoice: r.invoice };
       await judge(subject, res);
       const box = $('inv-verdict'); box.className = 'invoice__verdict invoice__verdict--' + res.decision;
-      box.innerHTML = `<span class="t-verdict t-verdict--${res.decision}">${res.decision}</span> <b>${res.decision === 'ALLOW' ? 'all nine checks passed' : esc(res.rule) + ' · ' + esc(res.code)}</b>${res.rule === 'R.6' && res.decision === 'DENY' ? ' · named-beneficiary mandate check (FATF 2025 AML/CFT alignment): the customer signed for accounts, not names' : ''}${res.violation ? ` · violation #${res.violation.id} recorded ${esc(res.violation.status)}` : ''}${res.signature ? ` · R.4 instruction signature: ${res.signature.checked ? (res.signature.verified ? 'VERIFIED' : 'FAILED') : 'not reached'}` : ''}`;
-      out.hidden = false; box.hidden = false;
+      const rulesHtml = res.trace.map(s => `<li class="${s.ok ? 'ok' : 'fail'}">${esc(s.rule)} ${s.ok ? '✓' : '✗'}</li>`).join('');
+      box.innerHTML = `<div><span class="t-verdict t-verdict--${res.decision}">${res.decision}</span> <strong>${res.decision === 'ALLOW' ? 'all nine checks passed' : esc(res.rule)} · ${esc(res.code)}</strong></div><div>${esc(res.reason)}</div><ul class="invoice__rules">${rulesHtml}</ul>${res.rule === 'R.6' && res.decision === 'DENY' ? '<div class="invoice__note">Named-beneficiary mandate check (FATF 2025 AML/CFT alignment). The customer signed for accounts, not names: a changed account on a genuine-looking invoice has no authority.</div>' : ''}${res.violation ? `<div class="invoice__note">Violation #${res.violation.id} recorded as ${esc(res.violation.status)} for the supervisor’s exception panel.</div>` : ''}${res.settlement ? `<div class="invoice__note">${esc(res.settlement.rail_reason)}</div>` : ''}${res.signature ? `<div class="invoice__note">R.4 instruction signature: <strong>${res.signature.checked ? (res.signature.verified ? 'VERIFIED' : 'FAILED') : 'not reached'}</strong> (${esc(res.signature.alg)}) · agent key <span class="mono">${esc(res.signature.agent_kid || '—')}</span></div>` : ''}<div class="invoice__note">audit #${res.audit_id} <span class="mono">${esc(res.audit_hash.slice(0, 12))}</span> · receipt signed by the authority · decision replayable</div>`;
+      steps.querySelector('[data-step="c"]').hidden = false;
       logLine(subject, res); exhaust(subject, res);
       await pause(700);
       // d. caption
       $('inv-caption').textContent = ok
         ? 'The AI read a genuine invoice and paid the account the customer signed for. Same agent, same mandate: the next invoice is the test.'
         : 'The AI read a manipulated invoice and would have paid the wrong account. The mandate stopped it.';
-      $('inv-caption').hidden = false;
+      steps.querySelector('[data-step="d"]').hidden = false;
+      if (!judgment.classList.contains('is-full')) steps.querySelector('[data-step="c"]').scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'nearest' });
     }
 
     // ── 4 · the script ──
-    const chip = (b) => { let s = `${b.action_type === 'refund' ? 'Refund ' : ''}${esc(b.supplier_name)} · ${gbp(b.amount)}`; const m = /account ([\d- ]+)$/.exec(b.label || ''); if (m) s += ` · account <span class="mono">${esc(m[1])}</span>`; if (b.signer === 'rogue') s += ' · rogue key'; if (b.repeat) s += ` · ×${b.repeat}`; return s; };
-    const hideSteps = () => { $('invoice-steps').hidden = true; $('invoice-outcome').hidden = true; };
     state.beats.forEach(b => {
-      const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p; btn.title = b.hint;
-      btn.innerHTML = `<span class="beat__label">${chip(b)}</span><span class="beat__expect">${esc(b.expect)}</span>`;
+      const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p;
+      btn.innerHTML = `<span class="beat__label">${esc(b.label)}<small>${esc(b.hint)}</small></span><span class="beat__expect">${esc(b.expect)}</span>`;
       btn.onclick = async () => {
-        btn.disabled = true; btn.dataset.running = 'true'; hideSteps();
+        btn.disabled = true; btn.dataset.running = 'true';
         try {
           for (let k = 0; k < (b.repeat || 1); k++) {
             const r = await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, invoice_ref: b.repeat ? `${b.invoice_ref}-${k + 1}` : b.invoice_ref, signer: b.signer });

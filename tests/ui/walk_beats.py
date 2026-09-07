@@ -14,7 +14,7 @@ with sync_playwright() as pw:
         page.locator("#beats button").nth(i).click()
         page.wait_for_function(f"document.querySelectorAll('#term-lines li .t-verdict').length > {n}")
         page.wait_for_function("!document.querySelector('#beats button[data-running]')", timeout=60000)
-        li=page.locator("#term-lines li:has(.t-verdict)").last; v=li.locator(".t-verdict").text_content(); t=li.text_content().lower()
+        li=page.locator("#term-lines li:has(.t-verdict)").last; v=li.locator(".t-verdict").inner_text(); t=li.inner_text().lower()
         ok = v==d and r in t; print(("  ✓" if ok else "  ✗"), f"beat {i+1}: {v} (expected {d} {r})"); ok or bad.append(i+1)
     b.close()
 print("BEATS PROBLEMS:", bad or "none")

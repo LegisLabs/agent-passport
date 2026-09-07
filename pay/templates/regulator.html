@@ -5,7 +5,7 @@
   <div class="col-main">
     <div class="alert" id="rg-alert" hidden role="alert"></div>
     <h1 class="h1">Model registration <span id="rg-ref" class="mono">—</span> <span id="rg-status"></span></h1>
-    <p class="lede lede--tight"><strong>Regulatory Assurance</strong> (proposed PSR 2017 Agent Assurance function — design prototype) · case officer {{ officer }}, {{ issuer }}. <strong>Phase 2</strong> — the authority approves the model once and sets the policy ceilings and the supervisor condition. It keeps two registries, approved models and live passports, and never sees a mandate or a transaction. <span class="small">Layer A, agent assurance: the authority signature. Layer E, regulatory supervision: the anomaly and escalation feed below.</span></p>
+    <p class="lede lede--tight">Phase 2. The authority approves the model once and sets the policy ceilings and the supervisor condition. Case officer {{ officer }}. Proposed PSR 2017 Agent Assurance function, design prototype.</p>
 
     <div class="empty" id="rg-empty"><p>No registration in the queue. Submit one from the <a href="/provider">Provider Panel</a>.</p></div>
 
@@ -14,11 +14,9 @@
       <dl class="summary" id="rg-summary"></dl>
 
       <h2 class="h2">Automated checks <span class="h2__meta">rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
-      <p class="hint">Each check is a plain rule over the reviewed facts and the authority's own records. Labels say whether the rule reflects current practice or a prototype assumption. The engine drafts; it does not decide.</p>
       <table class="checks" id="rg-checks"><thead><tr><th>Rule</th><th>Check</th><th>Source</th><th>Result</th></tr></thead><tbody></tbody></table>
 
       <h2 class="h2">Standards Review Assistant <span class="h2__meta">KYA standards evaluation tool · rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
-      <p class="hint">Six visible steps. The assistant reads, maps, tests and recommends; the bank's own engine runs the sandbox; only your signature below issues anything.</p>
       <div class="actions"><button class="btn btn--secondary btn--small" id="btn-review">Run the six steps</button><span class="actions__note" id="review-note"></span></div>
       <ol class="stepper" id="review" hidden></ol>
 
@@ -30,7 +28,6 @@
 
       <div id="rg-decide">
         <h2 class="h2">Decision</h2>
-        <p>The decision is yours and will be recorded against your name. A note is required. Approval enters the model in the approved-models registry; every passport later created on it carries your ceilings and condition.</p>
         <p class="small">Policy ceilings this approval sets for every customer mandate: <span id="rg-ceilings" class="mono"></span></p>
         <label class="label" for="rg-condition">Condition: hold instructions above (£)</label>
         <div class="condition"><input class="input" id="rg-condition" type="number" min="0" step="100" value="5000"> <span class="small">The bank returns ESCALATE above this amount, even inside the customer's limits.</span></div>
@@ -48,7 +45,6 @@
         <h2 class="h2">Model approved <span id="md-status"></span></h2>
         <dl class="summary" id="md-summary"></dl>
         <h3 class="h3">Model lifecycle</h3>
-        <p class="hint">Suspending or revoking the model cascades to every passport created on it. Reinstating releases the passports the cascade froze.</p>
         <label class="label" for="md-reason">Reason</label>
         <input class="input" id="md-reason" placeholder="e.g. Model card found inaccurate">
         <div class="actions">
@@ -63,14 +59,12 @@
 
       <div id="rg-issued" hidden>
         <h2 class="h2">Passport <span class="mono" id="pp-id"></span> <span id="pp-status"></span></h2>
-        <p class="hint">Three claims, one envelope: the authority's assurance (issued automatically from the model approval), the customer-signed agent identity, the customer-signed mandate. Each panel shows who signed it and whether the signature verifies right now.</p>
         <div class="envelope" id="envelope"></div>
         <p class="envelope__stamp" id="envelope-stamp"></p>
         <ul class="badges" aria-label="Standards used"><li>OAuth 2.0 RFC 9396</li><li>W3C VC JWT</li><li>RFC 7800 cnf</li><li>Ed25519 RFC 8037</li></ul>
         <p class="small">Credential format: W3C VC (JWT profile, RFC 7519). The three-signature envelope realises the Passport / Principal Mandate / Action Intent Manifest model.</p>
 
         <h3 class="h3">Lifecycle</h3>
-        <p class="hint">Passport-level: suspend to freeze during review; reinstate when cleared; revoke permanently. Each change needs a reason and takes effect on the agent's next instruction, because the bank checks the registry in real time. Revocation also revokes the mirrored mandate on the vouch rail.</p>
         <label class="label" for="rg-reason">Reason</label>
         <input class="input" id="rg-reason" placeholder="e.g. Provider reported a suspected key compromise">
         <div class="actions">
@@ -82,7 +76,7 @@
         <p class="error" id="life-error" hidden></p>
 
         <h3 class="h3">Mandate on the vouch rail</h3>
-        <p class="hint">Mandate anchored as AI Voucher on vouch.finance — demonstrating interoperability with the open agent-authorisation ecosystem.</p>
+        <p class="small">Mandate anchored as AI Voucher on vouch.finance — demonstrating interoperability with the open agent-authorisation ecosystem.</p>
         <div class="rail" id="rail"></div>
 
         <details class="jwt">
@@ -92,7 +86,6 @@
       </div>
 
       <h2 class="h2">Anomaly Detection &amp; Escalation <span class="h2__meta" id="ex-meta"></span></h2>
-      <p class="hint">Every instruction the bank refused for this passport. A repeat of the same rule inside the window raises the supervisor alert above. Suspend to freeze, investigate to read the evidence, then revoke or reinstate; the bank reads only the registry status.</p>
       <div class="exception" id="exception" hidden>
         <div class="exception__state" id="ex-state"></div>
         <div class="actions" id="ex-actions"></div>
@@ -102,7 +95,6 @@
       <div class="evidence" id="ex-evidence" hidden></div>
 
       <h2 class="h2">Incident feed</h2>
-      <p class="hint">The bank raises an incident after three refused instructions on one passport. It is a log row, not a workflow.</p>
       <ol class="incidents" id="rg-incidents"><li class="log__empty">No incidents.</li></ol>
 
       <h2 class="h2">History</h2>
