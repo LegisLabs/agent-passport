@@ -1263,3 +1263,6 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 @media (max-width: 800px) { .standard-split .standard-page { width: 100%; } }
 .standard-split { margin-top: 24px; grid-template-columns: 340px minmax(0, 1fr); }
 .standard-split .standard-page { width: 340px; }
+.standard-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 48px; align-items: start; }
+.standard-split .standard-one { align-items: center; justify-self: stretch; }
+.standard-split .home__lede { text-align: left; }
