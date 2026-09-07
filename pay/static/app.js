@@ -603,10 +603,19 @@ const AP = (() => {
     replayAll();
   }
 
+  async function home() {
+    const st = await api('GET', '/api/state');
+    const live = st.passports.filter(x => x.status !== 'pending');
+    const verified = live.reduce((n, x) => n + (x.payments || 0), 0);
+    const n = (k, one, many) => `${k} ${k === 1 ? one : many}`;
+    $('live').textContent = `On this deployment right now: ${n((st.models || []).filter(m => m.model_status === 'active').length, 'model approved', 'models approved')}, ${n(live.filter(x => x.status === 'active').length, 'agent live', 'agents live')}, ${n(verified, 'instruction verified', 'instructions verified')}, ${n((st.violations || []).length, 'refused', 'refused')}.`;
+    $('live').hidden = false;
+  }
+
   document.addEventListener('DOMContentLoaded', () => {
     const rb = $('demo-reset');
     if (rb) rb.onclick = async () => { if (confirm('Reset the demo to its baseline? Everything is deleted, then one registration is reviewed, approved and the customer mandate signed, so the passport is ACTIVE with no payments and no violations.')) { rb.disabled = true; rb.textContent = 'seeding…'; await api('POST', '/api/demo/seed?stage=issued'); location.href = '/bank'; } };
   });
 
-  return { provider, regulator, customer, bank, audit };
+  return { home, provider, regulator, customer, bank, audit };
 })();

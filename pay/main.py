@@ -41,9 +41,9 @@ def ctx(request: Request, **kw) -> dict:
 
 
 # ── Views ──────────────────────────────────────────────────────────────────
-@app.get("/", include_in_schema=False)
-def home():
-    return RedirectResponse("/provider")
+@app.get("/", response_class=HTMLResponse, include_in_schema=False)
+def home(request: Request):
+    return templates.TemplateResponse(request, "home.html", ctx(request, view="home", pack=rules.pack()))
 
 
 for _name in ("provider", "regulator", "customer", "bank", "audit"):

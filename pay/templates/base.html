@@ -13,7 +13,7 @@
 
 <header class="masthead" role="banner">
   <div class="wrap masthead__row">
-    <a class="masthead__logo" href="/provider" aria-label="GOV DEMO home">
+    <a class="masthead__logo" href="/" aria-label="GOV DEMO home">
       <svg class="masthead__crown" viewBox="0 0 512 512" aria-hidden="true" focusable="false"><g fill="#fff"><circle cx="256" cy="100" r="28"/><circle cx="28" cy="184" r="28"/><circle cx="484" cy="184" r="28"/><path d="M256 122 L342 285 L470 200 L410 385 L256 356 L102 385 L42 200 L170 285 Z"/><path d="M106 405 L256 375 L406 405 L396 436 L256 408 L116 436 Z"/></g></svg>
       <span class="masthead__logotype">GOV<span class="masthead__dot" aria-hidden="true"></span>DEMO</span>
     </a>
@@ -21,8 +21,9 @@
   </div>
 </header>
 
-<div class="wrap shell">
-  <nav class="sidenav" id="sidenav" aria-label="Dashboards">
+{% block hero %}{% endblock %}
+<div class="wrap shell{% if view == 'home' %} shell--solo{% endif %}">
+  {% if view != 'home' %}<nav class="sidenav" id="sidenav" aria-label="Dashboards">
     <ul>
       <li><a href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}>Provider Panel</a></li>
       <li><a href="/regulator" {% if view == 'regulator' %}aria-current="page"{% endif %}>Regulator Panel</a></li>
@@ -31,7 +32,7 @@
       <li><a href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>Audit</a></li>
       <li><a href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>About</a></li>
     </ul>
-  </nav>
+  </nav>{% endif %}
   <main id="main" class="main">
 {% block content %}{% endblock %}
   </main>

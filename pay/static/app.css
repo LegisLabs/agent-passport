@@ -865,3 +865,32 @@ body[data-view="bank"] .sidenav a[aria-current="page"] { color: var(--term-fg); 
 /* the masthead is the same on every page, including the terminal */
 body[data-view="bank"] .masthead { font-family: var(--font); color: #fff; }
 body[data-view="bank"] .masthead__logotype, body[data-view="bank"] .masthead__tag { color: #fff; font-family: var(--font); }
+
+/* landing page */
+.hero { background: var(--blue); color: #fff; padding: 50px 0 60px; }
+.hero__h1 { color: #fff; max-width: 16ch; margin-bottom: 20px; }
+.hero__lede { font-size: 24px; line-height: 1.3; max-width: 30em; margin: 0 0 30px; }
+.hero__actions { margin: 0; display: flex; align-items: center; gap: 1.5rem; flex-wrap: wrap; }
+.hero__link { color: #fff; font-size: 19px; }
+.btn--inverse { background: #fff; color: var(--ink); box-shadow: 0 2px 0 #929191; }
+.btn--inverse:hover { background: #dbdad9; color: var(--ink); }
+.btn--inverse .btn__arrow { border-left-color: var(--ink); }
+.shell--solo { display: block; }
+.shell--solo .main { padding-top: 0; }
+.home .inset { border-left: 10px solid var(--line); padding: 15px; margin: 40px 0 10px; font-size: 24px; line-height: 1.3; max-width: 28em; }
+.home .h2 { margin-top: 50px; font-size: 27px; }
+.steps-nav { list-style: none; margin: 0; padding: 0; }
+.steps-nav li { position: relative; padding: 0 0 30px 60px; }
+.steps-nav li::before { content: attr(data-n); position: absolute; left: 0; top: 0; width: 35px; height: 35px; border: 2px solid var(--ink); border-radius: 50%; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 16px; background: var(--ground); box-sizing: border-box; }
+.steps-nav li::after { content: ""; position: absolute; left: 16px; top: 37px; bottom: 0; border-left: 2px solid var(--line); }
+.steps-nav li:last-child::after { display: none; }
+.steps-nav h3 { margin: 4px 0 6px; font-size: 24px; line-height: 1.2; }
+.steps-nav p { margin: 0; max-width: 34em; }
+.live { font-size: 19px; margin: 20px 0 0; }
+.who { list-style: none; margin: 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 30px; }
+.who a { display: block; font-size: 24px; font-weight: 700; margin-bottom: 8px; }
+.who span { display: block; }
+@media (max-width: 720px) { .who { grid-template-columns: minmax(0, 1fr); } .hero { padding: 30px 0 40px; } .hero__lede { font-size: 20px; } }
+
+/* logotype: GOV.UK's wordmark sits narrower than Arial Bold; tighten tracking and condense slightly */
+.masthead__logotype { letter-spacing: -.035em; transform: scaleX(.9); transform-origin: left center; }

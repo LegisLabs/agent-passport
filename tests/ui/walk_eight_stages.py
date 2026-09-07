@@ -79,7 +79,7 @@ with sync_playwright() as pw:
     for k in ("what it is not", "why it matters now", "technical standards", "regulatory context", "grounds declaration layer (j.1", "jpmorgan chase", "visa tap", "r.6 and r.7"): check(k in a, f"about: {k}")
     print("== 390px")
     m = b.new_context(viewport={"width": 390, "height": 844}).new_page()
-    for path in ("provider", "regulator", "customer", "bank", "audit", "about"):
+    for path in ("", "provider", "regulator", "customer", "bank", "audit", "about"):
         m.goto(BASE + "/" + path); m.wait_for_timeout(800); w = m.evaluate("document.documentElement.scrollWidth"); check(w <= 390, f"/{path} no overflow ({w}px)")
     b.close()
 print("errors:", errors or "none"); print("PROBLEMS:", problems or "none")

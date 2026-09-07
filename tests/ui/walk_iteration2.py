@@ -38,7 +38,7 @@ def main():
       check("standards review assistant" in low(page, "#review"), "assistant label present")
       check("5 of 5 as expected" in low(page, "#review"), "sandbox 5 of 5 through the real engine")
       check("ai recommendation" in low(page, "#review") and "approve with conditions" in low(page, "#review"), "recommendation labelled, human decision required")
-      check("phase 2" in low(page, "main") and "psr 2017" in low(page, "main"), "regulator header label")
+      check("psr 2017" in low(page, "main") and "policy ceilings" in low(page, "main"), "regulator header label")
       page.goto(BASE + f"/regulator?passport={pid}"); page.wait_for_selector("#envelope section")
       check(page.locator(".badges li").count() == 4, "four standards badges under the envelope")
       check("oauth 2.0 rfc 9396" in low(page, "#envelope"), "mandate panel labelled RFC 9396")
