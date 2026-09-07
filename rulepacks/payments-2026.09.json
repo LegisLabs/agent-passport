@@ -27,7 +27,7 @@
   "application_rules": [
     {"id": "M.1", "title": "Model company resolves at Companies House", "status": "CURRENT", "source": "Companies House register", "check": "companies_house_match", "fail": "flag"},
     {"id": "M.2", "title": "A named person attests the registered documentation is accurate", "status": "PROTOTYPE", "source": "Truthfulness declaration, as for a Companies House filing (prototype condition); no liability for what agents later do", "check": "attestation", "fail": "flag"},
-    {"id": "M.3", "title": "Model documentation complete (provider, version, benchmarks, training type, model card)", "status": "PROTOTYPE", "source": "Registration form; EU AI Act-style provider documentation (prototype condition)", "check": "model_documented", "fail": "flag"},
+    {"id": "M.3", "title": "Model documentation complete (provider, version, published benchmark data, training details, model card)", "status": "PROTOTYPE", "source": "Registration form; EU AI Act-style provider documentation (prototype condition)", "check": "model_documented", "fail": "flag"},
     {"id": "M.4", "title": "Foundation model version is pinned", "status": "PROTOTYPE", "source": "Registration form: a fixed version, no floating alias", "check": "version_pinned", "fail": "flag"},
     {"id": "M.5", "title": "Intended use within the policy's action types", "status": "PROTOTYPE", "source": "Rule pack policy table", "check": "intended_use_within_policy", "fail": "flag"},
     {"id": "M.6", "title": "Model not already on the register", "status": "PROTOTYPE", "source": "Approved-models registry", "check": "not_already_registered", "fail": "flag"}

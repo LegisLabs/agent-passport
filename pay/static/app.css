@@ -944,3 +944,6 @@ body[data-view="bank"] .beat[data-running="true"]::before { content: "▮"; anim
 
 .step__head { display: flex; align-items: center; justify-content: space-between; gap: 1rem; margin: 0 0 .5rem; }
 .step__head .h2 { margin: 0; }
+
+.step__head { margin: 1.25rem 0 .75rem; }
+.step__actions { display: flex; gap: .6rem; align-items: center; }

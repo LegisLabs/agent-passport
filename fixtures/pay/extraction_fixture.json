@@ -60,13 +60,13 @@
    "source_doc": null,
    "quote": null
   },
-  "benchmarks": {
-   "value": "invoice field extraction 99.2% exact match on the OpenPay AP-2026 test set (1,200 invoices); payee-change detection 100% recall on 300 seeded redirection attempts",
+  "benchmarks_url": {
+   "value": "https://openpay.example/paygpt-6/benchmarks",
    "source_doc": null,
    "quote": null
   },
-  "training_type": {
-   "value": "foundation model, no fine-tuning; retrieval and tool use only; no customer data used for training",
+  "training_details_url": {
+   "value": "https://openpay.example/paygpt-6/training",
    "source_doc": null,
    "quote": null
   },

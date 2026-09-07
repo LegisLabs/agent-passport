@@ -81,9 +81,10 @@ def run_application_checks(fields: dict, agent: dict | None = None, reg: dict | 
             out.append(_check(rule, ok, "registration: attestation", f"{_v(at, 'name')}, {_v(at, 'role')}, declaration {_v(at, 'declaration_ref')}: documentation accuracy attested on submission" if ok else "attestation incomplete"))
         elif c == "model_documented":
             m = fields.get("model", {})
-            missing = [k for k in ("model_name", "model_id", "model_provider", "model_version", "benchmarks", "training_type", "documentation_ref") if not _v(m, k)]
-            ok = not missing
-            out.append(_check(rule, ok, "registration: model documentation", f"{_v(m, 'model_name')} on {_v(m, 'model_provider')} {_v(m, 'model_version')}; benchmarks, training type and model card declared" if ok else "missing: " + ", ".join(missing)))
+            missing = [k for k in ("model_name", "model_id", "model_provider", "model_version", "benchmarks_url", "training_details_url", "documentation_ref") if not _v(m, k)]
+            bad_urls = [k for k in ("benchmarks_url", "training_details_url") if _v(m, k) and not re.match(r"^https://\S+$", str(_v(m, k)))]
+            ok = not missing and not bad_urls
+            out.append(_check(rule, ok, "registration: model documentation", f"{_v(m, 'model_name')} on {_v(m, 'model_provider')} {_v(m, 'model_version')}; benchmark data, training details and model card published" if ok else ("missing: " + ", ".join(missing) if missing else "not https URLs: " + ", ".join(bad_urls))))
         elif c == "version_pinned":
             ver = str(_v(fields, "model", "model_version") or "")
             ok = bool(ver) and not re.search(r"latest|\*|current", ver, re.I) and bool(re.search(r"[\d]", ver))

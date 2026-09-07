@@ -22,7 +22,7 @@ const AP = (() => {
   const LABELS = {
     company: { title: 'Model company', legal_name: 'Legal name', companies_house_number: 'Companies House number', website: 'Website' },
     attestation: { title: 'Attestation (documentation accuracy)', name: 'Named person', role: 'Role or title', declaration_ref: 'Declaration reference' },
-    model: { title: 'The model', model_name: 'Model name', model_id: 'Model identifier', release: 'Release', model_provider: 'Foundation model provider', model_version: 'Foundation model version (pinned)', benchmarks: 'Benchmarks', training_type: 'Training type', documentation_ref: 'Model card / documentation' },
+    model: { title: 'The model', model_name: 'Model name', model_id: 'Model identifier', release: 'Release', model_provider: 'Foundation model provider', model_version: 'Foundation model version (pinned)', benchmarks_url: 'Benchmark data (URL)', training_details_url: 'Training details (URL)', documentation_ref: 'Model card / documentation' },
     intended_use: { title: 'Intended use', action_type: 'Action type', description: 'Description' },
   };
 
@@ -167,7 +167,7 @@ const AP = (() => {
         ['Model company', `${esc(v(f, 'company', 'legal_name'))} · Companies House <span class="mono">${esc(v(f, 'company', 'companies_house_number'))}</span> · ${esc(v(f, 'company', 'website'))}`],
         ['Attestation', `${esc(v(f, 'attestation', 'name'))}, ${esc(v(f, 'attestation', 'role'))} · declaration <span class="mono">${esc(v(f, 'attestation', 'declaration_ref'))}</span> · documentation accuracy only, no liability for agents' actions`],
         ['Model', `<strong>${esc(v(f, 'model', 'model_name'))}</strong> <span class="mono">${esc(v(f, 'model', 'model_id'))}</span> · release ${esc(v(f, 'model', 'release'))} · ${esc(v(f, 'model', 'model_provider'))} <span class="mono">${esc(v(f, 'model', 'model_version'))}</span>`],
-        ['Documentation', `${esc(v(f, 'model', 'documentation_ref'))} · ${esc(v(f, 'model', 'training_type'))}<br><span class="small">${esc(v(f, 'model', 'benchmarks'))}</span>`],
+        ['Documentation', `${esc(v(f, 'model', 'documentation_ref'))} · <a href="${esc(v(f, 'model', 'benchmarks_url'))}">benchmark data</a> · <a href="${esc(v(f, 'model', 'training_details_url'))}">training details</a>`],
         ['Intended use', `<strong>${esc(v(f, 'intended_use', 'action_type'))}</strong> · ${esc(v(f, 'intended_use', 'description'))} · no customer named: each customer creates its own agent and mandate within the policy ceilings`],
       ].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       const pol = state.policy || {};

@@ -35,7 +35,7 @@ def step_evidence(a: dict) -> dict:
         "company_registers": {"legal_name": _v(f, "company", "legal_name"), "companies_house": _v(f, "company", "companies_house_number"),
                               "model": f"{_v(f, 'model', 'model_name')} ({_v(f, 'model', 'model_id')}, release {_v(f, 'model', 'release')})",
                               "foundation_model": f"{_v(f, 'model', 'model_provider')} · {_v(f, 'model', 'model_version')}",
-                              "benchmarks": _v(f, "model", "benchmarks"), "training_type": _v(f, "model", "training_type"), "documentation": _v(f, "model", "documentation_ref"),
+                              "benchmarks": _v(f, "model", "benchmarks_url"), "training_details": _v(f, "model", "training_details_url"), "documentation": _v(f, "model", "documentation_ref"),
                               "attested_by": f"{_v(f, 'attestation', 'name')}, {_v(f, 'attestation', 'role')} ({_v(f, 'attestation', 'declaration_ref')}): documentation accuracy only",
                               "intended_use": f"{_v(f, 'intended_use', 'action_type')}: {_v(f, 'intended_use', 'description')}"},
         "customers_will": {"note": "No customer, no agent, no key at registration. A model becomes an agent when a customer gives it a mandate: the customer creates the agent (own key, proof of possession, configuration hash) and writes and signs its mandate within the policy ceilings."},

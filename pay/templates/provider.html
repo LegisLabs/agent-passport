@@ -4,16 +4,16 @@
 <div class="grid">
   <div class="col-main">
     <h1 class="h1">Register a model</h1>
-    <p class="lede lede--tight">Phase 1. {{ operator }} registers its model once: company, model and pinned version, benchmarks, training type, documentation. A named person attests the documentation is accurate. No agent, no key, no customer data.</p>
+    <p class="lede lede--tight">Phase 1. {{ operator }} registers its model once: company, model and pinned version, links to benchmark data and training details, documentation. A named person attests the documentation is accurate. No agent, no key, no customer data.</p>
 
     <ol class="steps" id="steps">
       <li class="step" data-step="1">
         <div class="step__head">
           <h2 class="h2">1 · Registration</h2>
-          <button class="btn btn--secondary btn--small" id="btn-prefill" hidden>Prefill demo data</button>
-        </div>
-        <div class="actions">
-          <button class="btn" id="btn-new">Start registration</button>
+          <div class="step__actions">
+            <button class="btn btn--secondary btn--small" id="btn-prefill" hidden>Prefill demo data</button>
+            <button class="btn btn--small" id="btn-new">Start registration</button>
+          </div>
         </div>
         <div id="facts"></div>
         <div class="actions"><button class="btn btn--secondary" id="btn-save-fields" hidden>Save</button><span class="actions__note" id="save-note"></span></div>
