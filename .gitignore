@@ -9,3 +9,4 @@ keys/
 context/
 .env.*
 !.env.example
+.claude/

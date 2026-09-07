@@ -5,14 +5,15 @@
 
 <div id="rg-dash" hidden>
   <h1 class="h1">Regulator Panel</h1>
-  <p class="lede lede--tight">Phase 2. The register of approved models and the agents live on them. Case officer {{ officer }}.</p>
-  <div class="stats" id="rg-tiles"></div>
+  <p class="lede lede--tight">Models approved for payment agents, and the agents live on them. Case officer {{ officer }}.</p>
+  <p class="lede lede--tight" id="rg-todo" hidden></p>
 
   <h2 class="h2">Model register</h2>
-  <div class="dash-wrap"><table class="dash" id="rg-models"><thead><tr><th>Registration</th><th>Model</th><th>Provider</th><th>Submitted</th><th>Checks</th><th>Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+  <div class="dash-wrap"><table class="dash" id="rg-models"><thead><tr><th>Registration</th><th>Model</th><th>Provider</th><th>Submitted</th><th>Status</th></tr></thead><tbody></tbody></table></div>
 
   <h2 class="h2">Live agents</h2>
-  <div class="dash-wrap"><table class="dash" id="rg-agents"><thead><tr><th>Passport</th><th>Agent</th><th>Customer</th><th>Model</th><th>Payments</th><th>Refusals</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+  <div class="dash-wrap"><table class="dash" id="rg-agents"><thead><tr><th>Passport</th><th>Agent</th><th>Customer</th><th>Model</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+  <p id="rg-quiet" hidden>No refusals and no incidents.</p>
   <div id="rg-dash-anomaly"></div>
 </div>
 

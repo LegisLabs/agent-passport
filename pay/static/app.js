@@ -36,7 +36,6 @@ const AP = (() => {
     const ref = new URLSearchParams(location.search).get('ref');
     return apps.find(a => a.ref === ref) || apps[0] || null;
   }
-  const tiles = (id, rows) => { $(id).innerHTML = rows.map(([n, label]) => `<div class="stat"><span class="stat__n">${esc(n)}</span><span class="stat__l">${esc(label)}</span></div>`).join(''); };
   const rows = (id, list, cols) => { const tb = $(id).querySelector('tbody'); tb.innerHTML = ''; list.forEach(x => tb.append(el('tr', null, x.cells.map(c => `<td>${c}</td>`).join('')))); if (!list.length) tb.append(el('tr', null, `<td class="empty-row" colspan="${cols}">None yet.</td>`)); };
   const modelStatus = (x) => x.status === 'approved' ? tag(x.model_status === 'revoked' ? 'revoked' : x.model_status === 'suspended' ? 'suspended' : 'approved', x.model_status && x.model_status !== 'active' ? 'approved · ' + x.model_status : 'approved · active') : tag(x.status);
   const modeLabel = (m) => m === 'gemini' ? 'Gemini (live)' : m === 'fixture' ? 'fixture (deterministic stand-in)' : 'fixture after Gemini failed';
@@ -52,12 +51,10 @@ const AP = (() => {
 
     function render() {
       const apps = state.applications, prior = state.registered_models || [];
-      const agentsOn = (x) => state.passports.filter(p => p.application_id === x.id && p.status !== 'pending').length;
-      tiles('pv-tiles', [[prior.length + apps.length, 'models registered'], [prior.filter(m => m.status === 'active').length + apps.filter(x => x.status === 'approved' && (x.model_status || 'active') === 'active').length, 'approved'], [apps.filter(x => x.status === 'submitted' || x.status === 'info_requested').length, 'under review'], [apps.reduce((n, x) => n + agentsOn(x), 0), 'live agents']]);
       rows('pv-models', [
-        ...apps.map(x => ({ cells: [`<a href="/provider?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(x.fields, 'model', 'model_name') || 'Untitled'), esc(v(x.fields, 'model', 'model_version') || ''), d(x.submitted_at), String(agentsOn(x)), modelStatus(x)] })),
-        ...prior.map(m => ({ cells: [esc(m.registration), esc(m.model), '', d(m.assured), '', tag(m.status)] })),
-      ], 6);
+        ...apps.map(x => ({ cells: [`<a href="/provider?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(x.fields, 'model', 'model_name') || 'Untitled'), d(x.submitted_at), modelStatus(x)] })),
+        ...prior.map(m => ({ cells: [esc(m.registration), esc(m.model), d(m.assured), tag(m.status)] })),
+      ], 4);
       const has = !!a, draft = has && a.status === 'draft';
       $('pv-form').hidden = !has;
       if (has) { $('pv-ref').textContent = a.ref; $('pv-status').innerHTML = modelStatus(a); }
@@ -171,29 +168,21 @@ const AP = (() => {
       p = passportFor();
       $(mode === 'agent' ? 'rg-agent-anomaly' : 'rg-dash-anomaly').append($('rg-anomaly'));
       $(mode === 'agent' ? 'rg-agent-history' : 'rg-case-history').append($('rg-history-wrap'));
-      $('rg-anomaly').hidden = mode === 'case'; $('rg-history-wrap').hidden = mode === 'dash';
+      $('rg-anomaly').hidden = mode === 'case'; $('rg-history-wrap').hidden = mode === 'dash'; $('rg-quiet').hidden = true;
       if (mode === 'dash') renderDash(); else if (mode === 'agent') renderAgent(); else renderCase();
       renderExceptions();
       renderIncidents();
       renderHistory();
     }
     function renderDash() {
-      const apps = state.applications.filter(x => x.status !== 'draft'), live = issued(), models = state.models || [], viol = state.violations || [];
-      const refusals = (pid) => viol.filter(x => x.passport_id === pid).length;
-      tiles('rg-tiles', [
-        [models.filter(m => m.model_status === 'active').length, 'approved models'],
-        [apps.filter(x => x.status === 'submitted' || x.status === 'info_requested').length, 'awaiting decision'],
-        [live.filter(x => x.status === 'active').length, 'live agents'],
-        [viol.filter(x => x.status === 'OPEN').length, 'open refusals'],
-      ]);
-      rows('rg-models', apps.map(x => {
-        const f = x.fields, ch = x.checks || [], flagged = ch.filter(c => c.result !== 'pass').length;
-        return { cells: [`<a href="/regulator?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(f, 'model', 'model_name') || ''), esc(v(f, 'company', 'legal_name') || ''), d(x.submitted_at), ch.length ? (flagged ? `${flagged} of ${ch.length} flagged` : `${ch.length} of ${ch.length} pass`) : '', String(live.filter(p_ => p_.application_id === x.id).length), modelStatus(x)] };
-      }), 7);
-      rows('rg-agents', live.map(x => {
-        const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {};
-        return { cells: [`<a href="/regulator?passport=${x.passport_id}">${esc(x.passport_id)}</a>`, esc(ag.name || ''), esc((mp.customer || {}).legal_name || ''), esc(ag.model_name || ''), String(x.payments || 0), String(refusals(x.passport_id)), tag(x.status)] };
-      }), 7);
+      const apps = state.applications.filter(x => x.status !== 'draft'), live = issued(), viol = state.violations || [];
+      const todo = apps.filter(x => x.status === 'submitted' || x.status === 'info_requested');
+      $('rg-todo').hidden = !todo.length;
+      $('rg-todo').innerHTML = todo.map(x => `<a href="/regulator?ref=${x.ref}">${esc(x.ref)}</a> awaits your decision.`).join(' ');
+      rows('rg-models', apps.map(x => ({ cells: [`<a href="/regulator?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(x.fields, 'model', 'model_name') || ''), esc(v(x.fields, 'company', 'legal_name') || ''), d(x.submitted_at), modelStatus(x)] })), 5);
+      rows('rg-agents', live.map(x => { const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}; return { cells: [`<a href="/regulator?passport=${x.passport_id}">${esc(x.passport_id)}</a>`, esc(ag.name || ''), esc((mp.customer || {}).legal_name || ''), esc(ag.model_name || ''), tag(x.status)] }; }), 5);
+      const quiet = !viol.length && !(state.incidents || []).length;
+      $('rg-quiet').hidden = !quiet; $('rg-anomaly').hidden = quiet;
     }
     function renderCase() {
       $('rg-ref').textContent = a.ref;
@@ -350,14 +339,12 @@ const AP = (() => {
 
     function render() {
       const models = (state.models || []).filter(m => m.model_status === 'active');
-      tiles('cu-tiles', [[state.passports.length, 'agents registered'], [state.passports.filter(x => x.status === 'active').length, 'live passports'], [state.passports.filter(x => x.status === 'pending').length, 'awaiting your signature'], [models.length, 'approved models']]);
-      rows('cu-agents', state.passports.map(x => { const ag = (x.agent_identity || {}).agent || {}; return { cells: [`<a href="/customer?ref=${x.passport_id}">${esc(x.passport_id)}</a>`, esc(ag.name || ''), esc(ag.model_name || ''), x.mandate_signed ? 'Signed ' + d(x.mandate_signed_at) : 'Not signed', x.status === 'pending' ? 'Issued when you sign' : tag(x.status)] }; }), 5);
+      rows('cu-agents', state.passports.map(x => { const ag = (x.agent_identity || {}).agent || {}; return { cells: [`<a href="/customer?ref=${x.passport_id}">${esc(x.passport_id)}</a>`, esc(ag.name || ''), esc(ag.model_name || ''), x.status === 'pending' ? tag('unsigned', 'awaiting your signature') : tag(x.status, 'passport ' + x.status)] }; }), 4);
       $('cu-empty').hidden = !!(models.length || p);
       $('cu-create').hidden = !models.length;
       const sel = $('cu-model'); sel.innerHTML = models.map(m => `<option value="${m.application_id}">${esc(m.model_name)} · ${esc(m.company)} · ${esc(m.model_version)}</option>`).join('');
       const pol = state.policy || {};
       if (!$('cu-agent-name').value) $('cu-agent-name').value = (state.agent_draft || {}).agent_name || '';
-      $('cu-model-kv').innerHTML = models.length ? [['Policy ceilings', `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp)} · expiry ≤ ${esc(pol.max_validity)}`], ['Your deployment', `${esc((state.agent_draft || {}).key_storage || 'customer-held key store')} · a key pair is generated for this deployment and proves possession by signing the authority's challenge`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('') : '';
       $('cu-mandate').hidden = !p;
       if (!p) return;
       const mp = p.mandate_proposed, ad = mp.authorization_details[0], signed = p.mandate_signed, ag = p.agent || {};

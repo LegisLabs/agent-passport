@@ -834,10 +834,6 @@ body[data-view="bank"] .beat[data-running="true"]::before { content: "▮"; anim
 .step__actions { display: flex; gap: .6rem; align-items: center; }
 
 /* dashboards · GOV.UK patterns: stat figures, govuk-table, back link */
-.stats { display: flex; flex-wrap: wrap; gap: 1.5rem 3rem; margin: 0 0 2.5rem; }
-.stat { min-width: 7rem; }
-.stat__n { display: block; font-size: 3rem; line-height: 1; font-weight: 700; letter-spacing: -.02em; }
-.stat__l { display: block; font-size: 1rem; margin-top: .4rem; }
 .dash-wrap { overflow-x: auto; margin: 0 0 2.5rem; }
 .dash { width: 100%; border-collapse: collapse; font-size: 1.1875rem; }
 .dash th, .dash td { text-align: left; padding: .6rem 1.25rem .6rem 0; border-bottom: 1px solid var(--line); vertical-align: top; }

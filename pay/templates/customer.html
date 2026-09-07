@@ -4,17 +4,15 @@
 <div>
   <div>
     <h1 class="h1">Customer Panel</h1>
-    <p class="lede lede--tight">Phase 3. {{ customer }} registers its agents on approved models and signs each mandate. Live at once; no authority review.</p>
-    <div class="stats" id="cu-tiles"></div>
+    <p class="lede lede--tight">{{ customer }} registers its agents on approved models and signs each mandate. Live at once; no authority review.</p>
 
     <h2 class="h2">Your agents</h2>
-    <div class="dash-wrap"><table class="dash" id="cu-agents"><thead><tr><th>Record</th><th>Agent</th><th>Model</th><th>Mandate</th><th>Passport</th></tr></thead><tbody></tbody></table></div>
+    <div class="dash-wrap"><table class="dash" id="cu-agents"><thead><tr><th>Record</th><th>Agent</th><th>Model</th><th>Status</th></tr></thead><tbody></tbody></table></div>
 
     <div class="empty" id="cu-empty"><p>No approved model yet. The authority approves models in the <a href="/regulator">Regulator Panel</a>.</p></div>
 
     <div id="cu-create" hidden>
       <h2 class="h2">Register an agent</h2>
-      <dl class="kv" id="cu-model-kv"></dl>
       <div class="fields">
         <label class="label" for="cu-agent-name">Agent name</label><input class="input" id="cu-agent-name" placeholder="e.g. PayGPT 6.0 · Northgate deployment">
         <label class="label" for="cu-model">Approved model</label><select class="input" id="cu-model"></select>
