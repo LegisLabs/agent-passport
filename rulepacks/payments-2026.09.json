@@ -1,48 +1,193 @@
 {
-  "id": "payments-2026.09",
-  "title": "Agent Passport rule pack — B2B payment initiation (prototype)",
+  "id": "payments-2026.09.2",
+  "title": "Agent Passport rule pack \u2014 B2B payment initiation, model register (prototype)",
   "jurisdiction": "neutral",
   "issuer": "payments-authority-demo",
   "agent_class": "accounts_payable_agent",
   "policy": {
-    "action_types": ["pay_invoice"],
+    "action_types": [
+      "pay_invoice"
+    ],
     "currency": "GBP",
     "per_payment_ceiling_gbp": 10000,
     "monthly_per_account_ceiling_gbp": 50000,
     "monthly_window": "P30D",
     "max_validity": "2027-03-31",
-    "ceilings_note": "Policy ceilings set by the authority at Phase 2. Every customer mandate must stay within them; the containment check runs when the customer signs.",
+    "ceilings_note": "Policy ceilings set by the authority when it approves a model. Every mandate on that model must stay within them; the containment check runs when the customer signs.",
     "human_confirm_above_gbp": 5000,
-    "min_insurance_cover_gbp": 1000000,
-    "recognised_software": ["PayGPT", "OpenPay", "LedgerLine Payables", "InvoiceBot"],
+    "recognised_software": [
+      "PayGPT",
+      "OpenPay"
+    ],
     "incident_deny_threshold": 3,
-    "pattern_threshold": {"count": 2, "window_hours": 24, "note": "same rule refused this many times within the window on one passport raises a supervisor alert"},
+    "pattern_threshold": {
+      "count": 2,
+      "window_hours": 24,
+      "note": "same rule refused this many times within the window on one passport raises a supervisor alert"
+    },
     "delegation_max_gbp": 4000
   },
   "chain_rules": [
-    {"id": "C.a", "title": "Root mandate scope is well formed", "status": "PROTOTYPE", "source": "Delegation invariant S_n ⊆ … ⊆ S_0", "data": "envelope.mandate", "on_fail": "DENY", "code": "ROOT_SCOPE_INVALID"},
-    {"id": "C.b", "title": "Delegation is a subset of the root mandate", "status": "PROTOTYPE", "source": "Delegation signed by the orchestrator key in agent_identity.cnf; beneficiaries, ceiling, actions, validity ⊆ root", "data": "delegation JWT + envelope.mandate", "on_fail": "DENY", "code": "DELEGATION_EXPANDS_SCOPE"},
-    {"id": "C.c", "title": "Action lies inside the narrowest scope", "status": "PROTOTYPE", "source": "Instruction signed by the delegated execution key named in the delegation", "data": "delegation JWT + instruction", "on_fail": "DENY", "code": "ACTION_OUTSIDE_DELEGATION"}
-  ],
-  "application_rules": [
-    {"id": "A.1", "title": "Provider licence reference resolves and is active", "status": "CURRENT", "source": "Payment-institution register (analogue of the FCA Financial Services Register)", "check": "licence_active", "fail": "flag"},
-    {"id": "A.2", "title": "Companies House number resolves to the provider", "status": "CURRENT", "source": "Companies House register", "check": "companies_house_match", "fail": "flag"},
-    {"id": "A.3", "title": "Accountable person named, with role and signed declaration", "status": "PROTOTYPE", "source": "SM&CR-style accountability (prototype condition)", "check": "accountable_person", "fail": "flag"},
-    {"id": "A.4", "title": "Professional indemnity insurance evidenced and in force", "status": "PROTOTYPE", "source": "Rule pack policy: minimum cover (prototype condition)", "check": "insurance_evidenced", "fail": "flag"},
-    {"id": "A.5", "title": "Agent controls the submitted public key (signed challenge)", "status": "CURRENT", "source": "RFC 7800 proof-of-possession pattern", "check": "proof_of_possession", "fail": "flag"},
-    {"id": "A.6", "title": "Model documentation declared (provider, version, benchmarks, training type)", "status": "PROTOTYPE", "source": "Registration pack; EU AI Act-style provider documentation (prototype condition)", "check": "model_documented", "fail": "flag"},
-    {"id": "A.7", "title": "Key management declared (storage, rotation) and requested authority within policy", "status": "PROTOTYPE", "source": "Rule pack policy table; key rotation condition", "check": "key_management", "fail": "flag"},
-    {"id": "A.8", "title": "Software and configuration declared; config hash matches the deployed file", "status": "PROTOTYPE", "source": "Recognised-software list; SHA-256 of the declared configuration", "check": "software_declared", "fail": "flag"}
+    {
+      "id": "C.a",
+      "title": "Root mandate scope is well formed",
+      "status": "PROTOTYPE",
+      "source": "Delegation invariant S_n \u2286 \u2026 \u2286 S_0",
+      "data": "envelope.mandate",
+      "on_fail": "DENY",
+      "code": "ROOT_SCOPE_INVALID"
+    },
+    {
+      "id": "C.b",
+      "title": "Delegation is a subset of the root mandate",
+      "status": "PROTOTYPE",
+      "source": "Delegation signed by the orchestrator key in agent_identity.cnf; beneficiaries, ceiling, actions, validity \u2286 root",
+      "data": "delegation JWT + envelope.mandate",
+      "on_fail": "DENY",
+      "code": "DELEGATION_EXPANDS_SCOPE"
+    },
+    {
+      "id": "C.c",
+      "title": "Action lies inside the narrowest scope",
+      "status": "PROTOTYPE",
+      "source": "Instruction signed by the delegated execution key named in the delegation",
+      "data": "delegation JWT + instruction",
+      "on_fail": "DENY",
+      "code": "ACTION_OUTSIDE_DELEGATION"
+    }
   ],
   "runtime_rules": [
-    {"id": "R.1", "title": "Assurance signature genuine (authority key)", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "envelope.assurance", "on_fail": "DENY", "code": "ASSURANCE_SIGNATURE_INVALID"},
-    {"id": "R.2", "title": "Assurance active and unexpired (registry lookup)", "status": "PROTOTYPE", "source": "Authority status registry (real-time lookup)", "data": "registry", "on_fail": "DENY", "code": "ASSURANCE_NOT_ACTIVE"},
-    {"id": "R.3", "title": "Agent identity signature genuine (provider key)", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "envelope.agent_identity", "on_fail": "DENY", "code": "AGENT_IDENTITY_SIGNATURE_INVALID"},
-    {"id": "R.4", "title": "Instruction signed by the agent key inside agent_identity", "status": "PROTOTYPE", "source": "RFC 7800 cnf / DPoP-style proof-of-possession", "data": "envelope.agent_identity + instruction", "on_fail": "DENY", "code": "AGENT_SIGNATURE_INVALID"},
-    {"id": "R.5", "title": "Mandate signed by the customer and unexpired", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037); mandate validity", "data": "envelope.mandate", "on_fail": "DENY", "code": "MANDATE_NOT_SIGNED", "codes": ["MANDATE_NOT_SIGNED", "MANDATE_SIGNATURE_INVALID", "MANDATE_EXPIRED"]},
-    {"id": "R.6", "title": "Action permitted and payee account on the customer-signed allowlist", "status": "PROTOTYPE", "source": "authorization_details (RFC 9396 shape); Confirmation-of-Payee analogue", "data": "envelope.mandate + instruction", "on_fail": "DENY", "code": "PAYEE_NOT_ON_MANDATE", "codes": ["OUT_OF_SCOPE", "PAYEE_NOT_ON_MANDATE"]},
-    {"id": "R.7", "title": "Amount within the per-payment limit", "status": "PROTOTYPE", "source": "Mandate per_payment_limit", "data": "envelope.mandate + instruction", "on_fail": "DENY", "code": "PER_PAYMENT_LIMIT_EXCEEDED"},
-    {"id": "R.8", "title": "Amount plus 30-day total for this payee account within the monthly limit", "status": "PROTOTYPE", "source": "Mandate monthly_limit_per_account; bank-held ledger (limit in the mandate, total in the bank)", "data": "envelope.mandate + bank ledger", "on_fail": "DENY", "code": "MONTHLY_LIMIT_EXCEEDED"},
-    {"id": "R.9", "title": "Supervisor condition: amount above human_confirm_above is held for a named human", "status": "PROTOTYPE", "source": "Assurance condition set by the authority officer", "data": "envelope.assurance + instruction", "on_fail": "ESCALATE", "code": "HUMAN_CONFIRMATION_REQUIRED"}
+    {
+      "id": "R.1",
+      "title": "Model approval signature genuine (authority key)",
+      "status": "PROTOTYPE",
+      "source": "EdDSA / Ed25519 (RFC 8037)",
+      "data": "envelope.assurance (model approval)",
+      "on_fail": "DENY",
+      "code": "ASSURANCE_SIGNATURE_INVALID"
+    },
+    {
+      "id": "R.2",
+      "title": "Passport ACTIVE and the underlying model approval APPROVED and unexpired (registry lookup)",
+      "status": "PROTOTYPE",
+      "source": "Authority registries: passports and approved models (real-time lookup); model revocation cascades",
+      "data": "registry",
+      "on_fail": "DENY",
+      "code": "ASSURANCE_NOT_ACTIVE",
+      "codes": [
+        "ASSURANCE_NOT_ACTIVE",
+        "MODEL_NOT_APPROVED"
+      ]
+    },
+    {
+      "id": "R.3",
+      "title": "Agent identity signature genuine (customer organisation key) and references the approved model",
+      "status": "PROTOTYPE",
+      "source": "EdDSA / Ed25519 (RFC 8037); model registry reference",
+      "data": "envelope.agent_identity + envelope.assurance",
+      "on_fail": "DENY",
+      "code": "AGENT_IDENTITY_SIGNATURE_INVALID",
+      "codes": [
+        "AGENT_IDENTITY_SIGNATURE_INVALID",
+        "MODEL_REFERENCE_MISMATCH"
+      ]
+    },
+    {
+      "id": "R.4",
+      "title": "Instruction signed by the agent key inside agent_identity",
+      "status": "PROTOTYPE",
+      "source": "RFC 7800 cnf / DPoP-style proof-of-possession",
+      "data": "envelope.agent_identity + instruction",
+      "on_fail": "DENY",
+      "code": "AGENT_SIGNATURE_INVALID"
+    },
+    {
+      "id": "R.5",
+      "title": "Mandate signed by the customer's authorising officer and unexpired",
+      "status": "PROTOTYPE",
+      "source": "EdDSA / Ed25519 (RFC 8037); mandate validity",
+      "data": "envelope.mandate",
+      "on_fail": "DENY",
+      "code": "MANDATE_NOT_SIGNED",
+      "codes": [
+        "MANDATE_NOT_SIGNED",
+        "MANDATE_SIGNATURE_INVALID",
+        "MANDATE_EXPIRED"
+      ]
+    },
+    {
+      "id": "R.6",
+      "title": "Action permitted and payee account on the customer-signed allowlist",
+      "status": "PROTOTYPE",
+      "source": "authorization_details (RFC 9396 shape); Confirmation-of-Payee analogue",
+      "data": "envelope.mandate + instruction",
+      "on_fail": "DENY",
+      "code": "PAYEE_NOT_ON_MANDATE",
+      "codes": [
+        "OUT_OF_SCOPE",
+        "PAYEE_NOT_ON_MANDATE"
+      ]
+    },
+    {
+      "id": "R.7",
+      "title": "Amount within the per-payment limit",
+      "status": "PROTOTYPE",
+      "source": "Mandate per_payment_limit",
+      "data": "envelope.mandate + instruction",
+      "on_fail": "DENY",
+      "code": "PER_PAYMENT_LIMIT_EXCEEDED"
+    },
+    {
+      "id": "R.8",
+      "title": "Amount plus 30-day total for this payee account within the monthly limit",
+      "status": "PROTOTYPE",
+      "source": "Mandate monthly_limit_per_account; bank-held ledger (limit in the mandate, total in the bank)",
+      "data": "envelope.mandate + bank ledger",
+      "on_fail": "DENY",
+      "code": "MONTHLY_LIMIT_EXCEEDED"
+    },
+    {
+      "id": "R.9",
+      "title": "Supervisor condition: amount above human_confirm_above is held for a named human",
+      "status": "PROTOTYPE",
+      "source": "Assurance condition set by the authority officer",
+      "data": "envelope.assurance + instruction",
+      "on_fail": "ESCALATE",
+      "code": "HUMAN_CONFIRMATION_REQUIRED"
+    }
+  ],
+  "model_rules": [
+    {
+      "id": "M.1",
+      "title": "Company number resolves to the registrant and is active",
+      "status": "CURRENT",
+      "source": "Companies House register",
+      "check": "company_match",
+      "fail": "flag"
+    },
+    {
+      "id": "M.2",
+      "title": "Model documentation declared: name, pinned version, training type",
+      "status": "PROTOTYPE",
+      "source": "EU AI Act-style provider documentation (prototype condition)",
+      "check": "model_documented",
+      "fail": "flag"
+    },
+    {
+      "id": "M.3",
+      "title": "Benchmarks declared and attributed (provider-attested, test set named)",
+      "status": "PROTOTYPE",
+      "source": "Registration: provider-attested benchmarks",
+      "check": "benchmarks_attributed",
+      "fail": "flag"
+    },
+    {
+      "id": "M.4",
+      "title": "Model publisher signature verifies over the documentation",
+      "status": "CURRENT",
+      "source": "EdDSA / Ed25519 (RFC 8037)",
+      "check": "publisher_signature",
+      "fail": "flag"
+    }
   ]
 }

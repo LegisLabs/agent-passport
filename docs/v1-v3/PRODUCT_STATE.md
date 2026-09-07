@@ -72,6 +72,14 @@ Each party signs only what it is entitled to say. The assurance is bound to the 
 
 The limit lives in the mandate; the running total lives at the bank, and the total at decision time is stored in the audit entry so replay is exact. Three DENYs on one passport write an "escalated to supervisor" incident row, visible in the bank terminal and the regulator's incident feed.
 
+## 5d. 7 Sept: model register architecture (iteration 3b)
+
+- The model company (OpenPay Ltd) registers only its MODEL (PayGPT 6.0): company, model, benchmarks, training type, documentation reference, signed by its publisher key. No agent, insurance or accountable person; no liability carried. M.1 to M.4 replace A.1 to A.8.
+- The authority approves the model once (Standards Review Assistant re-scoped), sets ceilings and the condition, and keeps a model registry with suspend / reinstate / revoke that cascades to every passport on the model (and revokes their vouch vouchers).
+- The customer creates the agent on an approved model: own key with proof of possession, deployment attestation signed by the organisation key (`northgate`), mandate signed by the officer key (`northgate_officer`). Four persisted signers now. Passport live at once.
+- R.1 verifies the model approval; R.2 also requires the model APPROVED (`MODEL_NOT_APPROVED`); R.3 verifies the customer organisation key and the model reference (`MODEL_REFERENCE_MISMATCH`). R.4 to R.9 unchanged. Rule pack `payments-2026.09.2`.
+- Tabs are back on top under a gov.uk-style blue header with the GOV·DEMO logo.
+
 ## 5c. 7 Sept: product-demo cut
 
 - Names: the provider is OpenPay Ltd, the agent PayGPT 6.0 (agent id `openpay-paygpt-6`, provider signer `openpay`). Earlier registrations OpenPay 5.5 and 5.6 appear on the Provider Panel as synthetic history.

@@ -15,7 +15,7 @@ import time
 
 from . import config
 
-SECTIONS = ("provider", "accountable_person", "insurance", "agent", "requested")
+SECTIONS = ("company", "model")
 
 
 def fixture() -> dict:
@@ -108,14 +108,14 @@ def draft_file_note(ref: str, fields: dict, checks: list[dict]) -> tuple[str, st
         return _fixture_note(ref, fields, checks, flagged), "fixture"
     summary = {
         "reference": ref,
-        "provider": fields["provider"]["legal_name"]["value"],
-        "agent": fields["agent"]["agent_name"]["value"],
-        "requested": {k: v["value"] for k, v in fields["requested"].items()},
+        "company": fields["company"]["legal_name"]["value"],
+        "model": f"{fields['model']['name']['value']} {fields['model']['version']['value']}",
+        "training_type": fields["model"]["training_type"]["value"],
         "checks": [{"id": c["id"], "title": c["title"], "result": c["result"], "detail": c["detail"]} for c in checks],
     }
     prompt = (
         "Write a file note for a payments-supervisor case officer in plain English, British spelling, sentence case, "
-        "at most 120 words, no bullet points, no headings. State what was applied for, which automated checks passed, "
+        "at most 120 words, no bullet points, no headings. State which model was registered by which company, which automated checks passed, "
         "and name each flagged item and what it means. Do NOT recommend approval or rejection and do NOT use the words "
         "'approve', 'reject', 'recommend', 'should'. The decision belongs to the officer. Return JSON {\"note\": \"...\"}.\n\n"
         f"{json.dumps(summary, indent=1)}"
@@ -132,12 +132,10 @@ def draft_file_note(ref: str, fields: dict, checks: list[dict]) -> tuple[str, st
 
 
 def _fixture_note(ref, fields, checks, flagged) -> str:
-    rq = {k: v["value"] for k, v in fields["requested"].items()}
     passed = sum(1 for c in checks if c["result"] == "pass")
-    s = (f"Application {ref} from {fields['provider']['legal_name']['value']} registers agent "
-         f"{fields['agent']['agent_name']['value']} ({fields['agent']['model_provider']['value']}, {fields['agent']['model_version']['value']}) for {rq['action_type']}, "
-         f"proposing human confirmation above £{float(rq['human_confirm_above_gbp'] or 0):,.0f}. Customer mandates are written by customers within the policy ceilings. "
-         f"{passed} of {len(checks)} automated checks passed.")
+    s = (f"Registration {ref}: {fields['company']['legal_name']['value']} registers model {fields['model']['name']['value']} {fields['model']['version']['value']} "
+         f"({fields['model']['training_type']['value']}). Customers create agents on the model within the policy ceilings; the company answers only for its documentation. "
+         f"{passed} of {len(checks)} model-register checks passed.")
     if flagged:
         s += " Flagged: " + "; ".join(f"{c['id']} {c['detail']}" for c in flagged) + "."
     return s
