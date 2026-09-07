@@ -144,7 +144,7 @@ const AP = (() => {
       const ul = $('md-passports'); ul.innerHTML = '';
       const mine = state.passports.filter(x => x.application_id === a.id);
       mine.forEach(x => ul.append(el('li', null, `<a href="/regulator?ref=${a.ref}&passport=${x.passport_id}" class="mono">${esc(x.passport_id)}</a> ${tag(x.status)} <span class="small">${x.mandate_signed ? 'mandate signed' : 'mandate not signed'}</span>`)));
-      if (!mine.length) ul.append(el('li', 'small', 'None yet: customers create agents on this model in the Customer Panel.'));
+      if (!mine.length) ul.append(el('li', 'small', 'None yet: customers register agents on this model in the Customer Panel.'));
     }
     async function modelLife(status) {
       const reason = $('md-reason').value.trim(); $('md-error').hidden = true;

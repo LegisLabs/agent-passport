@@ -22,7 +22,7 @@ def issue(page, sign=True):
 def invoice(page, which):
     page.goto(BASE + "/bank"); page.wait_for_selector("#invoice-buttons button")
     page.locator("#invoice-buttons button").nth(which).click()
-    page.wait_for_selector('#invoice-steps [data-step="d"]:not([hidden])', timeout=60000)
+    page.wait_for_selector('#invoice-outcome [data-step="d"]:not([hidden])', timeout=60000)
     return page.locator("#inv-verdict").inner_text(), page.locator("#inv-caption").inner_text()
 
 def main():
