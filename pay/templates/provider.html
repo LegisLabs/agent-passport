@@ -2,11 +2,12 @@
 {% block title %}Provider Panel{% endblock %}
 {% block content %}
 <h1 class="h1">Provider Panel</h1>
-<p class="lede lede--tight">Phase 1. {{ operator }} registers each model once: company, model and pinned version, links to benchmark data and training details, documentation. A named person attests the documentation is accurate. No agent, no key, no customer data.</p>
-<div class="tiles" id="pv-tiles"></div>
+<p class="lede lede--tight">Phase 1. {{ operator }} registers each model once. A named person attests the documentation is accurate.</p>
+<div class="stats" id="pv-tiles"></div>
 
-<h2 class="h2">Your models <button class="btn btn--small" id="btn-new">Register a model</button></h2>
-<div class="dash-wrap"><table class="dash" id="pv-models"><thead><tr><th>Ref</th><th>Model</th><th>Version</th><th>Submitted</th><th>Decision</th><th>Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+<h2 class="h2">Your models</h2>
+<div class="dash-wrap"><table class="dash" id="pv-models"><thead><tr><th>Registration</th><th>Model</th><th>Version</th><th>Submitted</th><th>Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+<div class="section-actions"><button class="btn btn--start" id="btn-new">Register a model <span class="btn__arrow" aria-hidden="true"></span></button></div>
 
 <div id="pv-form" hidden>
   <ol class="steps" id="steps">

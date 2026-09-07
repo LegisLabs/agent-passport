@@ -5,19 +5,19 @@
 
 <div id="rg-dash" hidden>
   <h1 class="h1">Regulator Panel</h1>
-  <p class="lede lede--tight">Phase 2. Model register and live oversight. Case officer {{ officer }}. Proposed PSR 2017 Agent Assurance function, design prototype.</p>
-  <div class="tiles" id="rg-tiles"></div>
+  <p class="lede lede--tight">Phase 2. The register of approved models and the agents live on them. Case officer {{ officer }}.</p>
+  <div class="stats" id="rg-tiles"></div>
 
-  <h2 class="h2">Model register <span class="h2__meta">registrations by AI providers · rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
-  <div class="dash-wrap"><table class="dash" id="rg-models"><thead><tr><th>Ref</th><th>Provider</th><th>Model</th><th>Version</th><th>Submitted</th><th>Checks</th><th>Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+  <h2 class="h2">Model register</h2>
+  <div class="dash-wrap"><table class="dash" id="rg-models"><thead><tr><th>Registration</th><th>Model</th><th>Provider</th><th>Submitted</th><th>Checks</th><th>Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
 
-  <h2 class="h2">Live agents <span class="h2__meta">passports issued when customers signed their mandates</span></h2>
-  <div class="dash-wrap"><table class="dash" id="rg-agents"><thead><tr><th>Passport</th><th>Agent</th><th>Customer</th><th>Model</th><th>Limits</th><th>Payments</th><th>Refusals</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+  <h2 class="h2">Live agents</h2>
+  <div class="dash-wrap"><table class="dash" id="rg-agents"><thead><tr><th>Passport</th><th>Agent</th><th>Customer</th><th>Model</th><th>Payments</th><th>Refusals</th><th>Status</th></tr></thead><tbody></tbody></table></div>
   <div id="rg-dash-anomaly"></div>
 </div>
 
 <div id="rg-case" hidden>
-  <a class="back" href="/regulator">‹ Regulator Panel</a>
+  <a class="back" href="/regulator">Back</a>
   <h1 class="h1">Model registration <span id="rg-ref" class="mono">—</span> <span id="rg-status"></span></h1>
   <p class="lede lede--tight">Phase 2. The authority approves the model once and sets the policy ceilings and the supervisor condition. Case officer {{ officer }}. Proposed PSR 2017 Agent Assurance function, design prototype.</p>
 
@@ -71,7 +71,7 @@
 </div>
 
 <div id="rg-agent" hidden>
-  <a class="back" href="/regulator">‹ Regulator Panel</a>
+  <a class="back" href="/regulator">Back</a>
   <h1 class="h1">Agent passport <span class="mono" id="pp-id"></span> <span id="pp-status"></span></h1>
   <p class="lede lede--tight" id="ag-meta"></p>
   <div id="rg-issued">

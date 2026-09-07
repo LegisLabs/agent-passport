@@ -36,9 +36,8 @@ const AP = (() => {
     const ref = new URLSearchParams(location.search).get('ref');
     return apps.find(a => a.ref === ref) || apps[0] || null;
   }
-  const tiles = (id, rows) => { $(id).innerHTML = rows.map(([n, label, tone]) => `<div class="tile${tone ? ' tile--' + tone : ''}"><strong>${esc(n)}</strong><span>${esc(label)}</span></div>`).join(''); };
-  const rows = (id, list, cols) => { const tb = $(id).querySelector('tbody'); tb.innerHTML = ''; list.forEach(x => { const tr = el('tr', null, x.cells.map(c => `<td>${c}</td>`).join('')); if (x.href) tr.dataset.href = x.href; tb.append(tr); }); if (!list.length) tb.append(el('tr', null, `<td class="empty-row" colspan="${cols}">None yet.</td>`)); };
-  document.addEventListener('click', (e) => { const tr = e.target.closest('tr[data-href]'); if (tr && !e.target.closest('a, button, input')) location.href = tr.dataset.href; });
+  const tiles = (id, rows) => { $(id).innerHTML = rows.map(([n, label]) => `<div class="stat"><span class="stat__n">${esc(n)}</span><span class="stat__l">${esc(label)}</span></div>`).join(''); };
+  const rows = (id, list, cols) => { const tb = $(id).querySelector('tbody'); tb.innerHTML = ''; list.forEach(x => tb.append(el('tr', null, x.cells.map(c => `<td>${c}</td>`).join('')))); if (!list.length) tb.append(el('tr', null, `<td class="empty-row" colspan="${cols}">None yet.</td>`)); };
   const modelStatus = (x) => x.status === 'approved' ? tag(x.model_status === 'revoked' ? 'revoked' : x.model_status === 'suspended' ? 'suspended' : 'approved', x.model_status && x.model_status !== 'active' ? 'approved · ' + x.model_status : 'approved · active') : tag(x.status);
   const modeLabel = (m) => m === 'gemini' ? 'Gemini (live)' : m === 'fixture' ? 'fixture (deterministic stand-in)' : 'fixture after Gemini failed';
 
@@ -54,11 +53,11 @@ const AP = (() => {
     function render() {
       const apps = state.applications, prior = state.registered_models || [];
       const agentsOn = (x) => state.passports.filter(p => p.application_id === x.id && p.status !== 'pending').length;
-      tiles('pv-tiles', [[prior.length + apps.length, 'models registered'], [prior.filter(m => m.status === 'active').length + apps.filter(x => x.status === 'approved' && (x.model_status || 'active') === 'active').length, 'approved and active', 'green'], [apps.filter(x => x.status === 'submitted' || x.status === 'info_requested').length, 'under review', 'amber'], [apps.reduce((n, x) => n + agentsOn(x), 0), 'live agents on your models']]);
+      tiles('pv-tiles', [[prior.length + apps.length, 'models registered'], [prior.filter(m => m.status === 'active').length + apps.filter(x => x.status === 'approved' && (x.model_status || 'active') === 'active').length, 'approved'], [apps.filter(x => x.status === 'submitted' || x.status === 'info_requested').length, 'under review'], [apps.reduce((n, x) => n + agentsOn(x), 0), 'live agents']]);
       rows('pv-models', [
-        ...apps.map(x => ({ href: `/provider?ref=${x.ref}`, cells: [`<a href="/provider?ref=${x.ref}" class="mono">${esc(x.ref)}</a>`, `<strong>${esc(v(x.fields, 'model', 'model_name') || 'Untitled')}</strong><span class="small mono">${esc(v(x.fields, 'model', 'model_id') || '')}</span>`, `<span class="mono">${esc(v(x.fields, 'model', 'model_version') || '—')}</span>`, d(x.submitted_at) || '—', x.decided_at ? `${d(x.decided_at)}<span class="small">${esc(x.officer || '')}</span>` : '—', String(agentsOn(x)), modelStatus(x)] })),
-        ...prior.map(m => ({ cells: [`<span class="mono">${esc(m.registration)}</span>`, `<strong>${esc(m.model)}</strong>`, `<span class="mono">${esc(m.version || '—')}</span>`, d(m.assured) || '—', `${d(m.assured)}<span class="small">prior register</span>`, '—', tag(m.status)] })),
-      ], 7);
+        ...apps.map(x => ({ cells: [`<a href="/provider?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(x.fields, 'model', 'model_name') || 'Untitled'), esc(v(x.fields, 'model', 'model_version') || ''), d(x.submitted_at), String(agentsOn(x)), modelStatus(x)] })),
+        ...prior.map(m => ({ cells: [esc(m.registration), esc(m.model), '', d(m.assured), '', tag(m.status)] })),
+      ], 6);
       const has = !!a, draft = has && a.status === 'draft';
       $('pv-form').hidden = !has;
       if (has) { $('pv-ref').textContent = a.ref; $('pv-status').innerHTML = modelStatus(a); }
@@ -182,22 +181,19 @@ const AP = (() => {
       const apps = state.applications.filter(x => x.status !== 'draft'), live = issued(), models = state.models || [], viol = state.violations || [];
       const refusals = (pid) => viol.filter(x => x.passport_id === pid).length;
       tiles('rg-tiles', [
-        [models.filter(m => m.model_status === 'active').length, 'approved models on the register', 'green'],
-        [apps.filter(x => x.status === 'submitted' || x.status === 'info_requested').length, 'registrations awaiting decision', 'amber'],
+        [models.filter(m => m.model_status === 'active').length, 'approved models'],
+        [apps.filter(x => x.status === 'submitted' || x.status === 'info_requested').length, 'awaiting decision'],
         [live.filter(x => x.status === 'active').length, 'live agents'],
-        [live.filter(x => x.status !== 'active').length, 'agents suspended or revoked', live.some(x => x.status !== 'active') ? 'red' : 'grey'],
-        [viol.filter(x => x.status === 'OPEN').length, 'open refusals', viol.some(x => x.status === 'OPEN') ? 'amber' : 'grey'],
-        [(state.incidents || []).length, 'incidents', (state.incidents || []).length ? 'red' : 'grey'],
+        [viol.filter(x => x.status === 'OPEN').length, 'open refusals'],
       ]);
       rows('rg-models', apps.map(x => {
         const f = x.fields, ch = x.checks || [], flagged = ch.filter(c => c.result !== 'pass').length;
-        return { href: `/regulator?ref=${x.ref}`, cells: [`<a href="/regulator?ref=${x.ref}" class="mono">${esc(x.ref)}</a>`, esc(v(f, 'company', 'legal_name') || ''), `<strong>${esc(v(f, 'model', 'model_name') || '')}</strong><span class="small mono">${esc(v(f, 'model', 'model_id') || '')}</span>`, `<span class="mono">${esc(v(f, 'model', 'model_version') || '')}</span>`, d(x.submitted_at), ch.length ? (flagged ? `<span class="tag tag--amber">${flagged} flagged</span>` : `<span class="tag tag--green">${ch.length} pass</span>`) : '—', String(live.filter(p_ => p_.application_id === x.id).length), modelStatus(x)] };
-      }), 8);
+        return { cells: [`<a href="/regulator?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(f, 'model', 'model_name') || ''), esc(v(f, 'company', 'legal_name') || ''), d(x.submitted_at), ch.length ? (flagged ? `${flagged} of ${ch.length} flagged` : `${ch.length} of ${ch.length} pass`) : '', String(live.filter(p_ => p_.application_id === x.id).length), modelStatus(x)] };
+      }), 7);
       rows('rg-agents', live.map(x => {
-        const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}, m = x.mandate || {}, ad = ((m.authorization_details || mp.authorization_details) || [{}])[0] || {};
-        const app = state.applications.find(y => y.id === x.application_id) || {};
-        return { href: `/regulator?passport=${x.passport_id}`, cells: [`<a href="/regulator?passport=${x.passport_id}" class="mono">${esc(x.passport_id)}</a>`, `<strong>${esc(ag.name || '')}</strong><span class="small mono">${esc(mp.agent_id || '')}</span>`, esc((mp.customer || {}).legal_name || ''), `${esc(ag.model_name || '')}<span class="small mono">${esc(app.ref || '')}</span>`, ad.per_payment_limit ? `≤ ${gbp(ad.per_payment_limit.amount)} per payment<span class="small">≤ ${gbp((ad.monthly_limit_per_account || {}).amount)} per account, 30 days</span>` : '—', String(x.payments || 0), refusals(x.passport_id) ? `<span class="tag tag--amber">${refusals(x.passport_id)}</span>` : '0', tag(x.status)] };
-      }), 8);
+        const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {};
+        return { cells: [`<a href="/regulator?passport=${x.passport_id}">${esc(x.passport_id)}</a>`, esc(ag.name || ''), esc((mp.customer || {}).legal_name || ''), esc(ag.model_name || ''), String(x.payments || 0), String(refusals(x.passport_id)), tag(x.status)] };
+      }), 7);
     }
     function renderCase() {
       $('rg-ref').textContent = a.ref;
@@ -354,8 +350,8 @@ const AP = (() => {
 
     function render() {
       const models = (state.models || []).filter(m => m.model_status === 'active');
-      tiles('cu-tiles', [[state.passports.length, 'agents registered'], [state.passports.filter(x => x.status === 'active').length, 'live passports', 'green'], [state.passports.filter(x => x.status === 'pending').length, 'awaiting your signature', state.passports.some(x => x.status === 'pending') ? 'amber' : 'grey'], [models.length, 'approved models available']]);
-      rows('cu-agents', state.passports.map(x => { const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}; return { href: `/customer?ref=${x.passport_id}`, cells: [`<a href="/customer?ref=${x.passport_id}" class="mono">${esc(x.passport_id)}</a>`, `<strong>${esc(ag.name || '')}</strong><span class="small mono">${esc(mp.agent_id || '')}</span>`, `${esc(ag.model_name || '')} <span class="mono small">${esc(ag.model_version || '')}</span>`, x.mandate_signed ? tag('signed', 'signed ' + d(x.mandate_signed_at)) : tag('unsigned', 'not signed'), x.status === 'pending' ? '<span class="small">issued when you sign</span>' : tag(x.status, 'passport ' + x.status)] }; }), 5);
+      tiles('cu-tiles', [[state.passports.length, 'agents registered'], [state.passports.filter(x => x.status === 'active').length, 'live passports'], [state.passports.filter(x => x.status === 'pending').length, 'awaiting your signature'], [models.length, 'approved models']]);
+      rows('cu-agents', state.passports.map(x => { const ag = (x.agent_identity || {}).agent || {}; return { cells: [`<a href="/customer?ref=${x.passport_id}">${esc(x.passport_id)}</a>`, esc(ag.name || ''), esc(ag.model_name || ''), x.mandate_signed ? 'Signed ' + d(x.mandate_signed_at) : 'Not signed', x.status === 'pending' ? 'Issued when you sign' : tag(x.status)] }; }), 5);
       $('cu-empty').hidden = !!(models.length || p);
       $('cu-create').hidden = !models.length;
       const sel = $('cu-model'); sel.innerHTML = models.map(m => `<option value="${m.application_id}">${esc(m.model_name)} · ${esc(m.company)} · ${esc(m.model_version)}</option>`).join('');
