@@ -56,15 +56,20 @@
 
 <!-- 3 · the judgment -->
 <section class="tm-part judgment" id="judgment" aria-labelledby="h-judgment">
-  <h2 class="tm-h" id="h-judgment"><span class="tm-h__n">03</span>THE JUDGMENT<span class="tm-h__sub">nine rules, in order, deny by default</span></h2>
+  <h2 class="tm-h" id="h-judgment"><span class="tm-h__n">03</span>THE JUDGMENT<span class="tm-h__sub">an AI agent is connecting to payment infrastructure · before money moves, the bank asks three questions</span></h2>
   <div class="g" id="gauntlet-wrap">
     <div class="g__bar">
-      <span class="g__subject" id="g-subject"><span class="tm-dim">Waiting for an instruction. Every instruction walks the same gauntlet; evaluation stops at the first failure.</span></span>
-      <span class="g__meta"><span id="g-count"></span><span class="g__slow">slowed for demonstration · real evaluation sub-10ms</span><label class="g__full"><input type="checkbox" id="tm-full"> full-screen verdict</label></span>
+      <span class="g__subject" id="g-subject"><span class="tm-dim">Waiting for an instruction. Every one walks the same nine checks, in order; the first failure ends it.</span></span>
+      <span class="g__meta"><span id="g-count"></span><span class="g__slow">slowed for demonstration · real check sub-10ms</span><label class="g__full"><input type="checkbox" id="tm-full"> full-screen</label></span>
     </div>
-    <ol class="g__cells" id="gauntlet" aria-label="Ordered rule evaluation"></ol>
+    <div class="g__bands" id="gauntlet" aria-label="Ordered rule evaluation">
+      <section class="g-band" data-band="identity"><h3 class="g-band__q"><b>1</b> Who is connecting?<span>a registered agent with its own key, or a synthetic one</span></h3><ol class="g-band__cells"></ol></section>
+      <section class="g-band" data-band="scope"><h3 class="g-band__q"><b>2</b> Is it inside its human's scope?<span>the delegation gap · authority can only narrow, never expand</span></h3><ol class="g-band__cells"></ol></section>
+      <section class="g-band" data-band="human"><h3 class="g-band__q"><b>3</b> Does a human need to decide?<span>the supervisor's condition · accountability stays with named people</span></h3><ol class="g-band__cells"></ol></section>
+    </div>
+    <p class="g__note" id="g-note"><span class="tm-dim">nine checks · deny by default</span></p>
     <div class="g__verdict" id="g-verdict"><span class="tm-dim">no verdict yet</span></div>
-    <p class="g__close tm-dim" id="g-close" hidden>click anywhere or press Esc to return to the terminal</p>
+    <p class="g__close tm-dim" id="g-close" hidden>click anywhere or press Esc to return</p>
   </div>
 
   <div class="terminal" id="terminal" role="log" aria-live="polite" aria-label="Bank gateway decision log">

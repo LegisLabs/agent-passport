@@ -43,7 +43,7 @@ with sync_playwright() as pw:
     print("== Stage 4 · Boundary £12,000")
     click_beat(page, 2); li = last_line(page); check(li.locator(".t-verdict").inner_text() == "DENY" and "r.7" in li.inner_text().lower() and "£12,000" in li.inner_text(), "£12,000 DENY R.7")
     st = [page.locator("#gauntlet .g-cell").nth(i).get_attribute("data-state") for i in range(page.locator("#gauntlet .g-cell").count())]
-    check(st == ["pass"] * 6 + ["fail", "skip", "skip"] and "not evaluated" in low(page, "#gauntlet"), f"gauntlet: six passes, R.7 fails, R.8 and R.9 never reached {st}")
+    check(st == ["pass"] * 6 + ["fail", "skip", "skip"] and "not evaluated" in low(page, "#gauntlet-wrap"), f"gauntlet: six passes, R.7 fails, R.8 and R.9 never reached {st}")
     check("deny" in low(page, "#g-verdict") and "per_payment_limit_exceeded" in low(page, "#g-verdict") and "receipt signed by the authority" in low(page, "#g-verdict"), "verification view: cited verdict with receipt")
     check("refusal" in low(page, "#exhaust") and "→ regulator panel" in low(page, "#exhaust") and "→ audit" in low(page, "#exhaust"), "exhaust: refusal handed to the regulator and the audit")
     page.check("#tm-full"); click_beat(page, 2)

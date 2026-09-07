@@ -42,7 +42,7 @@ def step_evidence(a: dict) -> dict:
         "authority_asked_to_certify": {"model_approval": "company identity, attestation, documentation completeness, pinned version, intended use and register uniqueness verified against records",
                                        "policy_ceilings": f"per payment ≤ £{pol['per_payment_ceiling_gbp']:,.0f}; per account in 30 days ≤ £{pol['monthly_per_account_ceiling_gbp']:,.0f}; expiry ≤ {pol['max_validity']}; actions {', '.join(pol['action_types'])}",
                                        "condition_default": float(pol["human_confirm_above_gbp"])},
-        "documents": [], "registration": "fields entered by the model company on the Model Panel" + (" (prefilled for the demo)" if a.get("extraction_mode") == "prefill" else ""), "extraction_mode": a.get("extraction_mode"),
+        "documents": [], "registration": "fields entered by the model company on the Provider Panel" + (" (prefilled for the demo)" if a.get("extraction_mode") == "prefill" else ""), "extraction_mode": a.get("extraction_mode"),
     }
 
 

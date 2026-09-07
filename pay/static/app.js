@@ -445,12 +445,13 @@ const AP = (() => {
     function subjectHtml(b, k) {
       return `<b>instruction under test</b> ${esc(b.action_type)} · ${esc(b.supplier_name)} · <span class="mono">${esc(b.payee_account_ref)}</span> · ${gbp(b.amount)}${k ? ' · #' + k : ''}${b.signer === 'rogue' ? ' · <span class="tm-warn">signed with a rogue key</span>' : ''}${b.invoice ? ` · from invoice <span class="mono">${esc(b.invoice)}</span>` : ''}`;
     }
+    const BAND = (id) => id === 'R.9' ? 'human' : ['R.1', 'R.2', 'R.3', 'R.4'].includes(id) ? 'identity' : 'scope';
     function cellIds(trace) {
       const ids = [];
       rules.forEach(r => { if (r.id === 'R.6') trace.filter(t => t.rule.startsWith('C.')).forEach(t => ids.push(t.rule)); ids.push(r.id); });
       return ids;
     }
-    function setCell(li, state, note) { li.dataset.state = state; li.querySelector('.g-cell__s').innerHTML = note; }
+    const note = (html) => { $('g-note').innerHTML = html; };
     async function judge(b, r, k, fast) {
       const step = fast ? 110 : 240;
       const byRule = Object.fromEntries(r.trace.map(t => [t.rule, t]));
@@ -458,28 +459,31 @@ const AP = (() => {
       judgment.classList.add('is-live'); gWrap.dataset.decision = '';
       if (fullBox.checked) openFull(); else if (!inView(gWrap)) gWrap.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' });
       $('g-subject').innerHTML = subjectHtml(b, k); $('g-count').textContent = '';
-      gCells.innerHTML = ''; ids.forEach(id => { const li = el('li', 'g-cell'); li.dataset.rule = id; li.dataset.state = 'idle'; li.innerHTML = `<b>${esc(id)}</b><span class="g-cell__t">${esc(SHORT[id] || (rules.find(x => x.id === id) || {}).title || '')}</span><span class="g-cell__s">—</span>`; gCells.append(li); });
-      gVerdict.className = 'g__verdict'; gVerdict.innerHTML = '<span class="tm-dim">evaluating…</span>';
-      const cells = [...gCells.children];
-      let stopped = false;
+      gCells.querySelectorAll('.g-band__cells').forEach(ol => { ol.innerHTML = ''; });
+      gCells.querySelectorAll('.g-band').forEach(x => { x.dataset.state = 'idle'; });
+      const cells = ids.map(id => { const li = el('li', 'g-cell'); li.dataset.rule = id; li.dataset.state = 'idle'; li.innerHTML = `<b>${esc(id)}</b><span class="g-cell__t">${esc(SHORT[id] || (rules.find(x => x.id === id) || {}).title || '')}</span>`; gCells.querySelector(`.g-band[data-band="${BAND(id)}"] .g-band__cells`).append(li); return li; });
+      gVerdict.className = 'g__verdict'; gVerdict.innerHTML = '<span class="tm-dim">evaluating…</span>'; note('<span class="tm-dim">…</span>');
+      let stopped = false, stopAt = null;
       for (let i = 0; i < ids.length; i++) {
-        const li = cells[i], tr = byRule[ids[i]];
-        if (stopped || !tr) { setCell(li, 'skip', 'not evaluated · denied by default'); await pause(step / 4); continue; }
-        $('g-count').textContent = `check ${i + 1} of ${ids.length}`;
-        setCell(li, 'checking', 'checking…'); await pause(step);
-        setCell(li, tr.ok ? 'pass' : (r.decision === 'ESCALATE' ? 'hold' : 'fail'), esc(tr.note));
-        if (!tr.ok) { stopped = true; $('g-count').textContent = `stopped at ${ids[i]}`; }
+        const li = cells[i], tr = byRule[ids[i]], band = li.closest('.g-band');
+        if (stopped || !tr) { li.dataset.state = 'skip'; await pause(step / 4); continue; }
+        $('g-count').textContent = `check ${i + 1} of ${ids.length}`; band.dataset.state = 'live';
+        li.dataset.state = 'checking'; note(`<b>${esc(ids[i])}</b> ${esc(SHORT[ids[i]] || '')} · checking…`); await pause(step);
+        li.dataset.state = tr.ok ? 'pass' : (r.decision === 'ESCALATE' ? 'hold' : 'fail');
+        note(`<b class="${li.dataset.state}">${esc(ids[i])} ${tr.ok ? '✓' : '✗'}</b> ${esc(tr.note)}`);
+        if (!tr.ok) { stopped = true; stopAt = i; $('g-count').textContent = `stopped at ${ids[i]}`; band.dataset.state = li.dataset.state; }
+        else if (i === ids.length - 1 || BAND(ids[i + 1]) !== BAND(ids[i])) band.dataset.state = 'pass';
       }
-      if (!stopped) $('g-count').textContent = `${ids.length} of ${ids.length} passed`;
+      if (!stopped) { $('g-count').textContent = `${ids.length} of ${ids.length} passed`; }
+      else if (stopAt < ids.length - 1) note($('g-note').innerHTML + ` <span class="tm-dim">· ${esc(ids.slice(stopAt + 1).join(', '))} not evaluated · denied by default</span>`);
       await pause(step * 1.2);
       const cite = r.decision === 'ALLOW' ? `all ${ids.length} checks passed · ${esc(r.code)}` : `${esc(r.rule)} · ${esc(r.code)}`;
-      const sig = r.signature ? `<span>R.4 instruction signature <b class="${r.signature.verified ? 'ok' : 'fail'}">${r.signature.checked ? (r.signature.verified ? 'VERIFIED' : 'FAILED') : 'not reached'}</b> · ${esc(r.signature.alg)} · agent key <span class="mono">${esc(r.signature.agent_kid || '—')}</span> · payload sha256 <span class="mono">${esc((r.signature.instruction_hash || '').slice(0, 12))}</span></span>` : '';
-      const settle = r.settlement ? `<span class="ok">${esc(r.settlement.rail_reason)} · 30-day total for this account now ${gbp(r.settlement.ledger_total_after)}</span>` : '';
+      const sig = r.signature && r.signature.checked ? `agent signature <b class="${r.signature.verified ? 'ok' : 'fail'}">${r.signature.verified ? 'verified' : 'failed'}</b> · ` : '';
       const reg = r.rails && r.rails.authority_registry, rv = r.rails && r.rails.vouch;
       const rails = r.rails && (reg !== 'active' || (rv && rv.status === 'REVOKED')) ? `<span>authority registry <b class="${reg !== 'active' ? 'fail' : ''}">${esc(reg)}</b> · vouch rail <b class="${rv.status === 'REVOKED' ? 'fail' : ''}">${esc(rv.status || 'none')}</b>${reg !== 'active' && rv.status === 'REVOKED' ? ' · one supervisory action, two rails refuse' : ''}</span>` : '';
-      const fatf = r.decision === 'DENY' && r.rule === 'R.6' ? '<span>Named-beneficiary mandate check (FATF 2025 AML/CFT alignment): the customer signed for accounts, not names.</span>' : '';
+      const settle = r.settlement ? `<span class="ok">${esc(r.settlement.rail_reason)}</span>` : '';
       gVerdict.className = 'g__verdict g__verdict--' + r.decision; gWrap.dataset.decision = r.decision;
-      gVerdict.innerHTML = `<span class="g-word">${r.decision}</span><span class="g-cite">${cite}</span><span class="g-reason">${esc(r.reason)}</span><span class="g-notes">${fatf}${sig}${settle}${rails}<span class="tm-dim">receipt signed by the authority · audit #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> ← <span class="mono">${esc(r.prev_hash.slice(0, 12))}</span> · rule pack ${esc(r.rule_pack)} · decision replayable</span></span>`;
+      gVerdict.innerHTML = `<span class="g-word">${r.decision}</span><span class="g-cite">${cite}</span><span class="g-reason">${esc(r.reason)}</span><span class="g-notes">${settle}${rails}<span class="tm-dim">${sig}receipt signed by the authority · audit #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> · replayable</span></span>`;
       judgment.classList.remove('is-live');
     }
 
