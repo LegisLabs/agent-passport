@@ -69,21 +69,12 @@ flowchart LR
 
   <h2 class="h2">Our proposal</h2>
   <p class="home__lede">One approval, one signature, nine questions, and a receipt. No new licence for every agent. No review of anyone's invoices.</p>
-  <div class="diagram"><pre class="mermaid">
-flowchart LR
-  P["<b>1 · Provider</b><br/>registers a model"] --> R["<b>2 · Authority</b><br/>approves it, sets ceilings"]
-  R --> C["<b>3 · Customer</b><br/>signs the mandate"]
-  C --> K["<b>4 · Bank</b><br/>nine checks per payment"]
-  K --> AL["ALLOW"]
-  K --> ES["ESCALATE<br/>a human decides"]
-  K --> DE["DENY"]
-  DE -. refusals .-> R
-  class K agent
-  class AL ok
-  class ES warn
-  class DE bad
-</pre></div>
-  <p class="chart__src">Which agent: the key in a customer-signed identity. Allowed: a signed mandate within the authority's ceilings. Who answers: the customer for the mandate, the authority for the model, the bank for the check.</p>
+  <ol class="steps-nav steps-nav--tight">
+    <li data-n="1"><h3>The provider registers a model</h3><p>Once. Pinned version, attested documentation.</p></li>
+    <li data-n="2"><h3>The authority approves it</h3><p>Once. It sets the ceilings every mandate must respect, and one condition.</p></li>
+    <li data-n="3"><h3>The customer signs the mandate</h3><p>Whom the agent may pay, how much, until when. The passport is issued at once.</p></li>
+    <li data-n="4"><h3>The bank checks every payment</h3><p>Nine questions, in order, deny by default. ALLOW within the mandate, ESCALATE above the condition so a human decides, DENY anything else. Every refusal reaches the authority.</p></li>
+  </ol>
 </div>
 {% endblock %}
 {% block scripts %}<script src="/static/vendor/chart.umd.js"></script><script src="/static/vendor/mermaid.min.js"></script><script>AP.home();</script>{% endblock %}
