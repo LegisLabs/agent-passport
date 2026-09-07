@@ -613,6 +613,11 @@ const AP = (() => {
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    const mt = $('menu-toggle'), mp = $('menu-panel');
+    if (mt && mp) {
+      mt.onclick = () => { const open = mp.hidden; mp.hidden = !open; mt.setAttribute('aria-expanded', String(open)); mt.classList.toggle('is-open', open); };
+      document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !mp.hidden) { mp.hidden = true; mt.setAttribute('aria-expanded', 'false'); mt.classList.remove('is-open'); mt.focus(); } });
+    }
     const rb = $('demo-reset');
     if (rb) rb.onclick = async () => { if (confirm('Reset the demo to its baseline? Everything is deleted, then one registration is reviewed, approved and the customer mandate signed, so the passport is ACTIVE with no payments and no violations.')) { rb.disabled = true; rb.textContent = 'seeding…'; await api('POST', '/api/demo/seed?stage=issued'); location.href = '/bank'; } };
   });

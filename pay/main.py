@@ -43,7 +43,18 @@ def ctx(request: Request, **kw) -> dict:
 # ── Views ──────────────────────────────────────────────────────────────────
 @app.get("/", response_class=HTMLResponse, include_in_schema=False)
 def home(request: Request):
-    return templates.TemplateResponse(request, "home.html", ctx(request, view="home", pack=rules.pack()))
+    return templates.TemplateResponse(request, "home.html", ctx(request, view="home", pack=rules.pack(), logo_rows=LOGO_ROWS))
+
+
+LOGO_ROWS = [
+    {"label": "Hackathon", "speed": 70, "logos": [{"img": "/static/logos/badge-cdir.png", "alt": "C:\\>DIR Cambridge Digital Innovation & Regulation Initiative", "h": 56}, {"img": "/static/logos/fii.png", "alt": "Financial Innovation for Impact", "h": 44}, {"img": "/static/logos/nayaone.svg", "alt": "NayaOne", "h": 34}, {"img": "/static/logos/vouch.svg", "alt": "", "h": 30}, {"text": "vouch.finance"}, {"text": "Finternet"}, {"text": "GFIN"}]},
+    {"label": "Regulatory partners", "speed": 60, "logos": [{"img": "/static/logos/badge-regulatory.png", "alt": "BIS Innovation Hub, Global Financial Innovation Network, Digital Regulation Cooperation Forum, Regulator Knowledge Exchange, Women Regulators Network", "h": 64}]},
+    {"label": "Supporters", "speed": 75, "logos": [{"img": "/static/logos/badge-supporters.png", "alt": "Networks for Humanity, Ethereum Foundation, Swift, Google, Moneybox, Ant International, Euroclear", "h": 56}]},
+    {"label": "Ecosystem partners", "speed": 110, "logos": [{"img": "/static/logos/badge-ecosystem1.png", "alt": "GFTN, Innovate Finance, MENA Fintech Association, IDB, Africa Fintech Network, ABFintechs, American Fintech Council, TRM, Alliance for Innovative Regulation, Fintech Alliance PH, airdropd, DFSAK", "h": 44}, {"img": "/static/logos/badge-ecosystem2.png", "alt": "World Alliance of International Financial Centers, AFSI, Anacofi, CFTE, Fintech Association of Hong Kong, Fintech Association of Japan, FACE, Alliance of Digital Finance and Fintech Associations, GBBC, Insurtech Australia, FinTech Wales, NCFA", "h": 44}]},
+    {"label": "Academic partners", "speed": 80, "logos": [{"img": "/static/logos/badge-academic1.png", "alt": "Cambridge Centre for Alternative Finance, E-Lab King's College Cambridge, Entrepreneurship Centre Cambridge Judge Business School, Oxford AI Governance Initiative, Oxford Martin School, University of Manchester", "h": 56}, {"img": "/static/logos/badge-academic2.png", "alt": "UNRaf, Singapore Management University, LITE Lab University of Hong Kong, CSO Technical University of Munich", "h": 48}]},
+    {"label": "Technology partners", "speed": 55, "logos": [{"img": "/static/logos/badge-technology.png", "alt": "NayaOne, Productopedia, Autracon", "h": 44}]},
+    {"label": "Standards used", "speed": 65, "logos": [{"text": t} for t in ("OAuth 2.0 RFC 9396", "W3C Verifiable Credentials", "RFC 7800 proof of possession", "Ed25519 RFC 8037", "JWT RFC 7519", "FATF Recommendation 16", "PSR 2017", "SPIFFE", "vouch.finance AI Vouchers")]},
+]
 
 
 for _name in ("provider", "regulator", "customer", "bank", "audit"):

@@ -8,39 +8,113 @@
     <p class="hero__actions"><a class="btn btn--inverse btn--start" href="/bank">See a payment verified <span class="btn__arrow" aria-hidden="true"></span></a><a class="hero__link" href="#how">How it works</a></p>
   </div>
 </section>
+<figure class="photo">
+  <img src="/static/photos/boe.jpg" alt="The Bank of England on Threadneedle Street, with the City of London behind it" width="1920" height="1291" loading="eager">
+  <figcaption class="wrap">Money moves on trust between institutions. An agent that pays needs the same thing: an authority behind it, a mandate under it, and a bank that checks. <span class="photo__credit">Photo: It's No Game, CC BY 2.0</span></figcaption>
+</figure>
 {% endblock %}
 {% block content %}
 <div class="home">
-  <p class="inset">Identity is not authority. Delegation can only narrow authority, never expand it.</p>
+  <h2 class="h2">The problem</h2>
+  <p class="home__lede">Businesses are handing invoices to AI agents that read, decide and pay. The fraud those agents inherit is already the costliest kind: a payment the victim authorised, to an account a criminal chose.</p>
+  <div class="charts">
+    <div><svg class="chart" viewBox="0 0 440 230" role="img" aria-label="Authorised push payment fraud, UK: 2021 £583m, 2022 £485m, 2023 £460m, 2024 £451m, 2025 £576m">
+<text x="0" y="14" class="chart__title">Authorised push payment fraud, UK</text>
+<line x1="44" y1="196.0" x2="430" y2="196.0" class="chart__grid"/>
+<text x="38" y="200.0" class="chart__tick" text-anchor="end">0</text>
+<line x1="44" y1="154.0" x2="430" y2="154.0" class="chart__grid"/>
+<text x="38" y="158.0" class="chart__tick" text-anchor="end">175</text>
+<line x1="44" y1="112.0" x2="430" y2="112.0" class="chart__grid"/>
+<text x="38" y="116.0" class="chart__tick" text-anchor="end">350</text>
+<line x1="44" y1="70.0" x2="430" y2="70.0" class="chart__grid"/>
+<text x="38" y="74.0" class="chart__tick" text-anchor="end">525</text>
+<line x1="44" y1="28.0" x2="430" y2="28.0" class="chart__grid"/>
+<text x="38" y="32.0" class="chart__tick" text-anchor="end">700</text>
+<rect x="58.7" y="56.1" width="47.9" height="139.9" class="chart__bar"/>
+<text x="82.6" y="51.1" class="chart__val" text-anchor="middle">£583m</text>
+<text x="82.6" y="214" class="chart__tick" text-anchor="middle">2021</text>
+<rect x="135.9" y="79.6" width="47.9" height="116.4" class="chart__bar"/>
+<text x="159.8" y="74.6" class="chart__val" text-anchor="middle">£485m</text>
+<text x="159.8" y="214" class="chart__tick" text-anchor="middle">2022</text>
+<rect x="213.1" y="85.6" width="47.9" height="110.4" class="chart__bar"/>
+<text x="237.0" y="80.6" class="chart__val" text-anchor="middle">£460m</text>
+<text x="237.0" y="214" class="chart__tick" text-anchor="middle">2023</text>
+<rect x="290.3" y="87.8" width="47.9" height="108.2" class="chart__bar"/>
+<text x="314.2" y="82.8" class="chart__val" text-anchor="middle">£451m</text>
+<text x="314.2" y="214" class="chart__tick" text-anchor="middle">2024</text>
+<rect x="367.5" y="57.8" width="47.9" height="138.2" class="chart__bar"/>
+<text x="391.4" y="52.8" class="chart__val" text-anchor="middle">£576m</text>
+<text x="391.4" y="214" class="chart__tick" text-anchor="middle">2025</text>
+<line x1="44" y1="196" x2="430" y2="196" class="chart__axis"/>
+</svg>
+<p class="chart__src">Source: <a href="https://www.ukfinance.org.uk/news-and-insight/press-release/fraud-report-2026-press-release">UK Finance, Annual Fraud Report 2026</a>. £ million, losses reported to UK Finance.</p>
+</div>
+    <div>
+<svg class="chart" viewBox="0 0 440 230" role="img" aria-label="Business email compromise, US: 2023 $2.94bn, 2024 $2.77bn, 2025 $3.05bn">
+<text x="0" y="14" class="chart__title">Business email compromise, US</text>
+<line x1="44" y1="196.0" x2="430" y2="196.0" class="chart__grid"/>
+<text x="38" y="200.0" class="chart__tick" text-anchor="end">0.0</text>
+<line x1="44" y1="154.0" x2="430" y2="154.0" class="chart__grid"/>
+<text x="38" y="158.0" class="chart__tick" text-anchor="end">0.9</text>
+<line x1="44" y1="112.0" x2="430" y2="112.0" class="chart__grid"/>
+<text x="38" y="116.0" class="chart__tick" text-anchor="end">1.8</text>
+<line x1="44" y1="70.0" x2="430" y2="70.0" class="chart__grid"/>
+<text x="38" y="74.0" class="chart__tick" text-anchor="end">2.7</text>
+<line x1="44" y1="28.0" x2="430" y2="28.0" class="chart__grid"/>
+<text x="38" y="32.0" class="chart__tick" text-anchor="end">3.6</text>
+<rect x="68.4" y="58.8" width="79.8" height="137.2" class="chart__bar"/>
+<text x="108.3" y="53.8" class="chart__val" text-anchor="middle">$2.94bn</text>
+<text x="108.3" y="214" class="chart__tick" text-anchor="middle">2023</text>
+<rect x="197.1" y="66.7" width="79.8" height="129.3" class="chart__bar"/>
+<text x="237.0" y="61.7" class="chart__val" text-anchor="middle">$2.77bn</text>
+<text x="237.0" y="214" class="chart__tick" text-anchor="middle">2024</text>
+<rect x="325.8" y="53.7" width="79.8" height="142.3" class="chart__bar"/>
+<text x="365.7" y="48.7" class="chart__val" text-anchor="middle">$3.05bn</text>
+<text x="365.7" y="214" class="chart__tick" text-anchor="middle">2025</text>
+<line x1="44" y1="196" x2="430" y2="196" class="chart__axis"/>
+</svg>
+<p class="chart__src">Source: <a href="https://www.ic3.gov/AnnualReport/Reports/2025_IC3Report.pdf">FBI Internet Crime Report 2025</a>. $ billion, losses reported to the FBI IC3. Invoice redirection is the typical case.</p></div>
+  </div>
+  <dl class="facts">
+    <div><dt>4 of 26</dt><dd>AI models tested were tricked by hidden text into making a payment they should have refused. <a href="https://www.securityweek.com/prompt-injection-attacks-trick-ai-agents-into-making-crypto-payments/">SecurityWeek</a></dd></div>
+    <div><dt>$15 trillion</dt><dd>of B2B purchases will be intermediated by AI agents by 2028, on Gartner's forecast. <a href="https://www.digitalcommerce360.com/2025/11/28/gartner-ai-agents-15-trillion-in-b2b-purchases-by-2028/">Digital Commerce 360</a></dd></div>
+    <div><dt>86%</dt><dd>of business email compromise losses moved by wire or ACH, gone before anyone checked. <a href="https://www.ic3.gov/AnnualReport/Reports/2025_IC3Report.pdf">FBI IC3 2025</a></dd></div>
+    <div><dt>Recommendation 10</dt><dd>of HM Treasury's AI Adoption Plan, July 2026: a Know Your Agent standard and an agentic payments trust framework, rated high priority. <a href="https://www.gov.uk/government/consultations/modernising-payment-services-regulation/modernising-payment-services-regulation-consultation">GOV.UK</a></dd></div>
+  </dl>
+
+  <h2 class="h2">What regulators are saying</h2>
+  <ul class="news">
+    <li><a href="https://www.gov.uk/government/consultations/modernising-payment-services-regulation/modernising-payment-services-regulation-consultation">Modernising payment services regulation: consultation</a><span>HM Treasury · 14 July 2026 · asks whether consent, authentication and liability rules need updating for agentic payments</span></li>
+    <li><a href="https://www.fca.org.uk/news/speeches/rethinking-regulation-age-ai">Rethinking regulation for the age of AI</a><span>Nikhil Rathi, FCA · 24 June 2026 · "accountability for regulated activities and outcomes must remain clear"</span></li>
+    <li><a href="https://paymentexpert.com/2026/03/25/fca-2026-payments-regulatory-priorities-report/">FCA eyes rule change as agentic AI comes to payments</a><span>Payment Expert · 25 March 2026 · on the FCA's 2026 payments regulatory priorities</span></li>
+    <li><a href="https://www.ukfinance.org.uk/news-and-insight/press-release/fraud-report-2026-press-release">Fraud remains a national security threat as criminals steal almost £1.3 billion</a><span>UK Finance · June 2026 · APP losses up 19% to £576m</span></li>
+    <li><a href="https://corporate.visa.com/en/sites/visa-perspectives/newsroom/visa-partners-complete-secure-agentic-transactions.html">Visa and partners complete secure AI transactions, setting the stage for mainstream adoption in 2026</a><span>Visa · millions of consumers expected to buy through agents by the 2026 holiday season</span></li>
+  </ul>
 
   <h2 class="h2" id="how">How it works</h2>
   <ol class="steps-nav">
-    <li data-n="1"><h3>A provider registers a model</h3><p>Once, with pinned version and attested documentation. No agent, no key, no customer data. <a href="/provider">Provider Panel</a></p></li>
-    <li data-n="2"><h3>The authority approves it with ceilings</h3><p>Automated checks and a six-step Standards Review Assistant inform a case officer. Approval sets the limit per payment, per account, the expiry and a condition. <a href="/regulator">Regulator Panel</a></p></li>
-    <li data-n="3"><h3>A customer registers an agent and signs its mandate</h3><p>Which suppliers it may pay, how much, until when, within the ceilings. The passport is issued at signing and is live at once. <a href="/customer">Customer Panel</a></p></li>
-    <li data-n="4"><h3>The bank verifies every instruction</h3><p>Nine checks, deny by default, a signed receipt for each verdict. A manipulated invoice is refused before payment. <a href="/bank">Action Terminal</a></p></li>
-    <li data-n="5"><h3>Refusals feed back to the authority</h3><p>Two refusals on the same rule in a day raise an alert. The authority can suspend, investigate, reinstate or revoke; the rail follows. <a href="/audit">Audit</a></p></li>
+    <li data-n="1"><h3>A provider registers a model</h3><p>Once, with pinned version and attested documentation. <a href="/provider">Provider Panel</a></p></li>
+    <li data-n="2"><h3>The authority approves it with ceilings</h3><p>Automated checks, a six-step Standards Review Assistant, a case officer's decision. <a href="/regulator">Regulator Panel</a></p></li>
+    <li data-n="3"><h3>A customer registers an agent and signs its mandate</h3><p>Which suppliers, how much, until when. The passport is issued at signing. <a href="/customer">Customer Panel</a></p></li>
+    <li data-n="4"><h3>The bank verifies every instruction</h3><p>Nine checks, deny by default, a signed receipt. A manipulated invoice is refused before payment. <a href="/bank">Action Terminal</a></p></li>
+    <li data-n="5"><h3>Refusals feed back to the authority</h3><p>Two on the same rule in a day raise an alert. Suspend, investigate, reinstate or revoke. <a href="/audit">Audit</a></p></li>
   </ol>
-
-  <h2 class="h2">What the bank checks</h2>
-  <div class="dash-wrap"><table class="dash"><thead><tr><th>Check</th><th>Question</th><th>If it fails</th></tr></thead><tbody>
-  {% for r in pack.runtime_rules %}<tr><td>{{ r.id }}</td><td>{{ r.title }}</td><td>{{ r.on_fail }}</td></tr>{% endfor %}
-  </tbody></table></div>
-
   <p class="live" id="live" hidden></p>
-
-  <h2 class="h2">Built on open standards</h2>
-  <p>Three signatures in one envelope: the authority's assurance, the customer's agent identity and its payment mandate. The agent signs each instruction with its own key.</p>
-  <ul class="badges" aria-label="Standards used"><li>OAuth 2.0 RFC 9396</li><li>W3C VC JWT</li><li>RFC 7800 cnf</li><li>Ed25519 RFC 8037</li><li>vouch.finance AI Vouchers</li></ul>
-
-  <h2 class="h2">Who it is for</h2>
-  <ul class="who">
-    <li><a href="/provider">AI providers</a><span>Register a model once and let any customer deploy it under the authority's ceilings.</span></li>
-    <li><a href="/regulator">Regulators</a><span>Approve models, oversee live agents, and act on refusals with evidence.</span></li>
-    <li><a href="/customer">Businesses</a><span>Give an agent a mandate you wrote and signed. It can never pay outside it.</span></li>
-  </ul>
-
-  <p class="small">A design prototype of a proposed assurance framework for payment agents. It is not a current legal requirement. <a href="/about">About the prototype</a></p>
 </div>
+{% endblock %}
+{% block after %}
+<figure class="photo photo--second">
+  <img src="/static/photos/wharf.jpg" alt="The Canary Wharf skyline seen from south London" width="1920" height="1415" loading="lazy">
+  <figcaption class="wrap">The relying party is a bank. It never sees the customer's data, only a signed mandate and nine yes-or-no answers. <span class="photo__credit">Photo: FHL2, CC0</span></figcaption>
+</figure>
+<section class="logos" aria-label="Organisations around the hackathon">
+  <div class="wrap"><h2 class="h2">Built at the C:\&gt;DIR Global 'Agentic Regulator' Hackathon</h2><p class="small">Legis Labs is a finalist among 36 teams from 336 entries, Know Your Agent track. Logos show the hackathon's organisers and partners; they do not endorse this prototype.</p></div>
+  {% for row in logo_rows %}
+  <div class="marquee" style="--dur: {{ row.speed }}s"><span class="marquee__label wrap">{{ row.label }}</span>
+    <div class="marquee__track">{% for _ in range(2) %}{% for it in row.logos %}{% if it.img %}<img src="{{ it.img }}" alt="{{ it.alt }}" height="{{ it.h or 60 }}">{% else %}<span class="marquee__word">{{ it.text }}</span>{% endif %}{% endfor %}{% endfor %}</div>
+  </div>
+  {% endfor %}
+</section>
+<p class="wrap small home__note">A design prototype of a proposed assurance framework for payment agents. It is not a current legal requirement. <a href="/about">About the prototype</a></p>
 {% endblock %}
 {% block scripts %}<script>AP.home();</script>{% endblock %}
