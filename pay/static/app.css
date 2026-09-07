@@ -1289,3 +1289,33 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .standard-split .standard-page { width: 300px; }
 .plain-steps--big { font-size: 24px; line-height: 1.3; }
 .plain-steps--big li { margin-bottom: 10px; }
+/* phone layout */
+@media (max-width: 800px) {
+  .standard-split { grid-template-columns: minmax(0, 1fr); gap: 24px; }
+  .standard-split .standard-one { order: 2; }
+  .standard-split .standard-page { width: 100%; max-width: 300px; }
+  .sidenav { display: none; }
+  .shell { padding-top: 24px; }
+  .diagram { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+  .diagram svg { min-width: 720px; max-width: none; }
+  .chartbox__canvas { height: 280px; }
+  .hero__h1 { font-size: 36px; line-height: 1.1; }
+  .home .h2 { font-size: 27px; margin-top: 56px; }
+  .home .home__lede, .hero__lede { font-size: 20px; }
+  .plain-steps--std, .plain-steps--big { font-size: 20px; }
+  .hero__actions { flex-direction: column; align-items: flex-start; gap: 14px; }
+  .facts dt { font-size: 28px; }
+  .grid, .grid--wide { grid-template-columns: minmax(0, 1fr); }
+  .actions { flex-wrap: wrap; }
+  .btn { max-width: 100%; white-space: normal; }
+  .input, .textarea, select.input { width: 100%; max-width: 100%; box-sizing: border-box; }
+  .mandate__head { flex-wrap: wrap; gap: 6px; }
+  .footer__grid { gap: 20px; padding-top: 24px; }
+}
+@media (max-width: 640px) {
+  .suppliers thead { display: none; }
+  .suppliers, .suppliers tbody, .suppliers tr, .suppliers td { display: block; width: 100%; box-sizing: border-box; }
+  .suppliers tr { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  .suppliers td { padding: 3px 0; border: 0; }
+  .suppliers td .input { width: 100%; }
+}
