@@ -23,7 +23,7 @@ const AP = (() => {
     company: { title: 'Model company', legal_name: 'Legal name', companies_house_number: 'Companies House number', website: 'Website' },
     attestation: { title: 'Attestation (documentation accuracy)', name: 'Named person', role: 'Role or title', declaration_ref: 'Declaration reference' },
     model: { title: 'The model', model_name: 'Model name', model_id: 'Model identifier', release: 'Release', model_provider: 'Foundation model provider', model_version: 'Foundation model version (pinned)', benchmarks_url: 'Benchmark data (URL)', training_details_url: 'Training details (URL)', documentation_url: 'Model card / documentation (URL)' },
-    intended_use: { title: 'Intended use', action_type: 'Action type', description: 'Description' },
+    intended_use: { title: 'Registered use domain', action_type: 'Action type', description: 'Description' },
   };
 
 
@@ -168,7 +168,7 @@ const AP = (() => {
         ['Attestation', `${esc(v(f, 'attestation', 'name'))}, ${esc(v(f, 'attestation', 'role'))} · declaration <span class="mono">${esc(v(f, 'attestation', 'declaration_ref'))}</span> · documentation accuracy only, no liability for agents' actions`],
         ['Model', `<strong>${esc(v(f, 'model', 'model_name'))}</strong> <span class="mono">${esc(v(f, 'model', 'model_id'))}</span> · release ${esc(v(f, 'model', 'release'))} · ${esc(v(f, 'model', 'model_provider'))} <span class="mono">${esc(v(f, 'model', 'model_version'))}</span>`],
         ['Documentation', `<a href="${esc(v(f, 'model', 'documentation_url'))}">model card</a> · <a href="${esc(v(f, 'model', 'benchmarks_url'))}">benchmark data</a> · <a href="${esc(v(f, 'model', 'training_details_url'))}">training details</a>`],
-        ['Intended use', `<strong>${esc(v(f, 'intended_use', 'action_type'))}</strong> · ${esc(v(f, 'intended_use', 'description'))} · no customer named: each customer creates its own agent and mandate within the policy ceilings`],
+        ['Registered use domain', `<strong>${esc(v(f, 'intended_use', 'action_type'))}</strong> · ${esc(v(f, 'intended_use', 'description'))} · no customer named: each customer creates its own agent and mandate within the policy ceilings`],
       ].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       const pol = state.policy || {};
       if ($('rg-ceilings')) $('rg-ceilings').textContent = `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp)} · expiry ≤ ${pol.max_validity} · actions ${(pol.action_types || []).join(', ')}`;
@@ -497,7 +497,7 @@ const AP = (() => {
       else body = `<b class="x-k x-k--ALLOW">executed</b> ${who}${r.settlement ? ` · payment #${r.settlement.payment_id} on the ${esc(r.settlement.rail)} rail` : ''} · ${audit}`;
       ex.prepend(el('li', null, `<span class="x-time">${t(new Date().toISOString())}</span><span>${body}</span>`));
       if (r.incident) ex.prepend(el('li', 'x-incident', `<span class="x-time">${t(new Date().toISOString())}</span><span><b>INCIDENT</b> escalated to supervisor · ${r.incident.denies} refused instructions · audit #${r.incident.audit_id} <span class="mono">${esc(r.incident.hash.slice(0, 12))}</span> <a href="/regulator">→ Regulator Panel incident feed</a></span>`));
-      while (ex.children.length > 14) ex.lastChild.remove();
+      while (ex.children.length > 6) ex.lastChild.remove();
     }
     function logLine(b, r, k) {
       if (lines.querySelector('.terminal__hint')) lines.innerHTML = '';
@@ -515,10 +515,10 @@ const AP = (() => {
     const cbw = $('chain-beats-wrap'); cbw.hidden = !ct.checked;
     ct.onchange = () => { cbw.hidden = !ct.checked; };
     (state.chain_beats || []).forEach(b => {
-      const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p;
-      btn.innerHTML = `<span class="beat__label">${esc(b.label)}<small>${esc(b.hint)}</small></span><span class="beat__expect">${esc(b.expect)}</span>`;
+      const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p; btn.title = b.hint;
+      btn.innerHTML = `<span class="beat__label">${esc(b.label)}</span><span class="beat__expect">${esc(b.expect)}</span>`;
       btn.onclick = async () => {
-        btn.disabled = true; btn.dataset.running = 'true';
+        btn.disabled = true; btn.dataset.running = 'true'; $('invoice-steps').hidden = true; $('invoice-outcome').hidden = true;
         try {
           const r = await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, invoice_ref: b.invoice_ref, signer: b.signer, chain: true, delegate_amount: b.delegate_amount, delegate_account: b.delegate_account || null });
           await present(b, r);
@@ -546,46 +546,48 @@ const AP = (() => {
       ib.append(b);
     });
     async function showInvoice(r) {
-      const steps = $('invoice-steps'); steps.hidden = false;
-      steps.querySelectorAll('.invoice__step').forEach(x => x.hidden = true);
+      const steps = $('invoice-steps'), out = $('invoice-outcome'); steps.hidden = false; out.hidden = true;
+      steps.querySelectorAll('.invoice__step').forEach(x => x.hidden = true); out.querySelectorAll('[data-step]').forEach(x => x.hidden = true);
       const acct = r.instruction.payee_account_ref, ok = r.on_allowlist;
       const digits = (r.extraction.account_number || {}).value || '';
+      $('g-subject').innerHTML = `<b>${esc(r.invoice)}</b> ${esc(modeLabel(r.extraction_mode))}`;
+      gWrap.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' });
       // a. what the agent read, account number marked
       $('inv-text').innerHTML = esc(r.text).replace(new RegExp('(Account number:\\s*)(' + digits + ')'), `$1<mark class="${ok ? 'ok' : ''}">$2</mark>`).replace(/(IMPORTANT: our bank details have changed[^\n]*)/, '<mark>$1</mark>');
-      $('inv-facts').innerHTML = Object.entries(r.extraction).filter(([k]) => !k.startsWith('_')).map(([k, f]) => `<div><dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${k === 'account_number' ? `<span class="${ok ? 'right' : 'wrong'}">${esc(f.value)}</span>` : esc(String(f.value))} <span class="prov">from <span class="mono">${esc(f.source_doc || '')}</span>: <q>${esc(f.quote || '')}</q></span></dd></div>`).join('') + `<div><dt>read by</dt><dd>${esc(modeLabel(r.extraction_mode))}</dd></div>`;
-      steps.querySelector('[data-step="a"]').hidden = false; steps.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' }); await pause(900);
+      $('inv-facts').innerHTML = Object.entries(r.extraction).filter(([k]) => !k.startsWith('_')).map(([k, f]) => `<div><dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${k === 'account_number' ? `<span class="${ok ? 'right' : 'wrong'}">${esc(f.value)}</span>` : esc(String(f.value))} <span class="prov"><q>${esc(f.quote || '')}</q></span></dd></div>`).join('');
+      steps.querySelector('[data-step="a"]').hidden = false; await pause(900);
       // b. the generated instruction
       const i = r.instruction;
-      $('inv-instruction').innerHTML = [['Action', esc(i.action_type)], ['Payee', esc(i.supplier_name)], ['Account', `<span class="${ok ? 'right' : 'wrong'}">${esc(acct)}</span>${ok ? ' on the customer-signed mandate' : ` not on the mandate; the customer signed for <span class="mono">${esc(r.registered_payee || '—')}</span>`}`], ['Amount', gbp(i.amount) + ' ' + esc(i.currency)], ['Invoice', esc(i.invoice_ref)], ['Signed by', 'the agent key bound in agent_identity (Ed25519)']].map(([k, v_]) => `<div><dt>${k}</dt><dd>${v_}</dd></div>`).join('');
+      $('inv-instruction').innerHTML = [['Action', esc(i.action_type)], ['Payee', esc(i.supplier_name)], ['Account', `<span class="${ok ? 'right' : 'wrong'}">${esc(acct)}</span>${ok ? ' · on the customer-signed mandate' : ` · not on the mandate; the customer signed for <span class="mono">${esc(r.registered_payee || '—')}</span>`}`], ['Amount', gbp(i.amount) + ' ' + esc(i.currency)], ['Signed by', 'the agent key bound in agent_identity (Ed25519)']].map(([k, v_]) => `<div><dt>${k}</dt><dd>${v_}</dd></div>`).join('');
       const chv = $('inv-chain');
-      if (r.chain && r.result.chain) { chv.hidden = false; chv.innerHTML = `<strong>Delegation chain</strong> <span class="small">the AP Orchestrator Agent read the invoice and delegated exactly what it read to the Payment Execution Agent, which signed the instruction</span>` + chainHtml(r.result.chain, r.delegation); }
+      if (r.chain && r.result.chain) { chv.hidden = false; chv.innerHTML = `<strong>Delegation chain</strong> <span class="small">the orchestrator read the invoice and delegated exactly what it read to the execution agent, which signed</span>` + chainHtml(r.result.chain, r.delegation); }
       else if (r.chain) { chv.hidden = false; chv.innerHTML = '<strong>Delegation chain</strong> <span class="small">presented; the bank refused before reaching it</span>'; }
       else chv.hidden = true;
       steps.querySelector('[data-step="b"]').hidden = false; await pause(900);
-      // c. the bank's decision: the gauntlet runs, then the compact verdict is written back into the actor's panel
+      // c. the gauntlet runs; then one compact line with what only the invoice path adds
       const res = r.result;
       const subject = { action_type: i.action_type, supplier_name: i.supplier_name, payee_account_ref: acct, amount: i.amount, signer: 'agent', invoice: r.invoice };
       await judge(subject, res);
       const box = $('inv-verdict'); box.className = 'invoice__verdict invoice__verdict--' + res.decision;
-      const rulesHtml = res.trace.map(s => `<li class="${s.ok ? 'ok' : 'fail'}">${esc(s.rule)} ${s.ok ? '✓' : '✗'}</li>`).join('');
-      box.innerHTML = `<div><span class="t-verdict t-verdict--${res.decision}">${res.decision}</span> <strong>${res.decision === 'ALLOW' ? 'all nine checks passed' : esc(res.rule)} · ${esc(res.code)}</strong></div><div>${esc(res.reason)}</div><ul class="invoice__rules">${rulesHtml}</ul>${res.rule === 'R.6' && res.decision === 'DENY' ? '<div class="invoice__note">Named-beneficiary mandate check (FATF 2025 AML/CFT alignment). The customer signed for accounts, not names: a changed account on a genuine-looking invoice has no authority.</div>' : ''}${res.violation ? `<div class="invoice__note">Violation #${res.violation.id} recorded as ${esc(res.violation.status)} for the supervisor’s exception panel.</div>` : ''}${res.settlement ? `<div class="invoice__note">${esc(res.settlement.rail_reason)}</div>` : ''}${res.signature ? `<div class="invoice__note">R.4 instruction signature: <strong>${res.signature.checked ? (res.signature.verified ? 'VERIFIED' : 'FAILED') : 'not reached'}</strong> (${esc(res.signature.alg)}) · agent key <span class="mono">${esc(res.signature.agent_kid || '—')}</span></div>` : ''}<div class="invoice__note">audit #${res.audit_id} <span class="mono">${esc(res.audit_hash.slice(0, 12))}</span> · receipt signed by the authority · decision replayable</div>`;
-      steps.querySelector('[data-step="c"]').hidden = false;
+      box.innerHTML = `<span class="t-verdict t-verdict--${res.decision}">${res.decision}</span> <b>${res.decision === 'ALLOW' ? 'all nine checks passed' : esc(res.rule) + ' · ' + esc(res.code)}</b>${res.rule === 'R.6' && res.decision === 'DENY' ? ' · named-beneficiary mandate check (FATF 2025 AML/CFT alignment): the customer signed for accounts, not names' : ''}${res.violation ? ` · violation #${res.violation.id} recorded ${esc(res.violation.status)}` : ''}${res.signature ? ` · R.4 instruction signature: ${res.signature.checked ? (res.signature.verified ? 'VERIFIED' : 'FAILED') : 'not reached'}` : ''}`;
+      out.hidden = false; box.hidden = false;
       logLine(subject, res); exhaust(subject, res);
       await pause(700);
       // d. caption
       $('inv-caption').textContent = ok
         ? 'The AI read a genuine invoice and paid the account the customer signed for. Same agent, same mandate: the next invoice is the test.'
         : 'The AI read a manipulated invoice and would have paid the wrong account. The mandate stopped it.';
-      steps.querySelector('[data-step="d"]').hidden = false;
-      if (!judgment.classList.contains('is-full')) steps.querySelector('[data-step="c"]').scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'nearest' });
+      $('inv-caption').hidden = false;
     }
 
     // ── 4 · the script ──
+    const chip = (b) => { let s = `${b.action_type === 'refund' ? 'Refund ' : ''}${esc(b.supplier_name)} · ${gbp(b.amount)}`; const m = /account ([\d- ]+)$/.exec(b.label || ''); if (m) s += ` · account <span class="mono">${esc(m[1])}</span>`; if (b.signer === 'rogue') s += ' · rogue key'; if (b.repeat) s += ` · ×${b.repeat}`; return s; };
+    const hideSteps = () => { $('invoice-steps').hidden = true; $('invoice-outcome').hidden = true; };
     state.beats.forEach(b => {
-      const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p;
-      btn.innerHTML = `<span class="beat__label">${esc(b.label)}<small>${esc(b.hint)}</small></span><span class="beat__expect">${esc(b.expect)}</span>`;
+      const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p; btn.title = b.hint;
+      btn.innerHTML = `<span class="beat__label">${chip(b)}</span><span class="beat__expect">${esc(b.expect)}</span>`;
       btn.onclick = async () => {
-        btn.disabled = true; btn.dataset.running = 'true';
+        btn.disabled = true; btn.dataset.running = 'true'; hideSteps();
         try {
           for (let k = 0; k < (b.repeat || 1); k++) {
             const r = await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, invoice_ref: b.repeat ? `${b.invoice_ref}-${k + 1}` : b.invoice_ref, signer: b.signer });
