@@ -604,6 +604,9 @@ const AP = (() => {
   }
 
   document.addEventListener('DOMContentLoaded', () => {
+    const mt = $('menu-toggle');
+    const paintMenu = () => { const hidden = document.body.classList.contains('menu-hidden'); mt.textContent = hidden ? 'Show menu' : 'Hide menu'; mt.setAttribute('aria-expanded', String(!hidden)); };
+    if (mt) { paintMenu(); mt.onclick = () => { document.body.classList.toggle('menu-hidden'); try { localStorage.setItem('ap.menu', document.body.classList.contains('menu-hidden') ? 'hidden' : 'shown'); } catch (e) {} paintMenu(); }; }
     const rb = $('demo-reset');
     if (rb) rb.onclick = async () => { if (confirm('Reset the demo to its baseline? Everything is deleted, then one registration is reviewed, approved and the customer mandate signed, so the passport is ACTIVE with no payments and no violations.')) { rb.disabled = true; rb.textContent = 'seeding…'; await api('POST', '/api/demo/seed?stage=issued'); location.href = '/bank'; } };
   });
