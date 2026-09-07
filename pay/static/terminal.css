@@ -36,23 +36,46 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
 .inv, .agent, .agent__facts > div, .agent__line, .bank, .pay__cop, .pay__done, .stamp, .close, .pp, .chk, .verdict, .conseq li, .flag, .bank__ask { opacity: 0; transform: translateY(6px); transition: opacity .5s cubic-bezier(.16, 1, .3, 1), transform .5s cubic-bezier(.16, 1, .3, 1); }
 .is-on { opacity: 1 !important; transform: none !important; }
 
-/* the invoice: a sheet of paper */
-.inv { position: relative; background: #fff; border: 1px solid var(--line); box-shadow: 0 8px 24px -8px rgba(11,12,12,.22); padding: 22px 24px 20px; font-size: 15px; line-height: 1.4; overflow: hidden; }
-.inv__from { color: var(--ink-2); font-size: 14px; padding-bottom: 10px; margin-bottom: 14px; border-bottom: 1px solid var(--line-soft); }
-.inv__from b { color: var(--ink); }
-.inv__head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; }
-.inv__co { font-size: 20px; font-weight: 700; }
-.inv__no { color: var(--ink-2); font-variant-numeric: tabular-nums; }
-.inv__meta { color: var(--ink-2); font-size: 14px; margin: 2px 0 12px; }
-.inv__lines { width: 100%; border-collapse: collapse; margin-bottom: 14px; }
-.inv__lines td { padding: 5px 0; border-bottom: 1px solid var(--line-soft); }
-.inv__lines td:last-child { text-align: right; font-variant-numeric: tabular-nums; }
-.inv__total td { font-weight: 700; border-bottom: 2px solid var(--ink); }
-.inv__notice { margin: 0; padding: 10px 12px; background: var(--amber-soft); color: var(--amber-ink); font-size: 14.5px; }
-.inv__notice b { color: var(--ink); font-variant-numeric: tabular-nums; }
-.inv__hidden { margin: 10px 0 0; padding: 8px 10px; font-size: 13.5px; color: #fff; background: #fff; opacity: 1; transform: none; transition: background .6s, color .6s; }
-.inv__hidden.is-on { color: var(--ink); background: var(--panel); }
-.flag { display: block; margin-top: 4px; font-size: 13px; font-weight: 700; color: var(--red); }
+/* the invoice: an email with the PDF attached, laid out like a real invoice */
+.inv { position: relative; overflow: hidden; }
+.mail { background: var(--panel); border: 1px solid var(--line); border-bottom: 0; padding: 12px 16px 12px; font-size: 13.5px; }
+.mail__row { display: grid; grid-template-columns: 4.5em minmax(0, 1fr); gap: 8px; padding: 2px 0; }
+.mail__row span { color: var(--ink-2); }
+.mail__row b { font-weight: 400; color: var(--ink); overflow-wrap: anywhere; }
+.mail__row:first-child b { font-weight: 700; }
+.mail__att { display: inline-block; margin-top: 8px; padding: 3px 8px; border: 1px solid var(--line); background: #fff; font-size: 12.5px; color: var(--ink-2); }
+.sheet { background: #fff; border: 1px solid var(--line); box-shadow: 0 10px 28px -10px rgba(11,12,12,.28); padding: 26px 28px 18px; font-size: 13px; line-height: 1.4; color: var(--ink); }
+.sheet table { border-collapse: collapse; }
+.sheet td, .sheet th { padding: 3px 0; vertical-align: top; }
+.sheet__head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 20px; }
+.sheet__brand { display: flex; gap: 12px; align-items: flex-start; }
+.sheet__mark { width: 34px; height: 34px; flex: 0 0 auto; background: #2e4a2e; clip-path: polygon(50% 0, 100% 38%, 82% 38%, 82% 100%, 18% 100%, 18% 38%, 0 38%); margin-top: 2px; }
+.sheet__co { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
+.sheet__addr { font-size: 12px; color: var(--ink-2); margin-top: 2px; }
+.sheet__inv { text-align: right; }
+.sheet__title { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1; margin-bottom: 8px; color: #2e4a2e; }
+.sheet__inv table { margin-left: auto; font-size: 12.5px; }
+.sheet__inv td:first-child { color: var(--ink-2); padding-right: 14px; text-align: left; }
+.sheet__inv td:last-child { font-variant-numeric: tabular-nums; text-align: right; }
+.sheet__to { margin-bottom: 18px; font-size: 13px; }
+.sheet__to span { display: block; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 2px; }
+.sheet__lines { width: 100%; margin-bottom: 18px; }
+.sheet__lines th { text-align: left; font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); border-bottom: 1px solid var(--ink); padding-bottom: 6px; }
+.sheet__lines th:not(:first-child), .sheet__lines td:not(:first-child) { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; padding-left: 12px; }
+.sheet__lines tbody td { border-bottom: 1px solid var(--line-soft); padding: 6px 0; }
+.sheet__lines tfoot td { padding: 4px 0; color: var(--ink-2); }
+.sheet__lines tfoot td:last-child { color: var(--ink); }
+.sheet__total td { font-weight: 700; color: var(--ink) !important; font-size: 14px; border-top: 2px solid var(--ink); padding-top: 6px !important; }
+.sheet__pay { border-top: 1px solid var(--line); padding-top: 12px; }
+.sheet__payh { font-size: 11px; letter-spacing: .06em; text-transform: uppercase; color: var(--ink-2); margin-bottom: 8px; }
+.sheet__notice { margin: 0 0 10px; padding: 9px 11px; background: var(--amber-soft); color: var(--amber-ink); font-size: 12.5px; }
+.sheet__notice b { color: var(--ink); }
+.sheet__pay table td:first-child { color: var(--ink-2); padding-right: 16px; }
+.sheet__pay table td:last-child { font-variant-numeric: tabular-nums; }
+.sheet__hidden { margin: 12px 0 0; padding: 6px 8px; font-size: 11.5px; color: #fff; background: #fff; opacity: 1; transform: none; transition: background .6s, color .6s; }
+.sheet__hidden.is-on { color: var(--ink); background: var(--panel); }
+.sheet__foot { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--line-soft); font-size: 10.5px; color: var(--ink-2); }
+.flag { display: block; margin-top: 5px; font-size: 13px; font-weight: 700; color: var(--red); }
 .flag--hidden { color: var(--ink); }
 .inv__scan { position: absolute; left: 0; right: 0; top: -8px; height: 8px; background: linear-gradient(90deg, transparent, var(--blue) 30%, var(--blue) 70%, transparent); filter: blur(1px); box-shadow: 0 4px 22px 2px rgba(29,112,184,.35); opacity: 0; pointer-events: none; }
 .inv__scan.is-scan { animation: scan 1.5s cubic-bezier(.4, 0, .6, 1) 1 both; }
@@ -135,6 +158,6 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
   .stamp, .verdict__word { font-size: 34px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .inv, .agent, .agent__facts > div, .agent__line, .bank, .pay__cop, .pay__done, .stamp, .close, .pp, .chk, .verdict, .conseq li, .flag, .bank__ask, .inv__hidden, .chk li { transition: none; }
+  .inv, .agent, .agent__facts > div, .agent__line, .bank, .pay__cop, .pay__done, .stamp, .close, .pp, .chk, .verdict, .conseq li, .flag, .bank__ask, .sheet__hidden, .chk li { transition: none; }
   .inv__scan.is-scan, .pay__btn.is-go { animation: none; }
 }

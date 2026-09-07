@@ -1250,3 +1250,10 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .standard-two { display: flex; gap: 14px; justify-content: center; }
 .home .h2 { font-size: 32px; line-height: 1.15; }
 .home .vouch__h .vouch__logo img { width: 44px; height: 38px; }
+
+.standard-split { display: grid; grid-template-columns: 460px minmax(0, 1fr); gap: 40px; align-items: center; margin: 8px 0 0; }
+.standard-split .standard-one { margin: 0; }
+.standard-split .standard-page { width: 220px; }
+.standard-split .home__lede { margin: 0; }
+.home .h2 { margin-top: 80px; }
+@media (max-width: 800px) { .standard-split { grid-template-columns: minmax(0, 1fr); } .standard-split .standard-page { width: calc(50% - 7px); } }
