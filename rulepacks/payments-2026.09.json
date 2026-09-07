@@ -33,7 +33,7 @@
     {"id": "M.6", "title": "Model not already on the register", "status": "PROTOTYPE", "source": "Approved-models registry", "check": "not_already_registered", "fail": "flag"}
   ],
   "runtime_rules": [
-    {"id": "R.1", "title": "Assurance signature genuine (authority key)", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "envelope.assurance", "on_fail": "DENY", "code": "ASSURANCE_SIGNATURE_INVALID"},
+    {"id": "R.1", "title": "Assurance signature genuine (authority key)", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "envelope.assurance", "on_fail": "DENY", "code": "ASSURANCE_SIGNATURE_INVALID", "codes": ["PASSPORT_NOT_ISSUED", "ASSURANCE_SIGNATURE_INVALID"]},
     {"id": "R.2", "title": "Assurance active and unexpired (registry lookup)", "status": "PROTOTYPE", "source": "Authority status registry (real-time lookup)", "data": "registry", "on_fail": "DENY", "code": "ASSURANCE_NOT_ACTIVE"},
     {"id": "R.3", "title": "Agent identity signature genuine (provider key)", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "envelope.agent_identity", "on_fail": "DENY", "code": "AGENT_IDENTITY_SIGNATURE_INVALID"},
     {"id": "R.4", "title": "Instruction signed by the agent key inside agent_identity", "status": "PROTOTYPE", "source": "RFC 7800 cnf / DPoP-style proof-of-possession", "data": "envelope.agent_identity + instruction", "on_fail": "DENY", "code": "AGENT_SIGNATURE_INVALID"},

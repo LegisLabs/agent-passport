@@ -39,8 +39,10 @@ def issue_one(client, sign_mandate=True):
     assert r["model"]["model_status"] == "active" and "passport" not in r
     p = client.post("/api/agents", json={"application_id": a["id"]}).json()
     assert p["passport_id"].startswith("AP-2026-") and p["agent"]["pop_verified"] is True and "private_pem" not in p["agent"]
+    assert p["status"] == "pending" and p["envelope"]["assurance"] is None and p["vouch_voucher_id"] is None   # no passport, no voucher before the mandate
     if sign_mandate:
         p = client.post(f"/api/passports/{p['passport_id']}/mandate/sign").json()
+        assert p["status"] == "active" and p["envelope"]["assurance"] and p["vouch_voucher_id"]                # signing issues the passport and mints the voucher
     return p, a
 
 
@@ -135,9 +137,9 @@ def test_three_denies_escalate_to_supervisor(client):
 def test_customer_signature_completes_envelope(client):
     p, _ = issue_one(client, sign_mandate=False)
     pid = p["passport_id"]
-    assert p["mandate_signed"] is False and client.get(f"/api/passports/{pid}").json()["verification"]["failure"] == "mandate_missing"
+    assert p["mandate_signed"] is False and client.get(f"/api/passports/{pid}").json()["verification"]["failure"] == "assurance"
     fen = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 3200}
-    assert act(client, pid, fen)["rule"] == "R.5"
+    r = act(client, pid, fen); assert r["rule"] == "R.1" and r["code"] == "PASSPORT_NOT_ISSUED"
     client.post(f"/api/passports/{pid}/mandate/sign")
     assert client.get(f"/api/passports/{pid}").json()["verification"]["ok"] is True
     assert act(client, pid, fen)["decision"] == "ALLOW"

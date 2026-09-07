@@ -36,8 +36,8 @@ Voucher → passport:
 
 ## Lifecycle, one supervisory action, two rails
 
-1. Officer approves → authority signs `assurance` → `mint_mandate()` creates the voucher with the mapping above.
-2. Customer signs `mandate` → envelope complete → the bank starts allowing instructions.
+1. Officer approves the model; the customer registers its agent (passport pending).
+2. Customer signs `mandate` → authority signs `assurance`, registry ACTIVE → `mint_mandate()` creates the voucher with the customer's limits and the mapping above → the bank starts allowing instructions.
 3. Officer revokes → registry status `revoked` → `revoke_mandate()` deletes the voucher. The next instruction fails R.2 at the bank and is refused at quote on the vouch rail.
 
 ## What this profile does not do

@@ -150,7 +150,7 @@ def envelope_of(p: dict) -> dict:
     """The composite passport as presented to a relying party."""
     return {
         "passport_id": p["passport_id"],
-        "assurance": p["assurance_jwt"],
+        "assurance": p["assurance_jwt"] or None,
         "agent_identity": p["agent_identity_jwt"],
         "mandate": p.get("mandate_jwt"),
         "status_url": f"/api/status/{p['passport_id']}",
@@ -319,10 +319,9 @@ def create_agent_on_model(a: dict, deployment: dict) -> dict:
                                    "monthly_limit_per_account": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]}}],
         "ceilings": policy_ceilings(),
     }
-    token = crypto.sign_jwt("authority", assurance, typ="assurance+jwt")
-    p = db.create_passport(pid, a["id"], token, assurance, ident_jwt, ident_payload, mandate_proposed, valid_until, config.OFFICER, agent=ag)
-    audit.record("issue", pid, {"event": "customer registered its agent on an approved model: key generated, possession proven, agent_identity signed by the customer; assurance issued automatically from the model approval",
-                                "model": a["ref"], "agent_id": agent_id, "agent_kid": ag["kid"], "pop_verified": pop, "config_sha256": ag["config_sha256"], "authority_kid": crypto.signer("authority")["kid"]})
+    p = db.create_passport(pid, a["id"], "", assurance, ident_jwt, ident_payload, mandate_proposed, valid_until, config.OFFICER, agent=ag, status="pending")
+    audit.record("agent", pid, {"event": "customer registered its agent on an approved model: key generated, possession proven, agent_identity signed by the customer; passport pending the customer's mandate",
+                                "model": a["ref"], "agent_id": agent_id, "agent_kid": ag["kid"], "pop_verified": pop, "config_sha256": ag["config_sha256"]})
     return p
 
 
@@ -338,7 +337,6 @@ def create_agent(body: AgentIn):
     a = db.get_application(body.application_id) or _404()
     d = {**agent_draft(), **{k: v for k, v in body.model_dump().items() if v is not None and k != "application_id"}}
     p = create_agent_on_model(a, d)
-    p = mirror_on_vouch(p)
     return public_passport(p)
 
 
@@ -508,6 +506,8 @@ def sign_mandate(passport_id: str, body: MandateIn | None = None):
         _400("mandate already signed")
     if p["status"] == "revoked":
         _400("passport revoked; nothing to sign")
+    if (db.get_application(p["application_id"]) or {}).get("model_status") not in (None, "active"):
+        _400("the model is suspended or revoked; no passport can be issued on it")
     m = _merge_mandate(body)
     problems = rules.check_mandate_containment(m, p["assurance"]["valid_until"])
     if problems:
@@ -528,9 +528,19 @@ def sign_mandate(passport_id: str, body: MandateIn | None = None):
     p = db.set_mandate(passport_id, token, payload)
     with db.tx() as con:
         con.execute("UPDATE passports SET mandate_proposed_json=? WHERE passport_id=?", (__import__("json").dumps({**mp, **{k: payload[k] for k in ("customer", "authorising_officer", "valid_until", "authorization_details")}}), passport_id))
-    p = db.get_passport(passport_id)
-    audit.record("mandate", passport_id, {"event": "customer wrote and signed its mandate; ceiling containment passed; envelope complete; live at once", "signer": payload["signed_by"], "customer_kid": crypto.signer("northgate")["kid"],
+    audit.record("mandate", passport_id, {"event": "customer wrote and signed its mandate; ceiling containment passed", "signer": payload["signed_by"], "customer_kid": crypto.signer("northgate")["kid"],
                                           "suppliers": len(m["supplier_allowlist"]), "per_payment_limit": float(m["per_payment_limit"]), "monthly_limit_per_account": float(m["monthly_limit_per_account"]), "valid_until": m["valid_until"]})
+    # the customer's signature gives the agent life: the authority's system now issues the passport from the model approval
+    p = db.get_passport(passport_id)
+    if not p.get("assurance_jwt"):
+        assurance = {**p["assurance"], "iat": crypto.now_ts(), "nbf": crypto.now_ts()}
+        atoken = crypto.sign_jwt("authority", assurance, typ="assurance+jwt")
+        with db.tx() as con:
+            con.execute("UPDATE passports SET assurance_jwt=?, assurance_json=?, issued_at=? WHERE passport_id=?", (atoken, __import__("json").dumps(assurance), db.now_iso(), passport_id))
+        p = db.set_passport_status(passport_id, "active", "authority system", "Issued: the customer signed the mandate; assurance signed from the model approval")
+        audit.record("issue", passport_id, {"event": "passport issued: assurance signed automatically from the model approval; registry ACTIVE; envelope complete; live at once",
+                                            "authority_kid": crypto.signer("authority")["kid"], "agent_kid": p["agent"]["kid"], "model": p["assurance"]["model_ref"]["registration"]})
+        p = mirror_on_vouch(p)
     return public_passport(p)
 
 
@@ -546,7 +556,7 @@ def get_passport(passport_id: str):
     p = db.get_passport(passport_id) or _404()
     env = envelope_of(p)
     ver = crypto.verify_envelope(env)
-    parts = {"assurance": crypto.verify_jwt("authority", env["assurance"]) is not None,
+    parts = {"assurance": (crypto.verify_jwt("authority", env["assurance"]) is not None) if env.get("assurance") else None,
              "agent_identity": crypto.verify_jwt("northgate", env["agent_identity"]) is not None,
              "mandate": (crypto.verify_jwt("northgate", env["mandate"]) is not None) if env.get("mandate") else None}
     headers = {k: crypto.decode_unverified(env[k])[0] for k in ("assurance", "agent_identity", "mandate") if env.get(k)}

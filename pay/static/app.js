@@ -14,7 +14,7 @@ const AP = (() => {
     if (!r.ok) throw new Error(typeof j.detail === 'string' ? j.detail : (j.detail && j.detail.problems ? j.detail.message + ': ' + j.detail.problems.map(x => x.problem).join('; ') : (JSON.stringify(j.detail) || r.statusText)));
     return j;
   }
-  const statusTag = (s) => ({ active: 'green', approved: 'green', submitted: 'blue', info_requested: 'amber', suspended: 'amber', draft: 'grey', rejected: 'red', revoked: 'red', expired: 'red', signed: 'green', unsigned: 'amber' }[s] || 'grey');
+  const statusTag = (s) => ({ pending: 'amber', active: 'green', approved: 'green', submitted: 'blue', info_requested: 'amber', suspended: 'amber', draft: 'grey', rejected: 'red', revoked: 'red', expired: 'red', signed: 'green', unsigned: 'amber' }[s] || 'grey');
   const tag = (s, label) => `<span class="tag tag--${statusTag(s)}">${esc(label || String(s).replace('_', ' '))}</span>`;
   const v = (f, ...path) => { let c = f; for (const p of path) { if (!c || typeof c !== 'object' || !(p in c)) return undefined; c = c[p]; } return (c && typeof c === 'object' && 'value' in c) ? c.value : c; };
   const NUMERIC = new Set(['human_confirm_above_gbp', 'cover_gbp']);
@@ -101,12 +101,12 @@ const AP = (() => {
   function envelopePanels(full) {
     const pl = full, ver = full.verification.parts, a = pl.assurance, i = pl.agent_identity, m = pl.mandate, mp = pl.mandate_proposed;
     const ad = (m || mp).authorization_details[0];
-    const sig = (ok, who, kid) => ok == null ? `<span class="tag tag--amber">Unsigned</span>` : ok ? `<span class="tag tag--green">Verified · Ed25519</span>` : `<span class="tag tag--red">Signature fails</span>`;
+    const sig = (ok, who, kid) => ok == null ? (full.status === 'pending' && who === 'authority' ? `<span class="tag tag--amber">Not issued yet</span>` : `<span class="tag tag--amber">Unsigned</span>`) : ok ? `<span class="tag tag--green">Verified · Ed25519</span>` : `<span class="tag tag--red">Signature fails</span>`;
     const kv = (rows) => `<dl class="envelope__kv">${rows.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('')}</dl>`;
     return `
       <section>
-        <span class="envelope__who">Signed by the authority · issued from the model approval</span>
-        <h3 class="envelope__title">Assurance ${sig(ver.assurance)}</h3>
+        <span class="envelope__who">Signed by the authority · issued from the model approval when the customer signs</span>
+        <h3 class="envelope__title">Assurance ${sig(ver.assurance, 'authority')}</h3>
         ${kv([['Approved model', `${esc(a.model_ref.model_name)} <span class="mono">${esc(a.model_ref.model_id)}</span> · ${esc(a.model_ref.company)} · <span class="mono small">${esc(a.model_ref.registration)}</span>`], ['Status', `${esc(a.assurance.kya_status)} · ${a.assurance.checks_passed} checks passed${a.assurance.checks_flagged.length ? ', flagged ' + esc(a.assurance.checks_flagged.join(', ')) : ''}`], ['Condition', `hold above ${gbp(a.condition.human_confirm_above.amount)}`], ['Ceilings', `≤ ${gbp(a.policy_ceilings.per_payment_ceiling.amount)} per payment · ≤ ${gbp(a.policy_ceilings.monthly_per_account_ceiling.amount)} per account in 30 days`], ['Attested by', `${esc(a.attestation.name)}, ${esc(a.attestation.role)} · documentation accuracy only`], ['Valid until', esc(a.valid_until)], ['Bound to', `agent identity <span class="mono small">${esc(a.binds.agent_identity_sha256.slice(0, 12))}…</span>`]])}
       </section>
       <section>
@@ -120,7 +120,7 @@ const AP = (() => {
         <span class="small">OAuth 2.0 RFC 9396 Rich Authorization Request · written by the customer within the policy ceilings · not reviewed by the authority</span>
         ${kv(m ? [['Customer', esc((mp.customer || {}).legal_name || '')], ['Signed by', `${esc((mp.authorising_officer || {}).name || '')}, ${esc((mp.authorising_officer || {}).role || '')}`], ['Payees', `${ad.supplier_allowlist.length} accounts (content stays with the customer and the bank)`], ['Expires', esc(mp.valid_until)], ['Ceiling containment', '<span class="tag tag--green">within policy ceilings</span>']]
                 : [['Ceilings', `per payment ≤ ${gbp(a.policy_ceilings.per_payment_ceiling.amount)} · per account in 30 days ≤ ${gbp(a.policy_ceilings.monthly_per_account_ceiling.amount)} · expiry ≤ ${esc(a.policy_ceilings.max_validity)}`], ['Actions', esc(a.policy_ceilings.action_types.join(', '))]])}
-        ${m ? '' : `<p class="envelope__pending">Awaiting the customer's own mandate in <a href="/customer">Customer Panel</a>. Until then the bank refuses every instruction at R.5.</p>`}
+        ${m ? '' : `<p class="envelope__pending">Awaiting the customer's mandate in the <a href="/customer">Customer Panel</a>. The passport is issued when the customer signs; until then the bank refuses every instruction at R.1.</p>`}
       </section>`;
   }
 
@@ -318,7 +318,7 @@ const AP = (() => {
       $('cu-mandate').hidden = !p;
       if (!p) return;
       const mp = p.mandate_proposed, ad = mp.authorization_details[0], signed = p.mandate_signed, ag = p.agent || {};
-      $('cu-agent-kv').innerHTML = [['Agent', `<strong>${esc(p.agent_identity.agent.name)}</strong> · <span class="mono">${esc(mp.agent_id)}</span> · on ${esc(p.agent_identity.agent.model_name)} (${esc(p.agent_identity.agent.model_provider)} <span class="mono">${esc(p.agent_identity.agent.model_version)}</span>)`], ['Agent key', `<span class="mono">kid ${esc(mp.agent_kid)}</span> · ${ag.pop_verified ? '<span class="tag tag--green">possession proven</span>' : '<span class="tag tag--amber">possession pending</span>'} · config <span class="mono small">${esc((ag.config_sha256 || '').slice(0, 12))}…</span>`], ['Passport', `<span class="mono">${esc(p.passport_id)}</span> ${tag(p.status)} · assurance issued automatically from the model approval`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
+      $('cu-agent-kv').innerHTML = [['Agent', `<strong>${esc(p.agent_identity.agent.name)}</strong> · <span class="mono">${esc(mp.agent_id)}</span> · on ${esc(p.agent_identity.agent.model_name)} (${esc(p.agent_identity.agent.model_provider)} <span class="mono">${esc(p.agent_identity.agent.model_version)}</span>)`], ['Agent key', `<span class="mono">kid ${esc(mp.agent_kid)}</span> · ${ag.pop_verified ? '<span class="tag tag--green">possession proven</span>' : '<span class="tag tag--amber">possession pending</span>'} · config <span class="mono small">${esc((ag.config_sha256 || '').slice(0, 12))}…</span>`], ['Passport', `<span class="mono">${esc(p.passport_id)}</span> ${tag(p.status)} · ${p.status === 'pending' ? 'issued when you sign the mandate' : 'issued from the model approval when the mandate was signed'}`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       $('cu-id').textContent = p.passport_id;
       $('cu-state').innerHTML = signed ? tag('signed', 'signed') : tag('unsigned', 'awaiting signature');
       $('cu-card').classList.toggle('mandate--signed', signed);
@@ -347,7 +347,7 @@ const AP = (() => {
       $('cu-signer').textContent = `${(draft.authorising_officer || {}).name}, ${(draft.authorising_officer || {}).role}, signs with the ${(draft.customer || {}).legal_name} key.`;
       $('cu-actions').hidden = signed || p.status === 'revoked';
       $('cu-sig').hidden = !signed;
-      if (signed) $('cu-sig').innerHTML = `<strong>Signed ${d(p.mandate_signed_at)} at ${t(p.mandate_signed_at)} by ${esc((p.mandate.signed_by || {}).name)}, ${esc((p.mandate.signed_by || {}).role)}</strong> Ed25519 signature by the ${esc((mp.customer || {}).legal_name)} key. Live at once; no authority review. The envelope is complete.`;
+      if (signed) $('cu-sig').innerHTML = `<strong>Signed ${d(p.mandate_signed_at)} at ${t(p.mandate_signed_at)} by ${esc((p.mandate.signed_by || {}).name)}, ${esc((p.mandate.signed_by || {}).role)}</strong> Ed25519 signature by the ${esc((mp.customer || {}).legal_name)} key. The passport is issued and ACTIVE, the voucher minted on the vouch rail. Live at once; no authority review.`;
       $('cu-after').hidden = !signed;
       $('cu-jwt-wrap').hidden = !signed;
       if (signed) api('GET', `/api/passports/${p.passport_id}`).then(full => { $('cu-jwt-payload').textContent = JSON.stringify(full.mandate, null, 2); $('cu-jwt').textContent = full.envelope.mandate; });

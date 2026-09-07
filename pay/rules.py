@@ -139,7 +139,10 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
         trace.append({"rule": rid, "title": _rule(rid)["title"], "ok": ok, "note": note})
         return ok
 
-    # R.1 assurance signature (authority)
+    # R.1 assurance signature (authority); no assurance at all means the passport was never issued
+    if not envelope.get("assurance"):
+        step("R.1", False, "no assurance: the passport has not been issued (the customer has not signed its mandate)")
+        return _result("R.1", "DENY", "PASSPORT_NOT_ISSUED", "passport not issued: the customer has not yet signed the mandate that gives the agent life", trace)
     assurance = crypto.verify_jwt("authority", envelope.get("assurance"))
     if not step("R.1", assurance is not None, "authority signature verifies" if assurance else "assurance does not verify against the authority key"):
         return _result("R.1", "DENY", _rule("R.1")["code"], "assurance signature invalid", trace)

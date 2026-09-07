@@ -218,14 +218,14 @@ def update_application(app_id: int, **cols) -> dict:
 # ── passports ──────────────────────────────────────────────────────────────
 def create_passport(passport_id: str, application_id: int, assurance_jwt: str, assurance: dict,
                     agent_identity_jwt: str, agent_identity: dict, mandate_proposed: dict,
-                    expires_at: str, officer: str, agent: dict | None = None) -> dict:
-    hist = [{"ts": now_iso(), "from": None, "to": "active", "officer": officer, "reason": "Issued automatically from the model approval"}]
+                    expires_at: str, officer: str, agent: dict | None = None, status: str = "active") -> dict:
+    hist = [{"ts": now_iso(), "from": None, "to": status, "officer": officer, "reason": "Agent registered; passport pending the customer's mandate" if status == "pending" else "Issued"}]
     with tx() as con:
         con.execute(
             "INSERT INTO passports(passport_id,application_id,assurance_jwt,assurance_json,agent_identity_jwt,agent_identity_json,"
             "mandate_proposed_json,status,issued_at,expires_at,history_json,agent_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
             (passport_id, application_id, assurance_jwt, json.dumps(assurance), agent_identity_jwt, json.dumps(agent_identity),
-             json.dumps(mandate_proposed), "active", now_iso(), expires_at, json.dumps(hist), json.dumps(agent) if agent else None),
+             json.dumps(mandate_proposed), status, now_iso(), expires_at, json.dumps(hist), json.dumps(agent) if agent else None),
         )
         return get_passport(passport_id, con)
 
