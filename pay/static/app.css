@@ -1257,3 +1257,7 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .standard-split .home__lede { margin: 0; }
 .home .h2 { margin-top: 80px; }
 @media (max-width: 800px) { .standard-split { grid-template-columns: minmax(0, 1fr); } .standard-split .standard-page { width: calc(50% - 7px); } }
+
+.standard-split { grid-template-columns: 400px minmax(0, 1fr); align-items: start; }
+.standard-split .standard-page { width: 400px; }
+@media (max-width: 800px) { .standard-split .standard-page { width: 100%; } }
