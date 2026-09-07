@@ -1248,3 +1248,5 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .standard-one .standard-page img { display: block; width: 100%; height: auto; }
 
 .standard-two { display: flex; gap: 14px; justify-content: center; }
+.home .h2 { font-size: 32px; line-height: 1.15; }
+.home .vouch__h .vouch__logo img { width: 44px; height: 38px; }
