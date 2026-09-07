@@ -13,14 +13,34 @@ const AT = (() => {
     decision: 'DENY', rule: 'R.6', reason: '60-11-22 99887766 is not on the mandate.', audit_id: 17, audit_hash: '9c1e4b7d2a60', passport_id: 'AP-2026-0107',
   };
 
+  const DOC_W = 640;
+  function fit(t) {
+    // in the path the sheet is scaled to its column; the wrapper takes the scaled height so the column flows
+    const inv = $(t + '-inv'), wrap = $(t + '-wrap'); if (!inv || !wrap) return 1;
+    const col = wrap.getBoundingClientRect().width, s = window.innerWidth <= 720 ? 1 : Math.min(1, col / DOC_W);
+    inv.style.transform = s < 1 ? `scale(${s})` : ''; wrap.style.height = s < 1 ? `${inv.offsetHeight * s}px` : '';
+    return s;
+  }
+  async function toPath(t, my) {
+    const page = $('sc-page'); if (page.dataset.stage === 'path') { fit(t); return; }
+    const inv = $(t + '-inv'); const r1 = inv.getBoundingClientRect();
+    page.dataset.stage = 'path'; const s = fit(t); const r2 = inv.getBoundingClientRect();
+    if (RM || s >= 1) return;
+    // FLIP: start where the big document was, settle into the column
+    inv.classList.remove('is-zoom'); inv.style.transform = `translate(${r1.left - r2.left}px, ${r1.top - r2.top}px) scale(${r1.width / DOC_W})`;
+    void inv.offsetWidth; inv.classList.add('is-zoom'); inv.style.transform = `scale(${s})`;
+    await wait(850); if (my !== token) return; inv.classList.remove('is-zoom');
+  }
   function reset(t) {
     const root = $('sc-' + t);
+    $('sc-page').dataset.stage = 'doc'; const inv = $(t + '-inv'); inv.style.transform = ''; inv.classList.remove('is-zoom'); $(t + '-wrap').style.height = '';
     root.querySelectorAll('.is-on, .is-scan, .is-type, .is-go').forEach(x => x.classList.remove('is-on', 'is-scan', 'is-type', 'is-go'));
     root.querySelectorAll('input').forEach(i => { i.value = ''; });
     root.querySelectorAll('.chk li').forEach(li => { li.dataset.state = ''; li.querySelector('em').textContent = ''; });
     const pay = $('bf-pay'); if (pay) { pay.disabled = true; pay.textContent = 'Confirm payment'; }
     const st = $(t + '-agent-state'); if (st) st.textContent = 'waiting';
     $('sc-page').dataset.state = 'idle';
+    on(inv);
   }
   async function type(input, text, my) {
     input.classList.add('is-type');
@@ -30,7 +50,8 @@ const AT = (() => {
 
   // shared opening: the invoice, its tells, the scan, what the agent read
   async function opening(t, my) {
-    on($(t + '-inv')); await wait(700); if (my !== token) return;
+    on($(t + '-inv')); await wait(300); if (my !== token) return;
+    await toPath(t, my); if (my !== token) return; await wait(200);
     for (const f of ['domain', 'details']) { on($(t + '-inv').querySelector(`[data-flag="${f}"]`)); await wait(600); if (my !== token) return; }
     if (t === 'after') { on($('after-intent')); await wait(1100); if (my !== token) return; }
     $(t + '-agent-state').textContent = 'reading'; on($(t + '-agent'));
@@ -111,6 +132,7 @@ const AT = (() => {
   function init() {
     $('tab-before').onclick = () => show('before'); $('tab-after').onclick = () => show('after');
     $('sc-play').onclick = play; $('sc-skip').onclick = skip;
+    window.addEventListener('resize', () => { if ($('sc-page').dataset.stage === 'path') fit(tab); });
     document.addEventListener('keydown', (e) => { if (e.key === 'ArrowRight') show('after'); if (e.key === 'ArrowLeft') show('before'); if (e.key === ' ' && e.target === document.body) { e.preventDefault(); play(); } });
     show('before'); loadLive();
   }

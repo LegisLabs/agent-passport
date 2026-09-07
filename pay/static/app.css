@@ -1276,3 +1276,5 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .plain-steps--std { font-size: 19px; margin-top: 20px; }
 .plain-steps--std li { margin-bottom: 10px; }
 @media (max-width: 800px) { .standard-split { grid-template-columns: minmax(0, 1fr); } .standard-split .standard-page { width: 100%; max-width: 400px; } }
+.powered-badge { font-size: 15px; gap: 9px; }
+.powered-badge img { width: 24px; height: 21px; }
