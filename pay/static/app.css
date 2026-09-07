@@ -1223,3 +1223,8 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .home .steps-nav--tight li { padding-bottom: 22px; }
 
 .claim { text-decoration: underline; text-decoration-thickness: 2px; text-underline-offset: 4px; }
+
+.standard-row { display: flex; align-items: center; gap: 40px; margin: 8px 0 0; }
+.standard-row .standard-page { flex: 0 0 340px; max-width: 340px; }
+.standard-row .standard-links { margin: 0; }
+@media (max-width: 720px) { .standard-row { flex-direction: column; align-items: flex-start; } .standard-row .standard-page { flex-basis: auto; } }
