@@ -1109,3 +1109,5 @@ body[data-view="bank"] .powered-badge { background: #fff; color: var(--ink); fon
 .proposal .h2 { margin-top: 0; }
 .proposal .home__lede { max-width: 36em; }
 @media (max-width: 720px) { .vouch__cols { grid-template-columns: minmax(0, 1fr); gap: 20px; } .vouch__head .h2 { font-size: 26px; } }
+
+.chart__facts { font-size: 16px; line-height: 1.5; color: var(--ink-2); margin: 10px 0 0; max-width: 60em; }
