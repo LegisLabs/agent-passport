@@ -84,14 +84,18 @@ def _sandbox_envelope(a: dict, condition: float, expired: bool) -> dict:
     pid = f"SANDBOX-{a['ref']}"
     ident = a.get("agent_identity_jwt")
     valid_until = (date.today() - timedelta(days=1)).isoformat() if expired else pol["max_validity"]
-    assurance = crypto.sign_jwt("authority", {"iss": config.ISSUER, "typ": "assurance", "sandbox": True, "jti": pid, "iat": crypto.now_ts(), "valid_until": valid_until,
-                                              "provider": {"legal_name": _v(f, "provider", "legal_name"), "licence_ref": _v(f, "provider", "licence_ref")}, "agent_id": ag["agent_id"],
-                                              "condition": {"human_confirm_above": {"amount": condition, "currency": "GBP"}}, "binds": {"agent_identity_sha256": crypto.sha256_hex(ident)}}, typ="assurance+jwt")
-    mandate = crypto.sign_jwt("northgate", {"iss": "sandbox-customer", "typ": "mandate", "sandbox": True, "passport_id": pid, "valid_until": valid_until, "iat": crypto.now_ts(),
-                                            "authorization_details": [{"type": "payment_initiation", "actions": list(pol["action_types"]), "currency": pol["currency"],
-                                                                       "supplier_allowlist": [SANDBOX_PAYEE],
-                                                                       "per_payment_limit": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
-                                                                       "monthly_limit_per_account": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]}}]}, typ="mandate+jwt")
+    assurance = crypto.sign_credential("assurance", ag["agent_id"],
+                                       {"iss": config.ISSUER, "typ": "assurance", "sub": ag["agent_id"], "jti": pid, "iat": crypto.now_ts(), "cnf": {"jwk": ag["jwk"]}},
+                                       {"sandbox": True, "valid_until": valid_until,
+                                        "provider": {"legal_name": _v(f, "provider", "legal_name"), "licence_ref": _v(f, "provider", "licence_ref")}, "agent_id": ag["agent_id"],
+                                        "condition": {"human_confirm_above": {"amount": condition, "currency": "GBP"}}, "binds": {"agent_identity_sha256": crypto.sha256_hex(ident)}})
+    mandate = crypto.sign_credential("mandate", ag["agent_id"],
+                                     {"iss": "sandbox-customer", "typ": "mandate", "sub": ag["agent_id"], "iat": crypto.now_ts(), "cnf": {"jwk": ag["jwk"]}},
+                                     {"sandbox": True, "passport_id": pid, "valid_until": valid_until,
+                                      "authorization_details": [{"type": "payment_initiation", "actions": list(pol["action_types"]), "currency": pol["currency"],
+                                                                 "supplier_allowlist": [SANDBOX_PAYEE],
+                                                                 "per_payment_limit": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
+                                                                 "monthly_limit_per_account": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]}}]})
     return {"passport_id": pid, "assurance": assurance, "agent_identity": ident, "mandate": mandate}
 
 

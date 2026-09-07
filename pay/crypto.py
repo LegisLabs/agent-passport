@@ -9,7 +9,10 @@ agent has a fourth key, generated per application; the demo agent lives inside
 this process, so its private key is kept in the database for the simulation.
 A rogue key is generated on demand for the stolen-passport beat.
 
-JWT = RFC 7519 compact serialisation, alg EdDSA (RFC 8037), via PyJWT.
+JWT = RFC 7519 compact serialisation, alg EdDSA (RFC 8037), via PyJWT. The three
+envelope parts are W3C Verifiable Credentials in the JWT profile (`typ: vc+jwt`,
+a `vc` object carrying @context, type and credentialSubject); receipts and
+delegations are plain JWTs, because neither is a credential.
 """
 from __future__ import annotations
 
@@ -169,31 +172,79 @@ def verify_jwt_jwk(jwk: dict | None, token: str | None) -> dict | None:
 
 
 def decode_unverified(token: str) -> tuple[dict, dict]:
+    """Header and payload exactly as they sit on the wire, credential structure included:
+    this is what the console prints, so a reader can check the VC for themselves."""
     header = jwt.get_unverified_header(token)
     payload = jwt.decode(token, options={"verify_signature": False})
     return header, payload
 
 
+# ── the three parts as W3C Verifiable Credentials (JWT profile) ────────────
+VC_TYP = "vc+jwt"
+VC_CONTEXT = ["https://www.w3.org/ns/credentials/v2"]
+
+# envelope part → (the signer entitled to the claim set, credential type). The Builder Guide calls the
+# provider's part its attestation; the envelope key stays agent_identity because that is what it names.
+CREDENTIALS = {
+    "assurance": ("authority", "AgentAssuranceCredential"),
+    "agent_identity": ("payrail", "AgentAttestationCredential"),
+    "mandate": ("northgate", "PaymentMandateCredential"),
+}
+
+
+def sign_credential(part: str, subject_id: str | None, claims: dict, credential_subject: dict) -> str:
+    """One envelope part as a W3C VC, JWT profile: registered claims (iss, sub, jti, iat, nbf, exp,
+    cnf) stay at the top level; everything the issuer asserts about the agent goes in
+    credentialSubject. No JSON-LD processing is required to read it."""
+    name, vc_type = CREDENTIALS[part]
+    subject = {"id": subject_id, **credential_subject} if subject_id else dict(credential_subject)
+    payload = {**claims, "vc": {"@context": VC_CONTEXT, "type": ["VerifiableCredential", vc_type], "credentialSubject": subject}}
+    return sign_jwt(name, payload, typ=VC_TYP)
+
+
+def flatten_credential(payload: dict) -> dict:
+    """The claims as every reader expects them: JWT claims with credentialSubject merged back in.
+    Where the credential puts a claim is a question for the format, not for the rules."""
+    vc = payload.get("vc")
+    if not isinstance(vc, dict):
+        return payload
+    flat = {k: v for k, v in payload.items() if k != "vc"}
+    flat.update(vc.get("credentialSubject") or {})
+    return flat
+
+
+def verify_credential(part: str, token: str | None) -> dict | None:
+    """Flattened claims if this part verifies against the signer entitled to it and carries the
+    credential type that part must have, else None. The type check is what stops an assurance
+    being presented as a mandate, and is what makes the W3C VC label mean something."""
+    name, vc_type = CREDENTIALS[part]
+    payload = verify_jwt(name, token)
+    if payload is None or vc_type not in ((payload.get("vc") or {}).get("type") or []):
+        return None
+    return flatten_credential(payload)
+
+
 def verify_envelope(env: dict) -> dict:
-    """Checks all three JWTs against the party entitled to each claim set.
+    """Checks all three credentials against the party entitled to each claim set, and that each
+    carries its own credential type.
 
     Returns {ok, failure, assurance, agent_identity, mandate}: `failure` is the
     first part that did not verify ("assurance" | "agent_identity" |
     "mandate_missing" | "mandate"), or None. Payloads are None when unverified.
     """
     out = {"ok": False, "failure": None, "assurance": None, "agent_identity": None, "mandate": None}
-    out["assurance"] = verify_jwt("authority", env.get("assurance"))
+    out["assurance"] = verify_credential("assurance", env.get("assurance"))
     if out["assurance"] is None:
         out["failure"] = "assurance"
         return out
-    out["agent_identity"] = verify_jwt("payrail", env.get("agent_identity"))
+    out["agent_identity"] = verify_credential("agent_identity", env.get("agent_identity"))
     if out["agent_identity"] is None:
         out["failure"] = "agent_identity"
         return out
     if not env.get("mandate"):
         out["failure"] = "mandate_missing"
         return out
-    out["mandate"] = verify_jwt("northgate", env.get("mandate"))
+    out["mandate"] = verify_credential("mandate", env.get("mandate"))
     if out["mandate"] is None:
         out["failure"] = "mandate"
         return out

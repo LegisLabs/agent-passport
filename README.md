@@ -37,6 +37,14 @@ All names, registers, accounts and documents are synthetic. This is a proposed a
 4. **Act & check** (`/bank`). Eight proposed instructions. The simulated agent signs each; the bank runs R.1–R.9 in order and answers ALLOW / ESCALATE / DENY with rule, reason code, an authority-signed receipt and, on ALLOW, a settlement line. Per-account 30-day meters, and both rails (authority registry, vouch voucher) on every line, so after a revocation the console shows two rails refusing. Three refusals raise an incident.
 5. **Audit** (`/audit`). Hash chain over every event. Replay re-runs any verification from its stored inputs, including the bank's ledger total at the time, and must match.
 
+### Iteration 4: the credential format made true in the bytes, and two bank-side gaps closed
+
+R.1–R.9 keep their numbering, semantics and codes; two codes are added (R.4 `INSTRUCTION_REPLAYED`, R.5 `MANDATE_AGENT_KEY_MISMATCH`).
+
+- **W3C VC, JWT profile.** Each envelope part is a Verifiable Credential: header `typ: vc+jwt`, `vc.@context`, a credential type (`AgentAssuranceCredential` · `AgentAttestationCredential` · `PaymentMandateCredential`) and a `credentialSubject`. The bank checks the type as well as the signature, so a genuine assurance cannot be presented in the mandate slot. Verification flattens `credentialSubject` back onto the claims, which is why nothing above the crypto layer changed.
+- **RFC 7800 `cnf` on all three parts**, naming one agent key. The mandate must name the key the provider attested (R.5 `MANDATE_AGENT_KEY_MISMATCH`) and the assurance the same (R.3): a mandate that outlives a key rotation is refused.
+- **Single-use instructions (R.4).** The bank records the nonce of every instruction it acts on; the same signed instruction presented again is refused as `INSTRUCTION_REPLAYED`, with the signature still reported as genuine. The nonce state is an input to the decision, stored in the audit entry, so replay of the original still reproduces ALLOW.
+
 ### Iteration 3: Issuance Flow v4, signature evidence, demo readiness
 
 - **Issuance Flow v4.** Phase 1: the provider registers the agent model once (model documentation, key management, key, config hash, insurance; no customer data). Phase 2: the authority approves once and sets policy ceilings, carried in the assurance. Phase 3: the customer writes and signs its own mandate on the Customer Panel; the only gate is ceiling containment (`POST /api/passports/{id}/mandate/check` previews it, `/mandate/sign` enforces it with a 422). The regulator never sees mandate content.
@@ -54,14 +62,14 @@ All names, registers, accounts and documents are synthetic. This is a proposed a
 
 ### The composite passport
 
-Not one JWT. An envelope of three independently signed Ed25519 JWTs, each signed by the party entitled to the claim:
+Not one JWT. An envelope of three independently signed Ed25519 credentials, each signed by the party entitled to the claim. Each part is a W3C Verifiable Credential in the JWT profile — header `typ: vc+jwt`, and a `vc` object carrying `@context`, `type` and `credentialSubject`, so the standards badge is true in the bytes rather than a label. Registered claims (`iss`, `sub`, `jti`, `iat`, `nbf`, `exp`, `cnf`) sit on the JWT; what the issuer asserts about the agent sits in `credentialSubject`. All three name the same agent key in `cnf` (RFC 7800). The bank checks the credential *type* as well as the signature, so a genuine assurance cannot be presented in the mandate slot:
 
 ```json
 {
   "passport_id": "AP-2026-0107",
-  "assurance":      "<JWT signed by the AUTHORITY>   provider, licence, KY-A status, condition, accountable person, validity, binds → agent_identity hash",
-  "agent_identity": "<JWT signed by PAYRAIL>         agent name, agent public key (cnf), software, config SHA-256",
-  "mandate":        "<JWT signed by NORTHGATE>       supplier allowlist by account, per-payment limit, 30-day limit per account, expiry",
+  "assurance":      "<AgentAssuranceCredential, signed by the AUTHORITY>  provider, licence, KY-A status, condition, accountable person, validity, binds → agent_identity hash",
+  "agent_identity": "<AgentAttestationCredential, signed by PAYRAIL>     agent name, agent public key (cnf), software, config SHA-256",
+  "mandate":        "<PaymentMandateCredential, signed by NORTHGATE>      supplier allowlist by account, per-payment limit, 30-day limit per account, expiry",
   "status_url": "/api/status/AP-2026-0107",
   "vouch_voucher_id": "VCH-… or the live voucher id",
   "cnf": null
@@ -78,9 +86,9 @@ Registration, authority side: A.1 licence resolves and active · A.2 Companies H
 |---|---|
 | R.1 assurance signature (authority key) | DENY `ASSURANCE_SIGNATURE_INVALID` |
 | R.2 assurance active and unexpired (registry lookup) | DENY `ASSURANCE_NOT_ACTIVE` |
-| R.3 agent identity signature (provider key), bound to this assurance | DENY `AGENT_IDENTITY_SIGNATURE_INVALID` |
-| R.4 instruction signed by the agent key in `agent_identity.cnf` | DENY `AGENT_SIGNATURE_INVALID` |
-| R.5 mandate present, signed by the customer, unexpired | DENY `MANDATE_NOT_SIGNED` / `MANDATE_SIGNATURE_INVALID` / `MANDATE_EXPIRED` |
+| R.3 agent identity signature (provider key), bound to this assurance by token hash and agent key | DENY `AGENT_IDENTITY_SIGNATURE_INVALID` |
+| R.4 instruction signed by the agent key in `agent_identity.cnf`, and not acted on before | DENY `AGENT_SIGNATURE_INVALID` / `INSTRUCTION_REPLAYED` |
+| R.5 mandate present, signed by the customer, for this passport and this agent key, unexpired | DENY `MANDATE_NOT_SIGNED` / `MANDATE_SIGNATURE_INVALID` / `MANDATE_EXPIRED` / `MANDATE_AGENT_KEY_MISMATCH` |
 | R.6 action permitted and payee account on the allowlist | DENY `OUT_OF_SCOPE` / `PAYEE_NOT_ON_MANDATE` |
 | R.7 amount within per-payment limit | DENY `PER_PAYMENT_LIMIT_EXCEEDED` |
 | R.8 amount + 30-day total for this account within the monthly limit (bank ledger) | DENY `MONTHLY_LIMIT_EXCEEDED` |
@@ -177,7 +185,7 @@ bash deploy/publish.sh pay      # payments only
 ## Layout
 
 ```
-pay/          payments vertical: main.py · rules.py · crypto.py (three signers, verify_envelope) · vouch.py · audit.py · extraction.py · db.py · fixtures.py · templates/ · static/
+pay/          payments vertical: main.py · rules.py · crypto.py (three signers, VC-JWT credentials, verify_envelope) · vouch.py · audit.py · extraction.py · db.py · fixtures.py · templates/ · static/
 app/          tax vertical (unchanged, tag hmrc-v1)
 rulepacks/    payments-2026.09.json · hmrc-sa-2026.09.json
 fixtures/pay/ documents/ (evidence pack) · registry.json · extraction_fixture.json · oracle.json · agent_config.json · vouch_kits/
@@ -195,3 +203,5 @@ FastAPI, Uvicorn, Jinja2, Pydantic (MIT) · cryptography (Apache-2.0/BSD) · PyJ
 ## Not claimed
 
 That any supervisor issues agent passports today; that the passport replaces the provider's licence, the customer's contract or the bank's own mandate; that a signature proves an agent is safe or correct; that a valid passport compels a bank to execute; that this is production cryptographic infrastructure.
+
+Honest limits of the cryptography as built: the three signing keys are PEM files in one process (production: HSM, split custody); the nonce is chosen by the agent, so the bank guarantees each signed instruction is acted on at most once but not that it was signed recently, and the nonce record is never pruned; there is one relying party, so instructions carry no audience; key binding proves possession of a key, not the integrity of the software holding it.

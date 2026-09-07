@@ -61,16 +61,19 @@ def test_envelope_three_signers_and_minimal(client, issued):
     env = p["envelope"]
     ver = crypto.verify_envelope(env)
     assert ver["ok"] and ver["failure"] is None
-    assert crypto.verify_jwt("authority", env["assurance"])["jti"] == p["passport_id"]
-    assert crypto.verify_jwt("payrail", env["agent_identity"])["cnf"]["jwk"]["kty"] == "OKP"
-    assert crypto.verify_jwt("northgate", env["mandate"])["passport_id"] == p["passport_id"]
+    assert crypto.verify_credential("assurance", env["assurance"])["jti"] == p["passport_id"]
+    assert crypto.verify_credential("agent_identity", env["agent_identity"])["cnf"]["jwk"]["kty"] == "OKP"
+    assert crypto.verify_credential("mandate", env["mandate"])["passport_id"] == p["passport_id"]
     # each JWT only verifies against its own signer
     assert crypto.verify_jwt("payrail", env["assurance"]) is None
     assert crypto.verify_jwt("authority", env["mandate"]) is None
+    # and only as its own credential type: a genuine assurance is not a mandate
+    assert crypto.verify_credential("mandate", env["assurance"]) is None
+    assert crypto.verify_credential("assurance", env["mandate"]) is None
     # assurance binds the exact agent_identity it was issued for
-    assert crypto.verify_jwt("authority", env["assurance"])["binds"]["agent_identity_sha256"] == crypto.sha256_hex(env["agent_identity"])
-    # no bank details of the customer, no email, no personal contact data in any JWT
-    blob = json.dumps([crypto.decode_unverified(env[k])[1] for k in ("assurance", "agent_identity", "mandate")])
+    assert crypto.verify_credential("assurance", env["assurance"])["binds"]["agent_identity_sha256"] == crypto.sha256_hex(env["agent_identity"])
+    # no bank details of the customer, no email, no personal contact data in any claim
+    blob = json.dumps([crypto.verify_credential(k, env[k]) for k in ("assurance", "agent_identity", "mandate")])
     assert "@" not in blob and "email" not in blob
     assert env["cnf"] is None and env["vouch_voucher_id"]
 
@@ -494,6 +497,71 @@ def test_envelope_tamper_each_signer_flips_one_byte(client):
         r = client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": bad}).json()
         assert r["decision"] == "DENY" and r["rule"] == rule, (part, r["rule"])
     assert client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": env}).json()["decision"] == "ALLOW"
+
+
+# ── W3C Verifiable Credentials (JWT profile): the badge is true in the bytes ──
+VC_PARTS = (("assurance", "AgentAssuranceCredential", "policy_ceilings"),
+            ("agent_identity", "AgentAttestationCredential", "key_management"),
+            ("mandate", "PaymentMandateCredential", "authorization_details"))
+
+
+def test_each_envelope_part_is_a_w3c_vc_in_the_jwt_profile(client, issued):
+    p, _ = issued
+    env = p["envelope"]
+    for part, vc_type, claim in VC_PARTS:
+        header, payload = crypto.decode_unverified(env[part])
+        assert header["typ"] == "vc+jwt" and header["alg"] == "EdDSA", part
+        assert payload["vc"]["@context"] == ["https://www.w3.org/ns/credentials/v2"], part
+        assert payload["vc"]["type"] == ["VerifiableCredential", vc_type], part
+        # what the issuer asserts about the agent sits in credentialSubject, not loose on the JWT
+        assert claim in payload["vc"]["credentialSubject"] and claim not in payload, part
+        # and the rules still read it flattened, which is why nothing above them had to change
+        assert crypto.verify_credential(part, env[part])[claim] == payload["vc"]["credentialSubject"][claim], part
+
+
+def test_a_genuinely_signed_part_of_the_wrong_credential_type_is_refused(client):
+    p, _ = issue_one(client)
+    pid = p["passport_id"]
+    env = client.get(f"/api/passports/{pid}").json()["envelope"]
+    req = _signed_instruction(client, pid)
+    _, payload = crypto.decode_unverified(env["assurance"])
+    payload["vc"]["type"] = ["VerifiableCredential", "PaymentMandateCredential"]
+    bad = dict(env, assurance=crypto.sign_jwt("authority", payload, typ=crypto.VC_TYP))
+    assert crypto.verify_jwt("authority", bad["assurance"]) is not None      # the authority signature is real
+    assert crypto.verify_credential("assurance", bad["assurance"]) is None   # the credential type is not
+    r = client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": bad}).json()
+    assert r["decision"] == "DENY" and r["rule"] == "R.1"
+
+
+def test_every_part_names_the_agent_key_and_a_mandate_for_another_key_is_refused(client):
+    p, a = issue_one(client)
+    pid = p["passport_id"]
+    env = client.get(f"/api/passports/{pid}").json()["envelope"]
+    kids = {part: crypto.jwk_thumbprint(crypto.verify_credential(part, env[part])["cnf"]["jwk"]) for part in ("assurance", "agent_identity", "mandate")}
+    assert set(kids.values()) == {crypto.jwk_thumbprint(a["agent"]["jwk"])}
+    # the customer signs a mandate for this passport but naming some other agent's key: genuine signature, wrong agent
+    _, payload = crypto.decode_unverified(env["mandate"])
+    payload["cnf"] = {"jwk": crypto.public_jwk(crypto.generate_keypair()[1])}
+    bad = dict(env, mandate=crypto.sign_jwt("northgate", payload, typ=crypto.VC_TYP))
+    r = client.post("/api/verify", json={"passport_id": pid, "instruction": _signed_instruction(client, pid), "passport": bad}).json()
+    assert r["decision"] == "DENY" and r["rule"] == "R.5" and r["code"] == "MANDATE_AGENT_KEY_MISMATCH"
+
+
+def test_the_same_signed_instruction_is_acted_on_once(client):
+    p, _ = issue_one(client)
+    pid = p["passport_id"]
+    req = _signed_instruction(client, pid)
+    first = client.post("/api/verify", json={"passport_id": pid, "instruction": req}).json()
+    assert first["decision"] == "ALLOW" and first["signature"]["replayed"] is False and "not acted on before" in first["trace"][3]["note"]
+    again = client.post("/api/verify", json={"passport_id": pid, "instruction": req}).json()      # byte-identical: the signature is still genuine
+    assert again["decision"] == "DENY" and again["rule"] == "R.4" and again["code"] == "INSTRUCTION_REPLAYED"
+    assert again["signature"]["verified"] is True and again["signature"]["replayed"] is True     # possession proven; freshness not
+    # the audit entry stored the nonce state as an input, so replaying the first decision still says ALLOW
+    assert client.post(f"/api/audit/{first['audit_id']}/replay").json()["identical"] is True
+    # a fresh nonce from the same key is a new instruction
+    fresh = dict(req, nonce="tamper-test-2")
+    fresh["agent_signature"] = crypto.sign_bytes(db.get_application(db.get_passport(pid)["application_id"])["agent"]["private_pem"], rules.request_signing_input(fresh))
+    assert client.post("/api/verify", json={"passport_id": pid, "instruction": fresh}).json()["decision"] == "ALLOW"
 
 
 # ── Iteration 3, Task 3: Issuance Flow v4 — customer writes its own mandate within policy ceilings ──

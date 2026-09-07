@@ -81,19 +81,23 @@ def build_world(m: dict, human_confirm_above: float) -> dict:
         quota = float(((a.get("mandate") or {}).get("policy") or {}).get("quota", {}).get("totalCostUsd") or a.get("budget") or 0)
         priv, pub = crypto.generate_keypair()
         jwk = crypto.public_jwk(pub)
-        ident_payload = {"iss": "kit-operator", "typ": "agent_identity", "sub": a["ref"], "iat": crypto.now_ts(),
-                         "agent": {"name": a["label"], "agent_id": f"{m['kitId']}:{a['ref']}", "software": "kit", "software_version": "0"}, "cnf": {"jwk": jwk}}
-        ident = crypto.sign_jwt("payrail", ident_payload, typ="agent-identity+jwt")
+        ident = crypto.sign_credential("agent_identity", a["ref"],
+                                       {"iss": "kit-operator", "typ": "agent_identity", "sub": a["ref"], "iat": crypto.now_ts(), "cnf": {"jwk": jwk}},
+                                       {"agent": {"name": a["label"], "agent_id": f"{m['kitId']}:{a['ref']}", "software": "kit", "software_version": "0"}})
         pid = f"KIT-{m['kitId']}-{a['ref']}"
-        assurance = crypto.sign_jwt("authority", {"iss": "payments-authority-demo", "typ": "assurance", "jti": pid, "iat": crypto.now_ts(), "valid_until": "2099-12-31",
-                                                  "provider": {"legal_name": "Kit operator", "licence_ref": "KIT"}, "agent_id": a["ref"],
-                                                  "condition": {"human_confirm_above": {"amount": human_confirm_above, "currency": m["program"]["currency"]}},
-                                                  "binds": {"agent_identity_sha256": crypto.sha256_hex(ident)}}, typ="assurance+jwt")
-        mandate = crypto.sign_jwt("northgate", {"iss": "kit-customer", "typ": "mandate", "passport_id": pid, "valid_until": "2099-12-31", "iat": crypto.now_ts(),
-                                                "authorization_details": [{"type": "payment_initiation", "actions": ["pay_invoice"], "currency": m["program"]["currency"],
-                                                                           "supplier_allowlist": allow,
-                                                                           "per_payment_limit": {"amount": cap if cap is not None else quota, "currency": m["program"]["currency"]},
-                                                                           "monthly_limit_per_account": {"amount": quota, "currency": m["program"]["currency"], "window": "P30D"}}]}, typ="mandate+jwt")
+        assurance = crypto.sign_credential("assurance", a["ref"],
+                                           {"iss": "payments-authority-demo", "typ": "assurance", "sub": a["ref"], "jti": pid, "iat": crypto.now_ts(), "cnf": {"jwk": jwk}},
+                                           {"valid_until": "2099-12-31",
+                                            "provider": {"legal_name": "Kit operator", "licence_ref": "KIT"}, "agent_id": a["ref"],
+                                            "condition": {"human_confirm_above": {"amount": human_confirm_above, "currency": m["program"]["currency"]}},
+                                            "binds": {"agent_identity_sha256": crypto.sha256_hex(ident)}})
+        mandate = crypto.sign_credential("mandate", a["ref"],
+                                         {"iss": "kit-customer", "typ": "mandate", "sub": a["ref"], "iat": crypto.now_ts(), "cnf": {"jwk": jwk}},
+                                         {"passport_id": pid, "valid_until": "2099-12-31",
+                                          "authorization_details": [{"type": "payment_initiation", "actions": ["pay_invoice"], "currency": m["program"]["currency"],
+                                                                     "supplier_allowlist": allow,
+                                                                     "per_payment_limit": {"amount": cap if cap is not None else quota, "currency": m["program"]["currency"]},
+                                                                     "monthly_limit_per_account": {"amount": quota, "currency": m["program"]["currency"], "window": "P30D"}}]})
         actors[a["ref"]] = {"ref": a["ref"], "quota": quota, "private_pem": priv, "status": "active", "passport_id": pid,
                             "envelope": {"passport_id": pid, "assurance": assurance, "agent_identity": ident, "mandate": mandate}}
     return {"merchants": merchants, "allowlist": refs, "cap": cap, "actors": actors}

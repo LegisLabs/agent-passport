@@ -198,18 +198,20 @@ def sign_challenge(app_id: int):
     return public_app(a)
 
 
-def agent_identity_payload(a: dict) -> dict:
+def agent_identity_credential(a: dict) -> tuple[dict, dict]:
+    """(registered claims, credentialSubject) for the provider's attestation about its agent."""
     f, ag = a["fields"], a["agent"]
-    return {
-        "iss": "payrail-ltd", "typ": "agent_identity", "sub": ag["agent_id"], "iat": crypto.now_ts(), "application": a["ref"],
+    claims = {"iss": "payrail-ltd", "typ": "agent_identity", "sub": ag["agent_id"], "iat": crypto.now_ts(), "cnf": {"jwk": ag["jwk"]}}
+    subject = {
+        "application": a["ref"],
         "operator": {"legal_name": rules._v(f, "provider", "legal_name"), "licence_ref": rules._v(f, "provider", "licence_ref")},
         "agent": {"name": rules._v(f, "agent", "agent_name"), "agent_id": ag["agent_id"], "software": rules._v(f, "agent", "software"),
                   "software_version": rules._v(f, "agent", "software_version"), "model_provider": rules._v(f, "agent", "model_provider"),
                   "model_version": rules._v(f, "agent", "model_version"), "training_type": rules._v(f, "agent", "training_type"),
                   "config_sha256": rules._v(f, "agent", "config_hash")},
         "key_management": {"storage": rules._v(f, "agent", "key_storage"), "rotation": rules._v(f, "agent", "key_rotation")},
-        "cnf": {"jwk": ag["jwk"]},
     }
+    return claims, subject
 
 
 @app.post("/api/applications/{app_id}/submit")
@@ -218,7 +220,10 @@ def submit(app_id: int):
     if not a.get("fields"):
         _400("read the documents first")
     checks = rules.run_application_checks(a["fields"], a.get("agent"))
-    ident_jwt = crypto.sign_jwt("payrail", agent_identity_payload(a), typ="agent-identity+jwt") if a.get("agent") else None
+    ident_jwt = None
+    if a.get("agent"):
+        claims, subject = agent_identity_credential(a)
+        ident_jwt = crypto.sign_credential("agent_identity", claims["sub"], claims, subject)
     a = db.update_application(app_id, status="submitted", submitted_at=db.now_iso(), checks=checks, agent_identity_jwt=ident_jwt)
     audit.record("check", a["ref"], {"event": "application submitted; agent_identity signed by the provider; automated checks run",
                                      "passed": sum(c["result"] == "pass" for c in checks), "flagged": [c["id"] for c in checks if c["result"] != "pass"],
@@ -287,7 +292,7 @@ def issue_passport(a: dict, note: str, condition: dict) -> dict:
     if not ag.get("pop_verified"):
         _400("agent has not proven possession of its key")
     ident_jwt = a.get("agent_identity_jwt") or _400("agent identity not signed by the provider")
-    ident = crypto.verify_jwt("payrail", ident_jwt) or _400("agent identity signature does not verify")
+    ident = crypto.verify_credential("agent_identity", ident_jwt) or _400("agent identity signature does not verify")
     pol = rules.pack()["policy"]
     valid_until = pol["max_validity"]
     exp = int(datetime.fromisoformat(valid_until + "T23:59:59+00:00").timestamp())
@@ -295,8 +300,9 @@ def issue_passport(a: dict, note: str, condition: dict) -> dict:
     ceilings = {"per_payment_ceiling": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
                 "monthly_per_account_ceiling": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]},
                 "max_validity": pol["max_validity"], "action_types": list(pol["action_types"])}
-    assurance = {
-        "iss": config.ISSUER, "typ": "assurance", "jti": a["ref"], "iat": crypto.now_ts(), "nbf": crypto.now_ts(), "exp": exp,
+    assurance_claims = {"iss": config.ISSUER, "typ": "assurance", "sub": ag["agent_id"], "jti": a["ref"],
+                        "iat": crypto.now_ts(), "nbf": crypto.now_ts(), "exp": exp, "cnf": {"jwk": ag["jwk"]}}
+    assurance_subject = {
         "valid_until": valid_until, "rule_pack_version": rules.pack()["id"],
         "provider": {"legal_name": rules._v(f, "provider", "legal_name"), "licence_ref": rules._v(f, "provider", "licence_ref"), "companies_house_number": rules._v(f, "provider", "companies_house_number")},
         "agent_id": ag["agent_id"],
@@ -319,7 +325,8 @@ def issue_passport(a: dict, note: str, condition: dict) -> dict:
         }],
         "ceilings": ceilings,
     }
-    token = crypto.sign_jwt("authority", assurance, typ="assurance+jwt")
+    token = crypto.sign_credential("assurance", ag["agent_id"], assurance_claims, assurance_subject)
+    assurance = {**assurance_claims, **assurance_subject}
     p = db.create_passport(a["ref"], a["id"], token, assurance, ident_jwt, ident, mandate_proposed, valid_until, config.OFFICER)
     audit.record("issue", a["ref"], {"event": "assurance signed and entered in registry as ACTIVE; policy ceilings set; the customer writes its own mandate",
                                      "authority_kid": crypto.signer("authority")["kid"], "agent_kid": ag["kid"], "condition": condition, "policy_ceilings": ceilings})
@@ -461,9 +468,11 @@ def sign_mandate(passport_id: str, body: MandateIn | None = None):
         raise HTTPException(422, {"message": "mandate outside the policy ceilings", "problems": problems})
     pol = rules.pack()["policy"]
     mp = p["mandate_proposed"]
-    payload = {
-        "iss": "northgate-joinery-ltd", "typ": "mandate", "passport_id": passport_id, "iat": crypto.now_ts(), "valid_until": m["valid_until"],
-        "exp": int(datetime.fromisoformat(m["valid_until"] + "T23:59:59+00:00").timestamp()),
+    agent_jwk = p["agent_identity"]["cnf"]["jwk"]
+    claims = {"iss": "northgate-joinery-ltd", "typ": "mandate", "sub": mp["agent_id"], "iat": crypto.now_ts(),
+              "exp": int(datetime.fromisoformat(m["valid_until"] + "T23:59:59+00:00").timestamp()), "cnf": {"jwk": agent_jwk}}
+    subject = {
+        "passport_id": passport_id, "valid_until": m["valid_until"],
         "customer": m["customer"], "authorising_officer": m["authorising_officer"], "signed_by": m["authorising_officer"],
         "provider": mp["provider"], "agent_id": mp["agent_id"], "agent_kid": mp["agent_kid"], "written_by": "customer",
         "authorization_details": [{"type": "payment_initiation", "actions": list(m["actions"]), "currency": pol["currency"], "supplier_allowlist": m["supplier_allowlist"],
@@ -471,7 +480,8 @@ def sign_mandate(passport_id: str, body: MandateIn | None = None):
                                    "monthly_limit_per_account": {"amount": float(m["monthly_limit_per_account"]), "currency": pol["currency"], "window": pol["monthly_window"]}}],
         "within_ceilings": True,
     }
-    token = crypto.sign_jwt("northgate", payload, typ="mandate+jwt")
+    token = crypto.sign_credential("mandate", claims["sub"], claims, subject)
+    payload = {**claims, **subject}
     p = db.set_mandate(passport_id, token, payload)
     with db.tx() as con:
         con.execute("UPDATE passports SET mandate_proposed_json=? WHERE passport_id=?", (__import__("json").dumps({**mp, **{k: payload[k] for k in ("customer", "authorising_officer", "valid_until", "authorization_details")}}), passport_id))
@@ -493,9 +503,9 @@ def get_passport(passport_id: str):
     p = db.get_passport(passport_id) or _404()
     env = envelope_of(p)
     ver = crypto.verify_envelope(env)
-    parts = {"assurance": crypto.verify_jwt("authority", env["assurance"]) is not None,
-             "agent_identity": crypto.verify_jwt("payrail", env["agent_identity"]) is not None,
-             "mandate": (crypto.verify_jwt("northgate", env["mandate"]) is not None) if env.get("mandate") else None}
+    parts = {"assurance": crypto.verify_credential("assurance", env["assurance"]) is not None,
+             "agent_identity": crypto.verify_credential("agent_identity", env["agent_identity"]) is not None,
+             "mandate": (crypto.verify_credential("mandate", env["mandate"]) is not None) if env.get("mandate") else None}
     headers = {k: crypto.decode_unverified(env[k])[0] for k in ("assurance", "agent_identity", "mandate") if env.get(k)}
     return {**public_passport(p), "verification": {"ok": ver["ok"], "failure": ver["failure"], "parts": parts}, "headers": headers, "minimal": minimal_passport(p)}
 
@@ -647,29 +657,34 @@ class VerifyIn(BaseModel):
 
 @app.post("/api/verify")
 def verify(body: VerifyIn):
-    """The bank's gateway. Envelope (presented or fetched by id) + signed instruction + registry status +
-    the bank's own ledger total → decision + signed receipt. The audit entry stores every input the decision
-    depended on so /api/audit/{id}/replay can re-run the pure function later.
+    """The bank's gateway. Envelope (presented or fetched by id) + signed instruction + registry status + the
+    bank's own state (ledger total, whether this instruction was acted on before) → decision + signed receipt.
+    The audit entry stores every input the decision depended on so /api/audit/{id}/replay can re-run the pure
+    function later.
     Response carries both names for the rule and the audit anchor: rule / rule_id, audit_hash / audit_ref."""
     p = db.get_passport(body.passport_id)
     env = body.passport or (envelope_of(p) if p else {"passport_id": body.passport_id, "assurance": None, "agent_identity": None, "mandate": None})
     reg_status = p["status"] if p else "unknown"
     req = body.instruction_dict()
     ledger_total = db.ledger_total(body.passport_id, str(req.get("payee_account_ref") or ""))
-    res = rules.verify_action(env, reg_status, req, ledger_total)
+    nonce_seen = db.nonce_seen(body.passport_id, req.get("nonce"))
+    res = rules.verify_action(env, reg_status, req, ledger_total, nonce_seen=nonce_seen)
     entry = {"event": "verification", "passport_id": body.passport_id, "instruction": req, "registry_status": reg_status, "presented_envelope": env,
-             "ledger_total_before": ledger_total, "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req)),
+             "ledger_total_before": ledger_total, "nonce_seen_before": nonce_seen, "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req)),
              "decision": res["decision"], "rule": res["rule"], "code": res["code"], "reason": res["reason"], "trace": res["trace"], "rule_pack": res["rule_pack"]}
     rec = audit.record("verify", body.passport_id, entry, receipt_for={"passport_id": body.passport_id, "decision": res["decision"], "rule": res["rule"], "code": res["code"], "instruction_hash": entry["instruction_hash"]})
+    if res["decision"] in ("ALLOW", "ESCALATE"):
+        db.record_nonce(body.passport_id, req.get("nonce"), rec["id"])   # acted on: the same signed instruction is refused from now on
     r4 = next((t for t in res["trace"] if t["rule"] == "R.4"), None)
     agent_kid = None
     try:
-        ident_jwk = ((crypto.verify_jwt("payrail", env.get("agent_identity")) or {}).get("cnf") or {}).get("jwk")
+        ident_jwk = ((crypto.verify_credential("agent_identity", env.get("agent_identity")) or {}).get("cnf") or {}).get("jwk")
         agent_kid = crypto.jwk_thumbprint(ident_jwk)[:16] if ident_jwk else None
     except Exception:  # noqa: BLE001
         agent_kid = None
-    signature = {"checked": r4 is not None, "verified": bool(r4 and r4["ok"]), "alg": "Ed25519 (EdDSA, RFC 8037)", "agent_kid": agent_kid,
-                 "signed_fields": list(rules.REQUEST_FIELDS), "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req))}
+    signature = {"checked": r4 is not None, "verified": bool(r4 and r4.get("signature_verified")), "alg": "Ed25519 (EdDSA, RFC 8037)", "agent_kid": agent_kid,
+                 "signed_fields": list(rules.REQUEST_FIELDS), "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req)),
+                 "nonce": req.get("nonce"), "replayed": res["code"] == "INSTRUCTION_REPLAYED"}
     out = {**res, "rule_id": res["rule"], "signature": signature, "audit_id": rec["id"], "audit_hash": rec["hash"], "audit_ref": rec["hash"], "prev_hash": rec["prev_hash"], "receipt": rec["receipt"],
            "ledger_total_before": ledger_total, "settlement": None, "incident": None, "violation": None,
            "rails": {"authority_registry": reg_status, "vouch": {"voucher_id": p.get("vouch_voucher_id") if p else None, "status": p.get("vouch_status") if p else None, "mode": p.get("vouch_mode") if p else None}}}
@@ -700,13 +715,15 @@ def audit_list():
 
 @app.post("/api/audit/{audit_id}/replay")
 def replay(audit_id: int):
-    """Re-run a past verification from its stored inputs. Same inputs, same rule pack, same ledger total, same answer."""
+    """Re-run a past verification from its stored inputs. Same inputs, same rule pack, same ledger total, same
+    nonce state, same answer."""
     r = db.get_audit(audit_id) or _404()
     if r["kind"] != "verify":
         _400("only verification entries can be replayed")
     e = r["entry"]
     day = date.fromisoformat(e["ts"][:10])
-    res = rules.verify_action(e["presented_envelope"], e["registry_status"], e["instruction"], e.get("ledger_total_before", 0.0), today=day)
+    res = rules.verify_action(e["presented_envelope"], e["registry_status"], e["instruction"], e.get("ledger_total_before", 0.0), today=day,
+                              nonce_seen=e.get("nonce_seen_before", False))
     same = res["decision"] == e["decision"] and res["rule"] == e["rule"] and res["code"] == e["code"]
     return {"audit_id": audit_id, "original": {"decision": e["decision"], "rule": e["rule"], "code": e["code"]}, "replay": {"decision": res["decision"], "rule": res["rule"], "code": res["code"]}, "identical": same, "rule_pack": res["rule_pack"]}
 

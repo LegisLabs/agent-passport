@@ -4,6 +4,7 @@ Tables
   applications  PayRail's application and everything derived from it
   passports     the registry: composite envelope parts + lifecycle status
   payments      the bank's ledger of executed (ALLOWed) instructions, for R.8
+  nonces        the bank's record of instructions it has acted on, for R.4 (single use)
   audit         append-only, hash-chained decision log with signed receipts
   kv            misc
 """
@@ -90,6 +91,13 @@ CREATE TABLE IF NOT EXISTS violations (
   outcome TEXT NOT NULL,                -- DENY
   status TEXT NOT NULL,                 -- OPEN | INVESTIGATING | RESOLVED
   resolution TEXT                       -- revoked | reinstated | null
+);
+CREATE TABLE IF NOT EXISTS nonces (
+  passport_id TEXT NOT NULL,
+  nonce TEXT NOT NULL,
+  ts TEXT NOT NULL,
+  audit_id INTEGER,
+  PRIMARY KEY (passport_id, nonce)
 );
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
 """
@@ -303,6 +311,21 @@ def count_payments(passport_id: str) -> int:
         return con.execute("SELECT COUNT(*) FROM payments WHERE passport_id=?", (passport_id,)).fetchone()[0]
 
 
+# ── nonces (the bank's state for R.4: an instruction is acted on once) ──────
+def nonce_seen(passport_id: str, nonce: str | None) -> bool:
+    if not nonce:
+        return False
+    with tx() as con:
+        return con.execute("SELECT 1 FROM nonces WHERE passport_id=? AND nonce=?", (passport_id, nonce)).fetchone() is not None
+
+
+def record_nonce(passport_id: str, nonce: str | None, audit_id: int | None) -> None:
+    if not nonce:
+        return
+    with tx() as con:
+        con.execute("INSERT OR IGNORE INTO nonces(passport_id,nonce,ts,audit_id) VALUES(?,?,?,?)", (passport_id, nonce, now_iso(), audit_id))
+
+
 # ── audit ──────────────────────────────────────────────────────────────────
 def last_audit_hash(con) -> str:
     r = con.execute("SELECT hash FROM audit ORDER BY id DESC LIMIT 1").fetchone()
@@ -391,5 +414,5 @@ def pattern_alerts(count: int, window_hours: int) -> list[dict]:
 
 def reset_all() -> None:
     with tx() as con:
-        for t in ("applications", "passports", "payments", "audit", "violations", "kv"):
+        for t in ("applications", "passports", "payments", "nonces", "audit", "violations", "kv"):
             con.execute(f"DELETE FROM {t}")

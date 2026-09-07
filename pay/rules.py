@@ -2,8 +2,9 @@
 
 Application checks (A.*) run over the reviewed structured fields plus the
 authority's own records. Runtime verification (R.*) runs at the bank over a
-presented envelope (three JWTs), a signed payment instruction, the authority's
-registry status and the bank's own ledger total, in a fixed order, deny by
+presented envelope (three credentials), a signed payment instruction, the
+authority's registry status and the bank's own state (its ledger total and
+whether it has acted on this instruction before), in a fixed order, deny by
 default. No model is involved anywhere in this module; every function is pure
 over its inputs so a decision can be replayed later.
 """
@@ -143,23 +144,30 @@ def request_signing_input(req: dict) -> bytes:
     return crypto.canonical(body).encode()
 
 
-def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total: float = 0.0, today: date | None = None) -> dict:
+def _kid(credential: dict) -> str | None:
+    jwk = (credential.get("cnf") or {}).get("jwk")
+    return crypto.jwk_thumbprint(jwk) if jwk else None
+
+
+def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total: float = 0.0, today: date | None = None,
+                  nonce_seen: bool = False) -> dict:
     """Ordered checks at the bank, deny by default.
 
-    envelope         {assurance, agent_identity, mandate} compact JWTs (mandate may be null)
+    envelope         {assurance, agent_identity, mandate} compact credentials (mandate may be null)
     registry_status  the authority registry's current status for the passport id
     req              {passport_id, action_type, payee_account_ref, supplier_name, amount, currency, invoice_ref, nonce, agent_signature}
     ledger_total     the bank's executed total for this payee account in the trailing 30 days
+    nonce_seen       whether the bank has already acted on an instruction with this nonce for this passport
     """
     today = today or date.today()
     trace: list[dict] = []
 
-    def step(rid, ok, note):
-        trace.append({"rule": rid, "title": _rule(rid)["title"], "ok": ok, "note": note})
+    def step(rid, ok, note, **extra):
+        trace.append({"rule": rid, "title": _rule(rid)["title"], "ok": ok, "note": note, **extra})
         return ok
 
     # R.1 assurance signature (authority)
-    assurance = crypto.verify_jwt("authority", envelope.get("assurance"))
+    assurance = crypto.verify_credential("assurance", envelope.get("assurance"))
     if not step("R.1", assurance is not None, "authority signature verifies" if assurance else "assurance does not verify against the authority key"):
         return _result("R.1", "DENY", _rule("R.1")["code"], "assurance signature invalid", trace)
 
@@ -169,10 +177,15 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
     if not step("R.2", active, f"registry status {registry_status}" + (", expired" if expired else "")):
         return _result("R.2", "DENY", _rule("R.2")["code"], f"assurance not active: status is {registry_status.upper()}" + (" and validity has ended" if expired else ""), trace)
 
-    # R.3 agent identity signature (provider) and binding to this assurance
-    ident = crypto.verify_jwt("payrail", envelope.get("agent_identity"))
+    # R.3 agent identity signature (provider) and binding to this assurance: the hash of the exact token the
+    # assurance was issued for, and the same agent key named in both parts' cnf
+    ident = crypto.verify_credential("agent_identity", envelope.get("agent_identity"))
     bound = bool(ident) and crypto.sha256_hex(envelope.get("agent_identity") or "") == (assurance.get("binds") or {}).get("agent_identity_sha256")
-    if not step("R.3", bool(ident) and bound, "provider signature verifies; identity bound to this assurance" if ident and bound else ("agent identity does not verify against the provider key" if not ident else "agent identity is not the one this assurance was issued for")):
+    same_key = bool(ident) and (not assurance.get("cnf") or _kid(assurance) == _kid(ident))
+    r3_note = ("provider signature verifies; identity bound to this assurance by token hash and agent key" if ident and bound and same_key
+               else "agent identity does not verify against the provider key" if not ident else "agent identity is not the one this assurance was issued for" if not bound
+               else "assurance names a different agent key from the one the provider attested")
+    if not step("R.3", bool(ident) and bound and same_key, r3_note):
         return _result("R.3", "DENY", _rule("R.3")["code"], "agent identity signature invalid or not bound to this assurance", trace)
 
     # R.4 instruction signed by the agent key in agent_identity.cnf. With a delegation chain (Part B), the
@@ -188,19 +201,31 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
     else:
         sig_ok = bool(jwk and req.get("agent_signature") and crypto.verify_with_jwk(jwk, request_signing_input(req), req["agent_signature"]))
         note_ok, note_bad = "instruction signature matches the agent key", "instruction not signed by the bound agent key: possible copied passport"
-    if not step("R.4", sig_ok, note_ok if sig_ok else note_bad):
-        return _result("R.4", "DENY", _rule("R.4")["code"], "instruction not signed by the passport's agent key (possession not proven)", trace)
+    # ...and the bank acts on a signed instruction once: the nonce it carries must be one the bank has not acted on before
+    nonce = str(req.get("nonce") or "")
+    fresh = bool(nonce) and not nonce_seen
+    if not step("R.4", sig_ok and fresh, f"{note_ok}; nonce {nonce[:12]}… not acted on before" if sig_ok and fresh else note_bad if not sig_ok
+                else "instruction carries no nonce, so it cannot be single-use" if not nonce
+                else f"nonce {nonce[:12]}… already acted on: this signed instruction has been presented before",
+                signature_verified=sig_ok, fresh=fresh):
+        if not sig_ok:
+            return _result("R.4", "DENY", _rule("R.4")["code"], "instruction not signed by the passport's agent key (possession not proven)", trace)
+        return _result("R.4", "DENY", "INSTRUCTION_REPLAYED", "this signed instruction has already been acted on; a replay is refused" if nonce
+                       else "instruction carries no nonce; the bank cannot guarantee it executes once", trace)
 
-    # R.5 mandate present, signed by the customer, unexpired
+    # R.5 mandate present, signed by the customer, for this passport and this agent key, unexpired
     if not envelope.get("mandate"):
         step("R.5", False, "mandate not signed by the customer")
         return _result("R.5", "DENY", "MANDATE_NOT_SIGNED", "mandate not signed: the customer has not yet authorised this agent", trace)
-    mandate = crypto.verify_jwt("northgate", envelope.get("mandate"))
+    mandate = crypto.verify_credential("mandate", envelope.get("mandate"))
     if not step("R.5", mandate is not None and mandate.get("passport_id") == assurance.get("jti"), "customer signature verifies" if mandate else "mandate does not verify against the customer key"):
         return _result("R.5", "DENY", "MANDATE_SIGNATURE_INVALID", "mandate signature invalid or for a different passport", trace)
     if today.isoformat() > mandate.get("valid_until", "9999-12-31"):
         step("R.5", False, f"mandate expired {mandate.get('valid_until')}")
         return _result("R.5", "DENY", "MANDATE_EXPIRED", f"mandate expired on {mandate.get('valid_until')}", trace)
+    if mandate.get("cnf") and _kid(mandate) != _kid(ident):
+        step("R.5", False, "mandate names a different agent key from the one the provider attested")
+        return _result("R.5", "DENY", "MANDATE_AGENT_KEY_MISMATCH", "mandate was signed for a different agent key; the customer has not authorised this agent", trace)
 
     ad = (mandate.get("authorization_details") or [{}])[0]
 
