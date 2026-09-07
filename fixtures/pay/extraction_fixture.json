@@ -70,8 +70,8 @@
    "source_doc": null,
    "quote": null
   },
-  "documentation_ref": {
-   "value": "PayGPT 6.0 model card v6.0.2 (published)",
+  "documentation_url": {
+   "value": "https://openpay.example/paygpt-6/model-card",
    "source_doc": null,
    "quote": null
   }
