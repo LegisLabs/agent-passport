@@ -38,7 +38,9 @@ body {
   margin: 0; background: var(--ground); color: var(--ink);
   font-family: var(--font); font-size: 1.1875rem; line-height: 1.32;
   -webkit-font-smoothing: antialiased;
+  min-height: 100vh; display: flex; flex-direction: column;
 }
+.main { flex: 1 0 auto; }
 button, input { font: inherit; }
 code, pre, .mono { font-family: var(--mono); }
 .mono { font-size: .94em; }
@@ -254,8 +256,8 @@ em { font-style: italic; }
 .t-meta b { color: #9aa0a3; font-weight: 400; }
 
 /* footer */
-.footer { border-top: 1px solid var(--line); background: var(--panel); font-size: .95rem; color: var(--ink-2); margin-top: 2rem; }
-.footer__row { display: flex; justify-content: space-between; gap: 1rem; flex-wrap: wrap; padding-top: 1rem; padding-bottom: 1rem; }
+.footer { border-top: 1px solid var(--line); background: var(--panel); font-size: 1rem; color: var(--ink-2); margin-top: 3rem; }
+.footer__row { display: flex; justify-content: space-between; align-items: baseline; gap: 1rem; padding-top: 1.25rem; padding-bottom: 1.25rem; }
 
 /* ── v1 skeleton additions ─────────────────────────────── */
 .tabs__tab[aria-current="page"] { color: var(--ink); border-bottom-color: var(--ink); background: var(--ground); }
