@@ -383,57 +383,23 @@ const AP = (() => {
   }
 
   // ───────────── Bank · Action Terminal ─────────────
-  // Presentation only: every verdict below comes from POST /api/verify unchanged. Two magnifications of the same
-  // response: the gauntlet (sequential reveal, slowed for demonstration) and the expert console (the raw log).
+  // Presentation only: every verdict below comes from POST /api/verify unchanged. The arena shows the nine checks
+  // resolving in order (slowed for demonstration); the raw response is kept off-screen for the record and the tests.
   const SHORT = { 'R.1': 'authority signature', 'R.2': 'registry status', 'R.3': 'agent identity signature', 'R.4': 'agent signature', 'R.5': 'customer mandate', 'R.6': 'payee on allowlist', 'R.7': 'per-payment limit', 'R.8': '30-day limit', 'R.9': 'supervisor condition', 'C.a': 'root scope', 'C.b': 'delegation ⊆ root', 'C.c': 'action ⊆ delegation' };
   async function bank() {
-    let state = await api('GET', '/api/state');
+    const state = await api('GET', '/api/state');
     const ref = new URLSearchParams(location.search).get('ref');
     const p = state.passports.find(x => x.passport_id === ref) || state.passports[0] || null;
     const rules = (await api('GET', '/api/rulepack')).runtime_rules;
-    const rl = $('rules'); rules.forEach(r => rl.append(el('li', null, `<code>${esc(r.id)}</code> ${esc(r.title)} → <code>${esc(r.on_fail)}</code> <span class="small">— ${esc(r.data)}</span>`)));
+    const rl = $('rules'); rules.forEach(r => rl.append(el('li', null, `<code>${esc(r.id)}</code> ${esc(r.title)} → <code>${esc(r.on_fail)}</code>`)));
     const lines = $('term-lines');
     const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     const pause = (ms) => new Promise(r => setTimeout(r, RM ? 0 : ms));
     let denies = 0;
-
-    // ── 1 · standing state ──
-    async function strip() {
-      if (!p) return;
-      const full = await api('GET', `/api/passports/${p.passport_id}`);
-      const m = full.minimal;
-      $('st-id').textContent = m.passport_id;
-      $('st-assurance').innerHTML = tag(m.status);
-      $('st-mandate').innerHTML = tag(m.mandate_signed ? 'signed' : 'unsigned', m.mandate_signed ? 'signed' : 'not signed');
-      $('st-payments').textContent = full.payments;
-      api('GET', `/api/passports/${p.passport_id}/vouch`).then(x => { const st = (x.live && x.live.status) || x.recorded.status; $('st-vouch').innerHTML = `${tag(st === 'ACTIVE' ? 'active' : st === 'REVOKED' ? 'revoked' : 'grey', st || 'none')} <span class="small mono">${esc(x.voucher_id || '')}</span>`; }).catch(() => { $('st-vouch').textContent = '—'; });
-      const mt = $('st-meters'); mt.innerHTML = '';
-      const ad = (full.mandate || full.mandate_proposed).authorization_details[0];
-      const cap = ad.monthly_limit_per_account.amount;
-      ad.supplier_allowlist.forEach(s => {
-        const total = (full.ledger[s.account_ref] || { total: 0 }).total;
-        const pct = Math.min(1, total / cap);
-        mt.append(el('div', null, `<span class="meters__k">${esc(s.name)} <span class="tm-dim mono">${esc(s.account_ref)}</span></span><span class="meters__v">${gbp(total)} of ${gbp(cap)}</span><span class="meter"><span class="meter__fill ${pct >= 1 ? 'over' : pct >= .75 ? 'warn' : ''}" style="transform:scaleX(${pct})"></span></span>`));
-      });
-      const parts = full.verification.parts || {};
-      const light = (ok, label) => `<span class="sig sig--${ok === false ? 'bad' : ok ? 'ok' : 'none'}">${ok === false ? '✗' : ok ? '✓' : '·'} ${label}</span>`;
-      const rows = [['Passport', `<span class="mono">${esc(m.passport_id)}</span>`], ['Issuer', esc(m.issuer)]];
-      if (m.model) rows.push(['Approved model', `${esc(m.model)}${m.model_ref && m.model_ref.model_id ? ` · <span class="mono">${esc(m.model_ref.model_id)}</span>` : ''}`]);
-      rows.push([m.model ? 'Model company' : 'Provider', `${esc(m.provider)}${m.licence_ref ? ` · <span class="mono">${esc(m.licence_ref)}</span>` : ''}`]);
-      rows.push(['Agent', `${esc(m.agent)} · <span class="mono">${esc(m.agent_id)}</span> · key <span class="mono">${esc(m.agent_kid)}</span>`]);
-      rows.push(['Mandate', m.mandate_signed ? `${esc(m.scope.actions.join(', '))} · ${m.scope.suppliers} payee accounts · ${gbp(m.scope.per_payment_limit.amount)} per payment · ${gbp(m.scope.monthly_limit_per_account.amount)} per account in 30 days` : `<span class="tm-warn">not yet signed by the customer</span> · until then every instruction stops at R.5`]);
-      rows.push(['Condition', `hold above ${gbp(m.condition.human_confirm_above.amount)} for a named human`], ['Valid until', esc(m.valid_until)]);
-      rows.push(['Signatures', `${light(parts.assurance, 'assurance')} ${light(parts.agent_identity, 'agent identity')} ${light(parts.mandate, 'mandate')} ${full.verification.ok ? '<span class="tag tag--green">all three verify</span>' : `<span class="tag tag--amber">${esc((full.verification.failure || '').replace('_', ' '))}</span>`}<br><span class="tm-dim mono small">${esc(m.signers.assurance)} · ${esc(m.signers.agent_identity)} · ${esc(m.signers.mandate)}</span>`]);
-      rows.push(['Status (live)', `${tag(m.status)} <button class="link small" id="rp-recheck" type="button">re-check registry</button>`]);
-      $('rp-passport').innerHTML = rows.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
-      $('rp-recheck').onclick = strip;
-      setDenies(denies);
-    }
     function setDenies(n) { denies = n; $('denies').querySelectorAll('i').forEach((i, k) => i.classList.toggle('on', k < n)); }
-    if (!p) $('rp-passport').innerHTML = '<div><dt>Passport</dt><dd>none issued yet — approve an application in the <a href="/regulator">Regulator Panel</a></dd></div>';
-    else await strip();
+    if (!p) $('g-subject').innerHTML = '<span class="tm-dim">no passport yet — approve a registration in the <a href="/regulator">Regulator Panel</a>, then create the agent in the <a href="/customer">Customer Panel</a></span>';
 
-    // ── 3 · the judgment: the gauntlet ──
+    // ── the arena ──
     const judgment = $('judgment'), gWrap = $('gauntlet-wrap'), gCells = $('gauntlet'), gVerdict = $('g-verdict'), fullBox = $('tm-full');
     const inView = (n) => { const r = n.getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight; };
     function openFull() { judgment.classList.add('is-full'); document.body.classList.add('tm-lock'); $('g-close').hidden = false; }
@@ -441,7 +407,7 @@ const AP = (() => {
     gWrap.addEventListener('click', (e) => { if (judgment.classList.contains('is-full') && !judgment.classList.contains('is-live') && !e.target.closest('label, input, a, details')) closeFull(); });
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeFull(); });
     function subjectHtml(b, k) {
-      return `<b>instruction under test</b> ${esc(b.action_type)} · ${esc(b.supplier_name)} · <span class="mono">${esc(b.payee_account_ref)}</span> · ${gbp(b.amount)}${k ? ' · #' + k : ''}${b.signer === 'rogue' ? ' · <span class="tm-warn">signed with a rogue key</span>' : ''}${b.invoice ? ` · from invoice <span class="mono">${esc(b.invoice)}</span>` : ''}`;
+      return `${esc(b.action_type)} · ${esc(b.supplier_name)} · <span class="mono">${esc(b.payee_account_ref)}</span> · ${gbp(b.amount)}${k ? ' · #' + k : ''}${b.signer === 'rogue' ? ' · <span class="tm-warn">signed with a rogue key</span>' : ''}${b.invoice ? ` · <span class="mono">${esc(b.invoice)}</span>` : ''}`;
     }
     function cellIds(trace) {
       const ids = [];
@@ -463,136 +429,108 @@ const AP = (() => {
       for (let i = 0; i < ids.length; i++) {
         const li = cells[i], tr = byRule[ids[i]];
         if (stopped || !tr) { setCell(li, 'skip', 'not evaluated · denied by default'); await pause(step / 4); continue; }
-        $('g-count').textContent = `check ${i + 1} of ${ids.length}`;
+        $('g-count').textContent = `${i + 1} / ${ids.length}`;
         setCell(li, 'checking', 'checking…'); await pause(step);
         setCell(li, tr.ok ? 'pass' : (r.decision === 'ESCALATE' ? 'hold' : 'fail'), esc(tr.note));
         if (!tr.ok) { stopped = true; $('g-count').textContent = `stopped at ${ids[i]}`; }
       }
-      if (!stopped) $('g-count').textContent = `${ids.length} of ${ids.length} passed`;
+      if (!stopped) $('g-count').textContent = `${ids.length} / ${ids.length}`;
       await pause(step * 1.2);
       const cite = r.decision === 'ALLOW' ? `all ${ids.length} checks passed · ${esc(r.code)}` : `${esc(r.rule)} · ${esc(r.code)}`;
-      const sig = r.signature ? `<span>R.4 instruction signature <b class="${r.signature.verified ? 'ok' : 'fail'}">${r.signature.checked ? (r.signature.verified ? 'VERIFIED' : 'FAILED') : 'not reached'}</b> · ${esc(r.signature.alg)} · agent key <span class="mono">${esc(r.signature.agent_kid || '—')}</span> · payload sha256 <span class="mono">${esc((r.signature.instruction_hash || '').slice(0, 12))}</span></span>` : '';
-      const settle = r.settlement ? `<span class="ok">${esc(r.settlement.rail_reason)} · 30-day total for this account now ${gbp(r.settlement.ledger_total_after)}</span>` : '';
+      const sig = r.signature && r.signature.checked ? `agent signature <b class="${r.signature.verified ? 'ok' : 'fail'}">${r.signature.verified ? 'verified' : 'failed'}</b> · ` : '';
       const reg = r.rails && r.rails.authority_registry, rv = r.rails && r.rails.vouch;
       const rails = r.rails && (reg !== 'active' || (rv && rv.status === 'REVOKED')) ? `<span>authority registry <b class="${reg !== 'active' ? 'fail' : ''}">${esc(reg)}</b> · vouch rail <b class="${rv.status === 'REVOKED' ? 'fail' : ''}">${esc(rv.status || 'none')}</b>${reg !== 'active' && rv.status === 'REVOKED' ? ' · one supervisory action, two rails refuse' : ''}</span>` : '';
-      const fatf = r.decision === 'DENY' && r.rule === 'R.6' ? '<span>Named-beneficiary mandate check (FATF 2025 AML/CFT alignment): the customer signed for accounts, not names.</span>' : '';
+      const settle = r.settlement ? `<span class="ok">${esc(r.settlement.rail_reason)}</span>` : '';
+      const vio = r.violation ? `<span>violation #${r.violation.id} recorded ${esc(r.violation.status)} <a href="/regulator">→ Regulator Panel</a></span>` : '';
+      const inc = r.incident ? `<span class="fail"><b>INCIDENT</b> escalated to supervisor · ${r.incident.denies} refused instructions <a href="/regulator">→ Regulator Panel</a></span>` : '';
       gVerdict.className = 'g__verdict g__verdict--' + r.decision; gWrap.dataset.decision = r.decision;
-      gVerdict.innerHTML = `<span class="g-word">${r.decision}</span><span class="g-cite">${cite}</span><span class="g-reason">${esc(r.reason)}</span><span class="g-notes">${fatf}${sig}${settle}${rails}<span class="tm-dim">receipt signed by the authority · audit #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> ← <span class="mono">${esc(r.prev_hash.slice(0, 12))}</span> · rule pack ${esc(r.rule_pack)} · decision replayable</span></span>`;
+      gVerdict.innerHTML = `<span class="g-word">${r.decision}</span><span class="g-cite">${cite}</span><span class="g-reason">${esc(r.reason)}</span><span class="g-notes">${settle}${rails}${vio}${inc}<span class="tm-dim">${sig}receipt signed by the authority · audit #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> <a href="/audit">→ Audit</a></span></span>`;
       judgment.classList.remove('is-live');
     }
-
-    // ── 5 · the exhaust ──
-    const ex = $('exhaust');
-    function exhaust(b, r) {
-      if (ex.querySelector('.tm-dim') && ex.children.length === 1) ex.innerHTML = '';
-      const who = `${esc(b.action_type)} · ${esc(b.supplier_name)} · ${gbp(b.amount)}`;
-      const audit = `audit #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> <a href="/audit">→ Audit</a>`;
-      let body;
-      if (r.decision === 'DENY') body = `<b class="x-k x-k--DENY">refusal</b> ${who} · ${esc(r.rule)} ${esc(r.code)}${r.violation ? ` · violation #${r.violation.id} recorded ${esc(r.violation.status)} <a href="/regulator">→ Regulator Panel</a>` : ''} · ${audit}`;
-      else if (r.decision === 'ESCALATE') body = `<b class="x-k x-k--ESCALATE">held</b> ${who} · ${esc(r.code)} · waits for a named human, nothing executed · ${audit}`;
-      else body = `<b class="x-k x-k--ALLOW">executed</b> ${who}${r.settlement ? ` · payment #${r.settlement.payment_id} on the ${esc(r.settlement.rail)} rail` : ''} · ${audit}`;
-      ex.prepend(el('li', null, `<span class="x-time">${t(new Date().toISOString())}</span><span>${body}</span>`));
-      if (r.incident) ex.prepend(el('li', 'x-incident', `<span class="x-time">${t(new Date().toISOString())}</span><span><b>INCIDENT</b> escalated to supervisor · ${r.incident.denies} refused instructions · audit #${r.incident.audit_id} <span class="mono">${esc(r.incident.hash.slice(0, 12))}</span> <a href="/regulator">→ Regulator Panel incident feed</a></span>`));
-      while (ex.children.length > 14) ex.lastChild.remove();
-    }
     function logLine(b, r, k) {
-      if (lines.querySelector('.terminal__hint')) lines.innerHTML = '';
       lines.append(termLine(b, r, k));
-      if (r.incident) { lines.append(el('li', 't-incident', `<span><b>INCIDENT</b> escalated to supervisor · ${r.incident.denies} refused instructions · audit #${r.incident.audit_id} <b>${esc(r.incident.hash.slice(0, 12))}</b> · visible in the regulator’s incident feed</span>`)); setDenies(0); }
+      if (r.incident) { lines.append(el('li', 't-incident', `<span><b>INCIDENT</b> escalated to supervisor · ${r.incident.denies} refused instructions · audit #${r.incident.audit_id}</span>`)); setDenies(0); }
       else if (r.decision === 'DENY') setDenies(Math.min(3, (r.deny_count || denies + 1)));
-      lines.scrollTop = lines.scrollHeight;
     }
-    // one instruction, both magnifications, then the exhaust
-    async function present(b, r, k, fast) { await judge(b, r, k, fast); logLine(b, r, k); exhaust(b, r); }
+    async function present(b, r, k, fast) { await judge(b, r, k, fast); logLine(b, r, k); }
+    const hideSteps = () => { $('invoice-steps').hidden = true; $('invoice-outcome').hidden = true; };
 
     // ── Part B: delegation chain toggle ──
     const ct = $('chain-toggle'); ct.checked = !!state.delegation_chain;
     const chainOn = () => ct.checked;
     const cbw = $('chain-beats-wrap'); cbw.hidden = !ct.checked;
     ct.onchange = () => { cbw.hidden = !ct.checked; };
-    (state.chain_beats || []).forEach(b => {
-      const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p;
-      btn.innerHTML = `<span class="beat__label">${esc(b.label)}<small>${esc(b.hint)}</small></span><span class="beat__expect">${esc(b.expect)}</span>`;
-      btn.onclick = async () => {
-        btn.disabled = true; btn.dataset.running = 'true';
-        try {
-          const r = await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, invoice_ref: b.invoice_ref, signer: b.signer, chain: true, delegate_amount: b.delegate_amount, delegate_account: b.delegate_account || null });
-          await present(b, r);
-          await strip();
-        } finally { btn.disabled = false; delete btn.dataset.running; }
-      };
-      $('chain-beats').append(el('li').appendChild(btn).parentElement);
-    });
-    function chainHtml(ch, deleg) {
+    function beatButton(b, onclick) {
+      const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p; btn.title = b.hint || '';
+      btn.innerHTML = `<span class="beat__label">${esc(b.label)}</span><span class="beat__expect">${esc(b.expect)}</span>`;
+      btn.onclick = async () => { btn.disabled = true; btn.dataset.running = 'true'; hideSteps(); try { await onclick(); } finally { btn.disabled = false; delete btn.dataset.running; } };
+      return el('li').appendChild(btn).parentElement;
+    }
+    (state.chain_beats || []).forEach(b => $('chain-beats').append(beatButton(b, async () => {
+      const r = await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, invoice_ref: b.invoice_ref, signer: b.signer, chain: true, delegate_amount: b.delegate_amount, delegate_account: b.delegate_account || null });
+      await present(b, r);
+    })));
+    function chainHtml(ch) {
       if (!ch) return '';
       const s = ch.scopes;
       return `<span class="chain__inv">${esc(ch.invariant)}</span><div class="chain__scopes"><div><strong>S0 · root mandate</strong>${s.S0.beneficiaries} beneficiaries · ceiling ${gbp(s.S0.ceiling)} · ${esc(s.S0.actions.join(', '))}</div><div><strong>S1 · delegation</strong>${esc((s.S1.beneficiaries || []).join(', ') || '—')} · ceiling ${gbp(s.S1.ceiling)} · ${esc((s.S1.actions || []).join(', '))}<br><span class="small">${esc(s.S1.issuer || '')} → ${esc(s.S1.delegate || '')}</span></div><div><strong>action</strong>${esc(s.action.action)} · ${esc(s.action.payee)} · ${gbp(s.action.amount)}</div></div><ul class="chain__checks">${ch.checks.map(c => `<li class="${c.ok ? '' : (c.note.startsWith('not evaluated') ? 'skip' : 'fail')}"><b>${esc(c.id)}</b> ${esc(c.title)}: ${esc(c.note)}</li>`).join('')}</ul>`;
     }
 
-    // ── 2 · the actor: the agent reads an invoice ──
+    // ── the agent reads an invoice ──
     const ib = $('invoice-buttons');
     (state.invoices || []).forEach(inv => {
       const b = el('button', 'btn ' + (inv.id.endsWith('clean') ? 'btn--secondary' : 'btn--warning'), esc(inv.label) + ' <span class="btn__sub mono">' + esc(inv.id) + '</span>'); b.type = 'button'; b.disabled = !p;
       b.onclick = async () => {
         ib.querySelectorAll('button').forEach(x => x.disabled = true); b.textContent = 'Agent reading…';
-        try { const r = await api('POST', '/api/agent/invoice', { passport_id: p.passport_id, invoice_id: inv.id, chain: chainOn() }); await showInvoice(r); await strip(); }
+        try { const r = await api('POST', '/api/agent/invoice', { passport_id: p.passport_id, invoice_id: inv.id, chain: chainOn() }); await showInvoice(r); }
         catch (e) { alert(e.message); }
         finally { ib.querySelectorAll('button').forEach(x => x.disabled = false); b.innerHTML = esc(inv.label) + ' <span class="btn__sub mono">' + esc(inv.id) + '</span>'; }
       };
       ib.append(b);
     });
     async function showInvoice(r) {
-      const steps = $('invoice-steps'); steps.hidden = false;
-      steps.querySelectorAll('.invoice__step').forEach(x => x.hidden = true);
+      const steps = $('invoice-steps'), out = $('invoice-outcome'); steps.hidden = false; out.hidden = true;
+      steps.querySelectorAll('.invoice__step').forEach(x => x.hidden = true); out.querySelectorAll('[data-step]').forEach(x => x.hidden = true);
       const acct = r.instruction.payee_account_ref, ok = r.on_allowlist;
       const digits = (r.extraction.account_number || {}).value || '';
+      $('g-subject').innerHTML = `<span class="mono">${esc(r.invoice)}</span> · read by ${esc(modeLabel(r.extraction_mode))}`;
+      gWrap.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' });
       // a. what the agent read, account number marked
       $('inv-text').innerHTML = esc(r.text).replace(new RegExp('(Account number:\\s*)(' + digits + ')'), `$1<mark class="${ok ? 'ok' : ''}">$2</mark>`).replace(/(IMPORTANT: our bank details have changed[^\n]*)/, '<mark>$1</mark>');
-      $('inv-facts').innerHTML = Object.entries(r.extraction).filter(([k]) => !k.startsWith('_')).map(([k, f]) => `<div><dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${k === 'account_number' ? `<span class="${ok ? 'right' : 'wrong'}">${esc(f.value)}</span>` : esc(String(f.value))} <span class="prov">from <span class="mono">${esc(f.source_doc || '')}</span>: <q>${esc(f.quote || '')}</q></span></dd></div>`).join('') + `<div><dt>read by</dt><dd>${esc(modeLabel(r.extraction_mode))}</dd></div>`;
-      steps.querySelector('[data-step="a"]').hidden = false; steps.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' }); await pause(900);
+      $('inv-facts').innerHTML = Object.entries(r.extraction).filter(([k]) => !k.startsWith('_')).map(([k, f]) => `<div><dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${k === 'account_number' ? `<span class="${ok ? 'right' : 'wrong'}">${esc(f.value)}</span>` : esc(String(f.value))} <span class="prov"><q>${esc(f.quote || '')}</q></span></dd></div>`).join('');
+      steps.querySelector('[data-step="a"]').hidden = false; await pause(900);
       // b. the generated instruction
       const i = r.instruction;
-      $('inv-instruction').innerHTML = [['Action', esc(i.action_type)], ['Payee', esc(i.supplier_name)], ['Account', `<span class="${ok ? 'right' : 'wrong'}">${esc(acct)}</span>${ok ? ' on the customer-signed mandate' : ` not on the mandate; the customer signed for <span class="mono">${esc(r.registered_payee || '—')}</span>`}`], ['Amount', gbp(i.amount) + ' ' + esc(i.currency)], ['Invoice', esc(i.invoice_ref)], ['Signed by', 'the agent key bound in agent_identity (Ed25519)']].map(([k, v_]) => `<div><dt>${k}</dt><dd>${v_}</dd></div>`).join('');
+      $('inv-instruction').innerHTML = [['Action', esc(i.action_type)], ['Payee', esc(i.supplier_name)], ['Account', `<span class="${ok ? 'right' : 'wrong'}">${esc(acct)}</span>${ok ? ' · on the customer-signed mandate' : ` · not on the mandate; the customer signed for <span class="mono">${esc(r.registered_payee || '—')}</span>`}`], ['Amount', gbp(i.amount) + ' ' + esc(i.currency)], ['Signed by', 'the agent key bound in agent_identity (Ed25519)']].map(([k, v_]) => `<div><dt>${k}</dt><dd>${v_}</dd></div>`).join('');
       const chv = $('inv-chain');
-      if (r.chain && r.result.chain) { chv.hidden = false; chv.innerHTML = `<strong>Delegation chain</strong> <span class="small">the AP Orchestrator Agent read the invoice and delegated exactly what it read to the Payment Execution Agent, which signed the instruction</span>` + chainHtml(r.result.chain, r.delegation); }
+      if (r.chain && r.result.chain) { chv.hidden = false; chv.innerHTML = `<strong>Delegation chain</strong> <span class="small">the orchestrator read the invoice and delegated exactly what it read to the execution agent, which signed</span>` + chainHtml(r.result.chain); }
       else if (r.chain) { chv.hidden = false; chv.innerHTML = '<strong>Delegation chain</strong> <span class="small">presented; the bank refused before reaching it</span>'; }
       else chv.hidden = true;
       steps.querySelector('[data-step="b"]').hidden = false; await pause(900);
-      // c. the bank's decision: the gauntlet runs, then the compact verdict is written back into the actor's panel
+      // c. the checks run; then one line with what only the invoice path adds
       const res = r.result;
       const subject = { action_type: i.action_type, supplier_name: i.supplier_name, payee_account_ref: acct, amount: i.amount, signer: 'agent', invoice: r.invoice };
       await judge(subject, res);
       const box = $('inv-verdict'); box.className = 'invoice__verdict invoice__verdict--' + res.decision;
-      const rulesHtml = res.trace.map(s => `<li class="${s.ok ? 'ok' : 'fail'}">${esc(s.rule)} ${s.ok ? '✓' : '✗'}</li>`).join('');
-      box.innerHTML = `<div><span class="t-verdict t-verdict--${res.decision}">${res.decision}</span> <strong>${res.decision === 'ALLOW' ? 'all nine checks passed' : esc(res.rule)} · ${esc(res.code)}</strong></div><div>${esc(res.reason)}</div><ul class="invoice__rules">${rulesHtml}</ul>${res.rule === 'R.6' && res.decision === 'DENY' ? '<div class="invoice__note">Named-beneficiary mandate check (FATF 2025 AML/CFT alignment). The customer signed for accounts, not names: a changed account on a genuine-looking invoice has no authority.</div>' : ''}${res.violation ? `<div class="invoice__note">Violation #${res.violation.id} recorded as ${esc(res.violation.status)} for the supervisor’s exception panel.</div>` : ''}${res.settlement ? `<div class="invoice__note">${esc(res.settlement.rail_reason)}</div>` : ''}${res.signature ? `<div class="invoice__note">R.4 instruction signature: <strong>${res.signature.checked ? (res.signature.verified ? 'VERIFIED' : 'FAILED') : 'not reached'}</strong> (${esc(res.signature.alg)}) · agent key <span class="mono">${esc(res.signature.agent_kid || '—')}</span></div>` : ''}<div class="invoice__note">audit #${res.audit_id} <span class="mono">${esc(res.audit_hash.slice(0, 12))}</span> · receipt signed by the authority · decision replayable</div>`;
-      steps.querySelector('[data-step="c"]').hidden = false;
-      logLine(subject, res); exhaust(subject, res);
+      box.innerHTML = `<span class="t-verdict t-verdict--${res.decision}">${res.decision}</span> <b>${res.decision === 'ALLOW' ? 'all nine checks passed' : esc(res.rule) + ' · ' + esc(res.code)}</b>${res.rule === 'R.6' && res.decision === 'DENY' ? ' · named-beneficiary mandate check (FATF 2025 AML/CFT alignment): the customer signed for accounts, not names' : ''}${res.violation ? ` · violation #${res.violation.id} recorded ${esc(res.violation.status)}` : ''}${res.signature ? ` · R.4 instruction signature: ${res.signature.checked ? (res.signature.verified ? 'VERIFIED' : 'FAILED') : 'not reached'}` : ''}`;
+      out.hidden = false; box.hidden = false;
+      logLine(subject, res);
       await pause(700);
       // d. caption
       $('inv-caption').textContent = ok
         ? 'The AI read a genuine invoice and paid the account the customer signed for. Same agent, same mandate: the next invoice is the test.'
         : 'The AI read a manipulated invoice and would have paid the wrong account. The mandate stopped it.';
-      steps.querySelector('[data-step="d"]').hidden = false;
-      if (!judgment.classList.contains('is-full')) steps.querySelector('[data-step="c"]').scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'nearest' });
+      $('inv-caption').hidden = false;
     }
 
-    // ── 4 · the script ──
-    state.beats.forEach(b => {
-      const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p;
-      btn.innerHTML = `<span class="beat__label">${esc(b.label)}<small>${esc(b.hint)}</small></span><span class="beat__expect">${esc(b.expect)}</span>`;
-      btn.onclick = async () => {
-        btn.disabled = true; btn.dataset.running = 'true';
-        try {
-          for (let k = 0; k < (b.repeat || 1); k++) {
-            const r = await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, invoice_ref: b.repeat ? `${b.invoice_ref}-${k + 1}` : b.invoice_ref, signer: b.signer });
-            await present(b, r, b.repeat ? k + 1 : null, k > 0);
-            if (r.decision !== 'ALLOW') break;
-          }
-          await strip();
-        } finally { btn.disabled = false; delete btn.dataset.running; }
-      };
-      $('beats').append(el('li').appendChild(btn).parentElement);
-    });
+    // ── the eight instructions ──
+    state.beats.forEach(b => $('beats').append(beatButton(b, async () => {
+      for (let k = 0; k < (b.repeat || 1); k++) {
+        const r = await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, invoice_ref: b.repeat ? `${b.invoice_ref}-${k + 1}` : b.invoice_ref, signer: b.signer });
+        await present(b, r, b.repeat ? k + 1 : null, k > 0);
+        if (r.decision !== 'ALLOW') break;
+      }
+    })));
     function termLine(b, r, k) {
       const trace = r.trace.map(s => `<b>${esc(s.rule)}</b> ${s.ok ? '✓' : '✗'} ${esc(s.note)}`).join(' · ');
       const settle = r.settlement ? `<span class="t-settle">${esc(r.settlement.rail_reason)} · 30-day total for this account now ${gbp(r.settlement.ledger_total_after)}</span>` : '';
