@@ -1,10 +1,9 @@
 """Keys, JWTs and nonces for the composite passport.
 
-Four persisted signers, each entitled to exactly one claim set:
-  authority          signs the model approval (assurance): model, policy ceilings, supervisor condition
-  openpay            the model company's publisher key: attests its model documentation
-  northgate          the customer's organisation key: signs agent_identity (this is our deployment of an approved model)
-  northgate_officer  the authorising officer's key: signs the mandate (payees, limits, expiry)
+Three signers, each entitled to exactly one claim set:
+  authority  signs the assurance JWT      (KY-A assurance + supervisor condition)
+  openpay    signs the agent_identity JWT (agent name, agent public key, software, config hash)
+  northgate  signs the mandate JWT        (supplier allowlist, limits, expiry)
 Each is an Ed25519 key generated once into KEYS_DIR (never committed). The
 agent has a fourth key, generated per application; the demo agent lives inside
 this process, so its private key is kept in the database for the simulation.
@@ -26,7 +25,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 
 from . import config
 
-SIGNERS = ("authority", "openpay", "northgate", "northgate_officer")
+SIGNERS = ("authority", "openpay", "northgate")
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
@@ -187,14 +186,14 @@ def verify_envelope(env: dict) -> dict:
     if out["assurance"] is None:
         out["failure"] = "assurance"
         return out
-    out["agent_identity"] = verify_jwt("northgate", env.get("agent_identity"))
+    out["agent_identity"] = verify_jwt("openpay", env.get("agent_identity"))
     if out["agent_identity"] is None:
         out["failure"] = "agent_identity"
         return out
     if not env.get("mandate"):
         out["failure"] = "mandate_missing"
         return out
-    out["mandate"] = verify_jwt("northgate_officer", env.get("mandate"))
+    out["mandate"] = verify_jwt("northgate", env.get("mandate"))
     if out["mandate"] is None:
         out["failure"] = "mandate"
         return out

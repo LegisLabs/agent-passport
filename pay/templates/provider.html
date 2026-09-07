@@ -1,16 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Model Register{% endblock %}
+{% block title %}Provider Panel{% endblock %}
 {% block content %}
 <div class="grid">
   <div class="col-main">
-    <h1 class="h1">{{ operator }} registers {{ agent_name }}</h1>
-    <p class="lede lede--tight">Phase 1 — the model company registers the model once: documentation, benchmarks, training type. No customer data, no deployment, no liability carried.</p>
+    <h1 class="h1">Register an agent</h1>
+    <p class="lede lede--tight">Phase 1. {{ operator }} registers the model once: documentation, key, configuration hash, insurance. No customer data.</p>
 
     <ol class="steps" id="steps">
       <li class="step" data-step="1">
-        <div class="h2row"><h2 class="h2">1 · Model registration <span class="h2__meta" id="facts-meta"></span></h2><button class="btn btn--secondary btn--small" id="btn-prefill" hidden>Prefill data</button></div>
+        <h2 class="h2">1 · Registration <span class="h2__meta" id="facts-meta"></span></h2>
         <div class="actions">
           <button class="btn" id="btn-new">Start registration</button>
+          <button class="btn btn--secondary" id="btn-prefill" hidden>Prefill demo data</button>
           <span class="actions__note" id="extract-note"></span>
         </div>
         <div id="facts"></div>
@@ -18,16 +19,25 @@
       </li>
 
       <li class="step" data-step="2" hidden>
-        <h2 class="h2">2 · Submit</h2>
-        <p class="hint">By submitting, {{ operator }} attests the model documentation is accurate. The publisher key signs the documentation: an attestation of documentation accuracy only. No deployment, no agent, no liability for use.</p>
+        <h2 class="h2">2 · The agent's key</h2>
+        <p class="hint">The authority sends a one-off challenge; only the holder of the private key can sign it.</p>
         <dl class="kv" id="agent-kv"></dl>
+        <div class="actions">
+          <button class="btn" id="btn-key">Generate agent key and request challenge</button>
+          <button class="btn" id="btn-sign" hidden>Agent signs the challenge</button>
+        </div>
+      </li>
+
+      <li class="step" data-step="3" hidden>
+        <h2 class="h2">3 · Submit</h2>
+        <p class="hint">By submitting, the accountable person named above accepts responsibility for the agent's actions. {{ operator }} signs the agent identity with its own key.</p>
         <div class="actions">
           <button class="btn btn--start" id="btn-submit">Submit registration <span class="btn__arrow" aria-hidden="true"></span></button>
         </div>
         <div class="panel panel--confirm" id="confirm" hidden>
           <h2 class="panel__title">Registration submitted</h2>
-          <p class="panel__ref">Registration reference<br><strong id="confirm-ref"></strong></p>
-          <p>M-rules have run. A case officer will approve the model and set the policy ceilings.</p>
+          <p class="panel__ref">Your reference<br><strong id="confirm-ref"></strong></p>
+          <p>Automated checks have run. A case officer will review and decide.</p>
         </div>
       </li>
     </ol>

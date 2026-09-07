@@ -59,38 +59,65 @@ def _check(rule: dict, ok: bool, evidence: str, detail: str = "") -> dict:
     }
 
 
-def run_model_checks(fields: dict, publisher_jwt: str | None, reg: dict | None = None) -> list[dict]:
-    """M.1–M.4 over the model registration. The model company attests documentation accuracy; nothing else."""
+def run_application_checks(fields: dict, agent: dict | None, reg: dict | None = None, today: date | None = None) -> list[dict]:
     reg = reg or registry()
+    today = today or date.today()
+    pol = pack()["policy"]
     out = []
-    company = (_v(fields, "company", "legal_name") or "").lower()
-    for rule in pack()["model_rules"]:
+    firm = (_v(fields, "provider", "legal_name") or "").lower()
+    for rule in pack()["application_rules"]:
         c = rule["check"]
-        if c == "company_match":
-            num = _v(fields, "company", "companies_house_number") or ""
+        if c == "licence_active":
+            ref = _v(fields, "provider", "licence_ref") or ""
+            rec = reg["psp_licences"].get(ref)
+            ok = bool(rec and rec["status"] == "active" and rec["firm"].lower() == firm and "payment_initiation" in rec["permissions"])
+            out.append(_check(rule, ok, f"register entry {ref}", f"{rec['type']}, active, payment initiation permitted" if ok else "no active licence with payment-initiation permission for this firm"))
+        elif c == "companies_house_match":
+            num = _v(fields, "provider", "companies_house_number") or ""
             rec = reg["companies_house"].get(num)
-            ok = bool(rec and rec["status"] == "active" and rec["name"].lower() == company)
-            out.append(_check(rule, ok, f"Companies House {num}", "active company, name matches the registrant" if ok else "no matching active company"))
+            ok = bool(rec and rec["status"] == "active" and rec["name"].lower() == firm)
+            out.append(_check(rule, ok, f"Companies House {num}", "active company, name matches" if ok else "no matching active company"))
+        elif c == "accountable_person":
+            ap = fields.get("accountable_person", {})
+            ok = all(_v(ap, k) for k in ("name", "role", "declaration_ref"))
+            out.append(_check(rule, ok, "registration: accountable person", f"{_v(ap, 'name')}, {_v(ap, 'role')}, declaration {_v(ap, 'declaration_ref')}; responsibility accepted on submission" if ok else "incomplete accountability details"))
+        elif c == "insurance_evidenced":
+            ins = fields.get("insurance", {})
+            cover = float(_v(ins, "cover_gbp") or 0)
+            until = str(_v(ins, "valid_until") or "")
+            ok = bool(_v(ins, "policy_ref")) and cover >= pol["min_insurance_cover_gbp"] and until >= today.isoformat()
+            out.append(_check(rule, ok, f"policy {_v(ins, 'policy_ref')}", f"£{cover:,.0f} cover until {until}" if ok else f"missing, below £{pol['min_insurance_cover_gbp']:,.0f} or lapsed"))
+        elif c == "proof_of_possession":
+            ok = bool(agent and agent.get("pop_verified"))
+            out.append(_check(rule, ok, "signed challenge", f"challenge signed by kid {agent.get('kid')}" if ok else "challenge not signed"))
         elif c == "model_documented":
-            m = fields.get("model", {})
-            missing = [k for k in ("name", "version", "training_type", "documentation_ref") if not _v(m, k)]
+            ag = fields.get("agent", {})
+            missing = [k for k in ("model_provider", "model_version", "benchmarks", "training_type") if not _v(ag, k)]
             ok = not missing
-            out.append(_check(rule, ok, "registration: model documentation", f"{_v(m, 'name')} {_v(m, 'version')} (pinned) · {_v(m, 'training_type')}" if ok else "missing: " + ", ".join(missing)))
-        elif c == "benchmarks_attributed":
-            b = str(_v(fields, "model", "benchmarks") or "")
-            ok = len(b) > 20 and ("test set" in b.lower() or "seeded" in b.lower() or "on " in b.lower())
-            out.append(_check(rule, ok, "registration: benchmarks (provider-attested)", b[:120] + ("…" if len(b) > 120 else "") if ok else "benchmarks missing or not attributed to a named test set"))
-        elif c == "publisher_signature":
-            payload = crypto.verify_jwt("openpay", publisher_jwt) if publisher_jwt else None
-            ok = bool(payload) and payload.get("documentation_sha256") == documentation_hash(fields)
-            out.append(_check(rule, ok, f"publisher key kid {crypto.signer('openpay')['kid']}", "signature verifies over the registered documentation (attestation of accuracy only)" if ok else ("documentation changed after signing" if payload else "no publisher signature")))
+            out.append(_check(rule, ok, "registration pack, technical description", f"{_v(ag, 'model_provider')} · {_v(ag, 'model_version')} · benchmarks and training type declared" if ok else "missing: " + ", ".join(missing)))
+        elif c == "key_management":
+            ag = fields.get("agent", {})
+            rq = fields.get("requested", {})
+            problems = []
+            if not _v(ag, "key_storage"):
+                problems.append("key storage")
+            if not _v(ag, "key_rotation"):
+                problems.append("key rotation policy")
+            if _v(rq, "action_type") not in pol["action_types"]:
+                problems.append("action type outside policy")
+            thr = _v(rq, "human_confirm_above_gbp")
+            if thr is None or float(thr) > pol["per_payment_ceiling_gbp"]:
+                problems.append("proposed confirmation threshold above the per-payment ceiling")
+            out.append(_check(rule, not problems, "technical description; policy table", f"storage and rotation declared; {_v(rq, 'action_type')} within policy" if not problems else "missing or outside policy: " + ", ".join(problems)))
+        elif c == "software_declared":
+            sw = _v(fields, "agent", "software")
+            ver = _v(fields, "agent", "software_version")
+            declared = str(_v(fields, "agent", "config_hash") or "").lower()
+            actual = agent_config_hash()
+            ok = sw in pol["recognised_software"] and bool(ver) and declared == actual
+            why = "hash matches deployed configuration" if declared == actual else "declared hash does not match the deployed configuration file"
+            out.append(_check(rule, ok, f"{sw} {ver}; sha256 {actual[:12]}…", f"{sw} listed; {why}" if ok else f"{sw or 'software'} {'listed' if sw in pol['recognised_software'] else 'not on list'}; {why}"))
     return out
-
-
-def documentation_hash(fields: dict) -> str:
-    """What the model company signs: the canonical documentation values."""
-    doc = {sec: {k: _v(fields, sec, k) for k in (fields.get(sec) or {})} for sec in ("company", "model")}
-    return crypto.sha256_hex(crypto.canonical(doc))
 
 
 # ── Runtime verification ───────────────────────────────────────────────────
@@ -116,13 +143,11 @@ def request_signing_input(req: dict) -> bytes:
     return crypto.canonical(body).encode()
 
 
-def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total: float = 0.0, today: date | None = None, model_status: str = "approved") -> dict:
+def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total: float = 0.0, today: date | None = None) -> dict:
     """Ordered checks at the bank, deny by default.
 
-    envelope         {assurance, agent_identity, mandate} compact JWTs (mandate may be null). assurance = the authority's
-                     approval of the MODEL (ceilings + condition); agent_identity = the customer's attestation of its deployment
+    envelope         {assurance, agent_identity, mandate} compact JWTs (mandate may be null)
     registry_status  the authority registry's current status for the passport id
-    model_status     the model registry's current status for the approved model the passport is built on (cascade)
     req              {passport_id, action_type, payee_account_ref, supplier_name, amount, currency, invoice_ref, nonce, agent_signature}
     ledger_total     the bank's executed total for this payee account in the trailing 30 days
     """
@@ -138,24 +163,17 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
     if not step("R.1", assurance is not None, "authority signature verifies" if assurance else "assurance does not verify against the authority key"):
         return _result("R.1", "DENY", _rule("R.1")["code"], "assurance signature invalid", trace)
 
-    # R.2 passport ACTIVE and the model approval APPROVED and unexpired (two registries; model revocation cascades)
+    # R.2 status + expiry (registry is authoritative; token validity is the second guard)
     expired = today.isoformat() > assurance.get("valid_until", "9999-12-31")
-    model_ok = model_status == "approved"
-    active = registry_status == "active" and model_ok and not expired
-    if not step("R.2", active, f"passport {registry_status}, model approval {model_status}" + (", expired" if expired else "")):
-        if registry_status == "active" and not model_ok:
-            return _result("R.2", "DENY", "MODEL_NOT_APPROVED", f"the model this agent runs on is {model_status.upper()} in the authority's model registry; every passport on it fails here", trace)
-        return _result("R.2", "DENY", _rule("R.2")["code"], f"passport not active: status is {registry_status.upper()}" + (" and validity has ended" if expired else ""), trace)
+    active = registry_status == "active" and not expired
+    if not step("R.2", active, f"registry status {registry_status}" + (", expired" if expired else "")):
+        return _result("R.2", "DENY", _rule("R.2")["code"], f"assurance not active: status is {registry_status.upper()}" + (" and validity has ended" if expired else ""), trace)
 
-    # R.3 agent identity signed by the CUSTOMER organisation key and referencing the approved model in the assurance
-    ident = crypto.verify_jwt("northgate", envelope.get("agent_identity"))
-    am = assurance.get("model") or {}
-    im = (ident or {}).get("model") or {}
-    ref_ok = bool(ident) and im.get("model_id") == am.get("model_id") and str(im.get("version")) == str(am.get("version"))
-    if not step("R.3", bool(ident) and ref_ok, f"customer organisation signature verifies; deployment of approved model {am.get('model_id')} v{am.get('version')}" if ident and ref_ok else ("agent identity does not verify against the customer organisation key" if not ident else f"agent identity references {im.get('model_id')} v{im.get('version')}, not the approved model {am.get('model_id')} v{am.get('version')}")):
-        if ident and not ref_ok:
-            return _result("R.3", "DENY", "MODEL_REFERENCE_MISMATCH", "agent identity does not reference the approved model this assurance covers", trace)
-        return _result("R.3", "DENY", _rule("R.3")["code"], "agent identity signature invalid (customer organisation key)", trace)
+    # R.3 agent identity signature (provider) and binding to this assurance
+    ident = crypto.verify_jwt("openpay", envelope.get("agent_identity"))
+    bound = bool(ident) and crypto.sha256_hex(envelope.get("agent_identity") or "") == (assurance.get("binds") or {}).get("agent_identity_sha256")
+    if not step("R.3", bool(ident) and bound, "provider signature verifies; identity bound to this assurance" if ident and bound else ("agent identity does not verify against the provider key" if not ident else "agent identity is not the one this assurance was issued for")):
+        return _result("R.3", "DENY", _rule("R.3")["code"], "agent identity signature invalid or not bound to this assurance", trace)
 
     # R.4 instruction signed by the agent key in agent_identity.cnf. With a delegation chain (Part B), the
     # orchestrator's key signs the delegation and the delegated execution key signs the instruction.
@@ -177,8 +195,8 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
     if not envelope.get("mandate"):
         step("R.5", False, "mandate not signed by the customer")
         return _result("R.5", "DENY", "MANDATE_NOT_SIGNED", "mandate not signed: the customer has not yet authorised this agent", trace)
-    mandate = crypto.verify_jwt("northgate_officer", envelope.get("mandate"))
-    if not step("R.5", mandate is not None and mandate.get("passport_id") == (ident.get("passport_id") or mandate.get("passport_id")), "authorising officer signature verifies" if mandate else "mandate does not verify against the officer key"):
+    mandate = crypto.verify_jwt("northgate", envelope.get("mandate"))
+    if not step("R.5", mandate is not None and mandate.get("passport_id") == assurance.get("jti"), "customer signature verifies" if mandate else "mandate does not verify against the customer key"):
         return _result("R.5", "DENY", "MANDATE_SIGNATURE_INVALID", "mandate signature invalid or for a different passport", trace)
     if today.isoformat() > mandate.get("valid_until", "9999-12-31"):
         step("R.5", False, f"mandate expired {mandate.get('valid_until')}")

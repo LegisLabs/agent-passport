@@ -1,8 +1,13 @@
 {
- "_comment": "Prefilled model registration for the demo (Phase 1). OpenPay Ltd registers PayGPT 6.0. Values only; no documents. No agent, no customer, no insurance, no accountable person.",
- "company": {
+ "_comment": "Prefilled registration fields for the demo (Phase 1). Values only; the provider types or corrects them on the Provider Panel. No documents, no extraction.",
+ "provider": {
   "legal_name": {
    "value": "OpenPay Ltd",
+   "source_doc": null,
+   "quote": null
+  },
+  "licence_ref": {
+   "value": "PSP-4471",
    "source_doc": null,
    "quote": null
   },
@@ -10,16 +15,80 @@
    "value": "10987654",
    "source_doc": null,
    "quote": null
+  },
+  "permissions": {
+   "value": "Payment initiation services; account information services",
+   "source_doc": null,
+   "quote": null
   }
  },
- "model": {
+ "accountable_person": {
   "name": {
+   "value": "Daniel Okoye",
+   "source_doc": null,
+   "quote": null
+  },
+  "role": {
+   "value": "Head of Compliance",
+   "source_doc": null,
+   "quote": null
+  },
+  "declaration_ref": {
+   "value": "DEC-2026-017",
+   "source_doc": null,
+   "quote": null
+  }
+ },
+ "insurance": {
+  "provider": {
+   "value": "Demo Mutual Insurance Association",
+   "source_doc": null,
+   "quote": null
+  },
+  "policy_ref": {
+   "value": "PI-2026-88213",
+   "source_doc": null,
+   "quote": null
+  },
+  "cover_gbp": {
+   "value": 2000000,
+   "source_doc": null,
+   "quote": null
+  },
+  "valid_until": {
+   "value": "2027-03-31",
+   "source_doc": null,
+   "quote": null
+  }
+ },
+ "agent": {
+  "agent_name": {
+   "value": "PayGPT 6.0",
+   "source_doc": null,
+   "quote": null
+  },
+  "agent_id": {
+   "value": "openpay-paygpt-6",
+   "source_doc": null,
+   "quote": null
+  },
+  "software": {
    "value": "PayGPT",
    "source_doc": null,
    "quote": null
   },
-  "version": {
+  "software_version": {
    "value": "6.0",
+   "source_doc": null,
+   "quote": null
+  },
+  "model_provider": {
+   "value": "Anthropic (Claude)",
+   "source_doc": null,
+   "quote": null
+  },
+  "model_version": {
+   "value": "claude-sonnet-5",
    "source_doc": null,
    "quote": null
   },
@@ -33,8 +102,30 @@
    "source_doc": null,
    "quote": null
   },
-  "documentation_ref": {
-   "value": "OpenPay model card PayGPT-6.0-MC-2026-08",
+  "config_hash": {
+   "value": "0742d2a29aaa65ffb40e172b1eeb00f46c40e8e970a94d8bab68c15e76a5edfc",
+   "source_doc": null,
+   "quote": null
+  },
+  "key_storage": {
+   "value": "hardware-backed key store in OpenPay's deployment; not exportable",
+   "source_doc": null,
+   "quote": null
+  },
+  "key_rotation": {
+   "value": "every 12 months, or immediately on suspected compromise",
+   "source_doc": null,
+   "quote": null
+  }
+ },
+ "requested": {
+  "action_type": {
+   "value": "pay_invoice",
+   "source_doc": null,
+   "quote": null
+  },
+  "human_confirm_above_gbp": {
+   "value": 5000,
    "source_doc": null,
    "quote": null
   }

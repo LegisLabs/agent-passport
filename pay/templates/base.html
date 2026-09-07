@@ -12,34 +12,36 @@
 <a href="#main" class="skip">Skip to main content</a>
 
 <header class="masthead" role="banner">
-  <div class="wrap masthead__row">
+  <div class="masthead__grid"><div class="masthead__spacer" aria-hidden="true"></div><div class="wrap masthead__row">
     <a class="masthead__logo" href="/provider" aria-label="GOV DEMO home">
       <span class="masthead__square" aria-hidden="true"></span>
       <span class="masthead__logotype">GOV<span class="masthead__dot" aria-hidden="true"></span>DEMO</span>
     </a>
     <span class="masthead__tag">Prototype v{{ version }} · payments</span>
-  </div>
+  </div></div>
 </header>
 
-<nav class="tabs" aria-label="Views">
-  <div class="wrap tabs__row">
-    <a class="tabs__tab" href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}>1 · Model Register <span class="tabs__sub">model company · {{ operator }}</span></a>
-    <a class="tabs__tab" href="/regulator" {% if view == 'regulator' %}aria-current="page"{% endif %}>2 · Regulator Panel <span class="tabs__sub">authority · case officer</span></a>
-    <a class="tabs__tab" href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>3 · Create agent &amp; sign mandate <span class="tabs__sub">customer · {{ customer }}</span></a>
-    <a class="tabs__tab" href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>4 · Action Terminal <span class="tabs__sub">bank · verification console</span></a>
-    <a class="tabs__tab" href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>5 · Audit <span class="tabs__sub">replayable record</span></a>
-    <a class="tabs__tab tabs__tab--about" href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>About</a>
-  </div>
+<div class="shell">
+<nav class="sidebar" aria-label="Views">
+  <ol class="sidebar__list">
+    <li><a class="sidebar__item" href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}><span class="sidebar__num">1</span>Provider Panel</a></li>
+    <li><a class="sidebar__item" href="/regulator" {% if view == 'regulator' %}aria-current="page"{% endif %}><span class="sidebar__num">2</span>Regulator Panel</a></li>
+    <li><a class="sidebar__item" href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}><span class="sidebar__num">3</span>Customer Panel</a></li>
+    <li><a class="sidebar__item" href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}><span class="sidebar__num">4</span>Action Terminal</a></li>
+    <li><a class="sidebar__item" href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}><span class="sidebar__num">5</span>Audit</a></li>
+    <li class="sidebar__about"><a class="sidebar__item" href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>About</a></li>
+  </ol>
 </nav>
 
 <main id="main" class="wrap main">
 {% block content %}{% endblock %}
 </main>
+</div>
 
 <footer class="footer">
   <div class="wrap footer__row">
     <span>Legis Labs · Agent Passport · <em>delegation can only narrow authority, never expand it</em> · <span class="mono">rule pack {{ rule_pack }}</span> · extraction <span class="mono">{{ extraction_mode }}</span> · vouch <span class="mono">{{ vouch_mode }}</span> · rail <span class="mono">{{ payment_rail }}</span></span>
-    <span class="mono small">keys: authority {{ kids.authority }} · model company {{ kids.openpay }} · customer org {{ kids.northgate }} · officer {{ kids.northgate_officer }} · <button class="link" id="demo-reset" type="button">reset to demo baseline</button> · <a href="https://cdir.legislabs.uk">tax vertical</a></span>
+    <span class="mono small">keys: authority {{ kids.authority }} · provider {{ kids.openpay }} · customer {{ kids.northgate }} · <button class="link" id="demo-reset" type="button">reset to demo baseline</button> · <a href="https://cdir.legislabs.uk">tax vertical</a></span>
   </div>
 </footer>
 

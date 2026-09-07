@@ -92,26 +92,10 @@ CREATE TABLE IF NOT EXISTS violations (
   resolution TEXT                       -- revoked | reinstated | null
 );
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
-CREATE TABLE IF NOT EXISTS models (
-  model_id TEXT PRIMARY KEY,            -- MODEL-openpay-paygpt-6.0
-  registration_id INTEGER NOT NULL,     -- applications.id (the registration)
-  name TEXT NOT NULL,
-  version TEXT NOT NULL,
-  company TEXT NOT NULL,
-  assurance_jwt TEXT NOT NULL,          -- authority-signed model approval: model + ceilings + condition
-  assurance_json TEXT NOT NULL,
-  status TEXT NOT NULL,                 -- approved | suspended | revoked
-  approved_at TEXT NOT NULL,
-  expires_at TEXT NOT NULL,
-  history_json TEXT NOT NULL
-);
 """
 _MIGRATIONS = [
     "ALTER TABLE passports ADD COLUMN investigation TEXT",          # null | investigating
     "ALTER TABLE applications ADD COLUMN review_json TEXT",          # Standards Review Assistant output
-    "ALTER TABLE applications ADD COLUMN publisher_jwt TEXT",        # model company's documentation attestation
-    "ALTER TABLE passports ADD COLUMN model_id TEXT",                # the approved model this agent is a deployment of
-    "ALTER TABLE passports ADD COLUMN agent_json TEXT",              # the customer's agent key (demo: private key kept server-side)
 ]
 
 
@@ -160,7 +144,6 @@ def row_to_app(r: sqlite3.Row) -> dict:
 
 def row_to_passport(r: sqlite3.Row) -> dict:
     d = dict(r)
-    d["agent"] = j(d.pop("agent_json")) if "agent_json" in d.keys() else None
     d["assurance"] = j(d.pop("assurance_json"))
     d["agent_identity"] = j(d.pop("agent_identity_json"))
     d["mandate_proposed"] = j(d.pop("mandate_proposed_json"))
@@ -232,70 +215,16 @@ def update_application(app_id: int, **cols) -> dict:
 # ── passports ──────────────────────────────────────────────────────────────
 def create_passport(passport_id: str, application_id: int, assurance_jwt: str, assurance: dict,
                     agent_identity_jwt: str, agent_identity: dict, mandate_proposed: dict,
-                    expires_at: str, officer: str, model_id: str | None = None, agent: dict | None = None) -> dict:
-    hist = [{"ts": now_iso(), "from": None, "to": "active", "officer": officer, "reason": "Registered by the customer: agent created on an approved model"}]
+                    expires_at: str, officer: str) -> dict:
+    hist = [{"ts": now_iso(), "from": None, "to": "active", "officer": officer, "reason": "Issued"}]
     with tx() as con:
         con.execute(
             "INSERT INTO passports(passport_id,application_id,assurance_jwt,assurance_json,agent_identity_jwt,agent_identity_json,"
-            "mandate_proposed_json,status,issued_at,expires_at,history_json,model_id,agent_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)",
+            "mandate_proposed_json,status,issued_at,expires_at,history_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
             (passport_id, application_id, assurance_jwt, json.dumps(assurance), agent_identity_jwt, json.dumps(agent_identity),
-             json.dumps(mandate_proposed), "active", now_iso(), expires_at, json.dumps(hist), model_id, json.dumps(agent) if agent else None),
+             json.dumps(mandate_proposed), "active", now_iso(), expires_at, json.dumps(hist)),
         )
         return get_passport(passport_id, con)
-
-
-def set_passport_agent(passport_id: str, agent: dict) -> dict:
-    with tx() as con:
-        con.execute("UPDATE passports SET agent_json=? WHERE passport_id=?", (json.dumps(agent), passport_id))
-        return get_passport(passport_id, con)
-
-
-# ── model registry ─────────────────────────────────────────────────────────
-def row_to_model(r: sqlite3.Row) -> dict:
-    d = dict(r)
-    d["assurance"] = j(d.pop("assurance_json"))
-    d["history"] = j(d.pop("history_json")) or []
-    return d
-
-
-def create_model(model_id: str, registration_id: int, name: str, version: str, company: str, assurance_jwt: str, assurance: dict, expires_at: str, officer: str) -> dict:
-    hist = [{"ts": now_iso(), "from": None, "to": "approved", "officer": officer, "reason": "Model approved; policy ceilings and condition set"}]
-    with tx() as con:
-        con.execute("INSERT OR REPLACE INTO models(model_id,registration_id,name,version,company,assurance_jwt,assurance_json,status,approved_at,expires_at,history_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
-                    (model_id, registration_id, name, version, company, assurance_jwt, json.dumps(assurance), "approved", now_iso(), expires_at, json.dumps(hist)))
-        return get_model(model_id, con)
-
-
-def get_model(model_id: str | None, con=None) -> dict | None:
-    if not model_id:
-        return None
-    def q(c):
-        r = c.execute("SELECT * FROM models WHERE model_id=?", (model_id,)).fetchone()
-        return row_to_model(r) if r else None
-    if con:
-        return q(con)
-    with tx() as c:
-        return q(c)
-
-
-def list_models() -> list[dict]:
-    with tx() as con:
-        return [row_to_model(r) for r in con.execute("SELECT * FROM models ORDER BY approved_at DESC, rowid DESC")]
-
-
-def set_model_status(model_id: str, status: str, officer: str, reason: str) -> dict:
-    with tx() as con:
-        m = get_model(model_id, con)
-        if not m:
-            raise KeyError(model_id)
-        hist = m["history"] + [{"ts": now_iso(), "from": m["status"], "to": status, "officer": officer, "reason": reason}]
-        con.execute("UPDATE models SET status=?, history_json=? WHERE model_id=?", (status, json.dumps(hist), model_id))
-        return get_model(model_id, con)
-
-
-def passports_on_model(model_id: str) -> list[dict]:
-    with tx() as con:
-        return [row_to_passport(r) for r in con.execute("SELECT * FROM passports WHERE model_id=? ORDER BY issued_at DESC", (model_id,))]
 
 
 def get_passport(passport_id: str, con=None) -> dict | None:
@@ -462,5 +391,5 @@ def pattern_alerts(count: int, window_hours: int) -> list[dict]:
 
 def reset_all() -> None:
     with tx() as con:
-        for t in ("applications", "passports", "payments", "audit", "violations", "models", "kv"):
+        for t in ("applications", "passports", "payments", "audit", "violations", "kv"):
             con.execute(f"DELETE FROM {t}")

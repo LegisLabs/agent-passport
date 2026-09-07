@@ -37,16 +37,6 @@ All names, registers, accounts and documents are synthetic. This is a proposed a
 4. **Act & check** (`/bank`). Eight proposed instructions. The simulated agent signs each; the bank runs R.1–R.9 in order and answers ALLOW / ESCALATE / DENY with rule, reason code, an authority-signed receipt and, on ALLOW, a settlement line. Per-account 30-day meters, and both rails (authority registry, vouch voucher) on every line, so after a revocation the console shows two rails refusing. Three refusals raise an incident.
 5. **Audit** (`/audit`). Hash chain over every event. Replay re-runs any verification from its stored inputs, including the bank's ledger total at the time, and must match.
 
-### Iteration 3b: model register architecture
-
-**A model becomes an agent when a customer gives it a mandate.**
-
-- **Phase 1, Model Register** (`/provider`): OpenPay Ltd registers PayGPT 6.0 once: company, model name and pinned version, benchmarks, training type, documentation reference. Its publisher key signs the documentation at submission, an attestation of accuracy only. No agent, no customer, no insurance, no accountable person, no liability carried. `POST /api/applications`, `/prefill`, `PUT /fields`, `/submit`.
-- **Phase 2, Regulator Panel**: M.1 to M.4 (company resolves, documentation declared, benchmarks attributed, publisher signature verifies), the Standards Review Assistant re-scoped to the model (its sandbox runs a hypothetical passport under the proposed ceilings through the real engine), then the officer approves the MODEL and sets policy ceilings and the condition. The approval is an authority-signed JWT over the model; it enters the **model registry**. `GET /api/models`, `POST /api/models/{id}/status` (suspend / approved / revoked, cascades to every passport on the model, revoking their vouch vouchers).
-- **Phase 3, Create agent and sign mandate** (`/customer`): the customer picks an approved model, creates its agent (own Ed25519 key with proof of possession, deployment config hash, key storage and rotation), attests the deployment with its organisation key (`agent_identity`, RFC 7800 cnf plus model registry reference), then its authorising officer writes and signs the mandate with the officer key. Live at once. `POST /api/passports`, `/agent/sign-challenge`, `/agent-identity`, `/mandate/check`, `/mandate/sign`.
-- **Bank**: R.1 verifies the model approval; R.2 requires passport ACTIVE and model APPROVED and unexpired; R.3 verifies `agent_identity` against the customer organisation key and its reference to the approved model; R.4 to R.9 unchanged. Rule pack `payments-2026.09.2`.
-- Liability: the model company answers only for the accuracy of its registered documentation. The customer answers for the mandate it signed. The bank answers for the check. The authority holds the registries that make any failure reconstructable.
-
 ### Iteration 3: Issuance Flow v4, signature evidence, demo readiness
 
 - **Issuance Flow v4.** Phase 1: the provider registers the agent model once (model documentation, key management, key, config hash, insurance; no customer data). Phase 2: the authority approves once and sets policy ceilings, carried in the assurance. Phase 3: the customer writes and signs its own mandate on the Customer Panel; the only gate is ceiling containment (`POST /api/passports/{id}/mandate/check` previews it, `/mandate/sign` enforces it with a 422). The regulator never sees mandate content.
@@ -64,14 +54,14 @@ All names, registers, accounts and documents are synthetic. This is a proposed a
 
 ### The composite passport
 
-Not one JWT. An envelope of three independently signed Ed25519 JWTs, each signed by the party entitled to the claim (authority over the model, customer organisation over its deployment, authorising officer over the mandate):
+Not one JWT. An envelope of three independently signed Ed25519 JWTs, each signed by the party entitled to the claim:
 
 ```json
 {
   "passport_id": "AP-2026-0107",
-  "assurance":      "<JWT signed by the AUTHORITY>            the approved MODEL (id, name, version, company, publisher kid), policy ceilings, condition, validity",
-  "agent_identity": "<JWT signed by the CUSTOMER ORG key>     agent id, agent public key (cnf), model registry reference, deployment config SHA-256, key management",
-  "mandate":        "<JWT signed by the OFFICER key>          supplier allowlist by account, per-payment limit, 30-day limit per account, expiry",
+  "assurance":      "<JWT signed by the AUTHORITY>   provider, licence, KY-A status, condition, accountable person, validity, binds → agent_identity hash",
+  "agent_identity": "<JWT signed by PAYRAIL>         agent name, agent public key (cnf), software, config SHA-256",
+  "mandate":        "<JWT signed by NORTHGATE>       supplier allowlist by account, per-payment limit, 30-day limit per account, expiry",
   "status_url": "/api/status/AP-2026-0107",
   "vouch_voucher_id": "VCH-… or the live voucher id",
   "cnf": null

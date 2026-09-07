@@ -1,8 +1,0 @@
-{
- "_comment": "Northgate's deployment of the approved model (Phase 3 prefill): the agent it creates from PayGPT 6.0.",
- "agent_id": "northgate-paygpt-6",
- "agent_name": "PayGPT 6.0 at Northgate",
- "config_hash": "0742d2a29aaa65ffb40e172b1eeb00f46c40e8e970a94d8bab68c15e76a5edfc",
- "key_storage": "hardware-backed key store in Northgate's deployment; not exportable",
- "key_rotation": "every 12 months, or immediately on suspected compromise, with re-attestation"
-}

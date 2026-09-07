@@ -3,34 +3,10 @@
 {% block content %}
 <div class="grid">
   <div class="col-main">
-    <h1 class="h1">{{ customer }} creates its agent</h1>
-    <p class="lede lede--tight"><strong>Phase 3</strong> — the customer turns an approved model into their agent: an agent key is generated for their deployment, they write the mandate, they sign. Live at once; no authority review. <span class="small">Layer B, principal mandate. A model becomes an agent when a customer gives it a mandate.</span></p>
+    <h1 class="h1">{{ customer }} signs the mandate</h1>
+    <p class="lede"><strong>Phase 3</strong> — The customer writes and signs its own mandate (payees, per-payment size, monthly ceiling, expiry) within the policy ceilings. Live immediately; no authority review. Until it is signed the envelope is incomplete and the bank refuses every instruction. <span class="small">Layer B, principal mandate.</span></p>
 
-    <div class="empty" id="cu-empty"><p>No approved model yet. The authority approves models in the <a href="/regulator">Regulator Panel</a>.</p></div>
-
-    <section class="agentbuild" id="cu-build" hidden>
-      <h2 class="h2">1 · Pick an approved model</h2>
-      <ul class="models" id="cu-models"></ul>
-      <h2 class="h2">2 · Create the agent</h2>
-      <p class="hint">Your deployment of the approved model: an identifier, a fresh Ed25519 key held in your deployment, the configuration hash, and how the key is stored and rotated.</p>
-      <form class="mandate__form" id="cu-agent-form">
-        <div class="fields">
-          <label class="label" for="ag-id">Agent identifier</label><input class="input" id="ag-id">
-          <label class="label" for="ag-name">Agent name</label><input class="input" id="ag-name">
-          <label class="label" for="ag-cfg">Deployment configuration SHA-256</label><input class="input mono" id="ag-cfg">
-          <label class="label" for="ag-store">Private key storage</label><input class="input" id="ag-store">
-          <label class="label" for="ag-rot">Key rotation</label><input class="input" id="ag-rot">
-        </div>
-      </form>
-      <div class="actions"><button class="btn" id="btn-create-agent" type="button">Create agent and generate its key</button></div>
-      <dl class="kv" id="ag-kv" hidden></dl>
-      <div class="actions">
-        <button class="btn btn--secondary" id="btn-ag-sign" type="button" hidden>Agent signs the challenge</button>
-        <button class="btn" id="btn-attest" type="button" hidden>Attest deployment (organisation key)</button>
-      </div>
-      <p class="error" id="ag-error" hidden></p>
-      <h2 class="h2" id="cu-mandate-h" hidden>3 · Write and sign the mandate</h2>
-    </section>
+    <div class="empty" id="cu-empty"><p>Nothing to sign yet. The authority issues the assurance first, in <a href="/regulator">Review &amp; issue</a>.</p></div>
 
     <div id="cu-mandate" hidden>
       <div class="mandate" id="cu-card">
@@ -77,9 +53,7 @@
     </ul>
     <h2 class="h3">What it does not say</h2>
     <p class="small">No bank details of the customer, no personal contact data, no running balance. The passport carries permission, not the customer's records.</p>
-    <h2 class="h3">Who answers for what</h2>
-    <p class="small">The model company answers only for the accuracy of its registered documentation. The customer answers for the mandate it signs. The bank answers for the check. The authority holds the registries that make any failure reconstructable.</p>
-    <h2 class="h3">Your agents</h2>
+    <h2 class="h3">Passports</h2>
     <ul class="applist" id="cu-list"></ul>
   </aside>
 </div>
