@@ -674,8 +674,7 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
 .models li[data-pick] { cursor: pointer; padding: .6rem .6rem; border: 1px solid var(--line); margin-bottom: .4rem; }
 .models li[data-pick][aria-selected="true"] { border-color: var(--ink); background: var(--panel); }
 
-.main > .h1:first-child, .main .col-main > .h1:first-child, .main .grid .col-main > .h1:first-child { margin-top: 1.25rem; }
-.main .h1 { margin-top: 1.25rem; }
+.main .h1 { margin-top: 0; }
 
 .h2row { display: flex; align-items: center; justify-content: space-between; gap: 1rem; }
 .h2row .h2 { margin-bottom: 0; }
