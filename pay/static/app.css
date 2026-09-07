@@ -867,3 +867,6 @@ body.menu-hidden .sidenav { display: none; }
 body.menu-hidden .masthead__menu::before { transform: rotate(135deg); top: .3em; }
 .masthead__menu:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 @media (max-width: 800px) { .shell { display: block; padding-top: 24px; } .sidenav { margin-bottom: 24px; } .masthead__menu { margin-right: 0; } }
+/* the masthead is the same on every page, including the terminal */
+body[data-view="bank"] .masthead { font-family: var(--font); color: #fff; }
+body[data-view="bank"] .masthead__logotype, body[data-view="bank"] .masthead__menu, body[data-view="bank"] .masthead__tag { color: #fff; font-family: var(--font); }
