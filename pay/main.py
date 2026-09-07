@@ -78,8 +78,8 @@ def rulepack():
 @app.get("/api/signers")
 def signers():
     """The three public keys a relying party needs. Nothing private."""
-    signs = {"authority": "assurance (model approval: ceilings, condition)", "openpay": "model documentation attestation (publisher key)", "northgate": "agent_identity (customer organisation key)", "northgate_officer": "mandate (authorising officer key)"}
-    return {n: {"kid": s["kid"], "jwk": s["jwk"], "alg": "EdDSA", "signs": signs.get(n, "")} for n, s in crypto.all_signers().items()}
+    return {n: {"kid": s["kid"], "jwk": s["jwk"], "alg": "EdDSA", "signs": {"authority": "assurance", "openpay": "agent_identity", "northgate": "mandate"}[n]}
+            for n, s in crypto.all_signers().items()}
 
 
 @app.get("/api/vouch")

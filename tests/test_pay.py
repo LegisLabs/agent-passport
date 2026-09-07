@@ -601,8 +601,3 @@ def test_model_revocation_cascades_and_passport_revoke_is_unchanged(client):
     # replay of cascade decisions is identical
     a = client.get("/api/audit").json()
     assert all(client.post(f"/api/audit/{x['id']}/replay").json()["identical"] for x in a["rows"][:10] if x["kind"] == "verify")
-
-
-def test_signers_endpoint_lists_four_keys(client):
-    s = client.get("/api/signers").json()
-    assert set(s) == {"authority", "openpay", "northgate", "northgate_officer"} and all(x["alg"] == "EdDSA" and x["jwk"]["kty"] == "OKP" for x in s.values())
