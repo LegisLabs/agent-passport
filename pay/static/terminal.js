@@ -52,7 +52,7 @@ const AT = (() => {
   async function opening(t, my) {
     on($(t + '-inv')); await wait(300); if (my !== token) return;
     await toPath(t, my); if (my !== token) return; await wait(200);
-    for (const f of ['domain', 'details']) { on($(t + '-inv').querySelector(`[data-flag="${f}"]`)); await wait(600); if (my !== token) return; }
+    for (const f of ['details']) { on($(t + '-inv').querySelector(`[data-flag="${f}"]`)); await wait(600); if (my !== token) return; }
     if (t === 'after') { on($('after-intent')); await wait(1100); if (my !== token) return; }
     $(t + '-agent-state').textContent = 'reading'; on($(t + '-agent'));
     $(t + '-scan').classList.add('is-scan'); await wait(1500); if (my !== token) return;
