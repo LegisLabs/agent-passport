@@ -40,7 +40,7 @@ body {
   -webkit-font-smoothing: antialiased;
   min-height: 100vh; display: flex; flex-direction: column;
 }
-.main { flex: 1 0 auto; }
+.main { flex: 1 0 auto; width: 100%; }
 button, input { font: inherit; }
 code, pre, .mono { font-family: var(--mono); }
 .mono { font-size: .94em; }
