@@ -1240,3 +1240,5 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .standard-pages .standard-page { flex: 0 0 auto; width: calc((100% - 14px * 4) / 5); }
 .standard-links--center { text-align: center; margin: 22px 0 0; }
 @media (max-width: 720px) { .standard-pages .standard-page { width: calc((100% - 14px * 2) / 3); } }
+.standard-links--center { display: flex; justify-content: center; }
+.standard-pages .standard-page img { display: block; width: 100%; height: auto; }
