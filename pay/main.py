@@ -97,7 +97,7 @@ def state():
             "models": [model_summary(a) for a in apps if a["status"] == "approved"],
             "incidents": db.list_audit(50, kind="incident"), "violations": db.list_violations(), "alerts": db.pattern_alerts(pat["count"], pat["window_hours"]), "pattern_threshold": pat,
             "vouch_mode": vouch.mode(), "payment_rail": vouch.rail(),
-            "mandate_draft": mandate_draft(), "policy": {k: pol[k] for k in ("per_payment_ceiling_gbp", "monthly_per_account_ceiling_gbp", "max_validity", "action_types", "currency", "human_confirm_above_gbp")},
+            "mandate_draft": mandate_draft(), "agent_draft": agent_draft(), "policy": {k: pol[k] for k in ("per_payment_ceiling_gbp", "monthly_per_account_ceiling_gbp", "max_validity", "action_types", "currency", "human_confirm_above_gbp")},
             "delegation_chain": config.DELEGATION_CHAIN == "on", "delegation_max_gbp": config.DELEGATION_MAX_GBP, "chain_beats": fixtures.CHAIN_BEATS, "chain_rules": rules.pack().get("chain_rules", [])}
 
 

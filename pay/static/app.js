@@ -36,23 +36,32 @@ const AP = (() => {
     const ref = new URLSearchParams(location.search).get('ref');
     return apps.find(a => a.ref === ref) || apps[0] || null;
   }
+  const tiles = (id, rows) => { $(id).innerHTML = rows.map(([n, label, tone]) => `<div class="tile${tone ? ' tile--' + tone : ''}"><strong>${esc(n)}</strong><span>${esc(label)}</span></div>`).join(''); };
+  const rows = (id, list, cols) => { const tb = $(id).querySelector('tbody'); tb.innerHTML = ''; list.forEach(x => { const tr = el('tr', null, x.cells.map(c => `<td>${c}</td>`).join('')); if (x.href) tr.dataset.href = x.href; tb.append(tr); }); if (!list.length) tb.append(el('tr', null, `<td class="empty-row" colspan="${cols}">None yet.</td>`)); };
+  document.addEventListener('click', (e) => { const tr = e.target.closest('tr[data-href]'); if (tr && !e.target.closest('a, button, input')) location.href = tr.dataset.href; });
+  const modelStatus = (x) => x.status === 'approved' ? tag(x.model_status === 'revoked' ? 'revoked' : x.model_status === 'suspended' ? 'suspended' : 'approved', x.model_status && x.model_status !== 'active' ? 'approved · ' + x.model_status : 'approved · active') : tag(x.status);
   const modeLabel = (m) => m === 'gemini' ? 'Gemini (live)' : m === 'fixture' ? 'fixture (deterministic stand-in)' : 'fixture after Gemini failed';
 
   // ───────────── Provider (operator) ─────────────
   async function provider() {
     let state = await api('GET', '/api/state');
-    let a = pick(state.applications);
+    const ref0 = new URLSearchParams(location.search).get('ref');
+    let a = state.applications.find(x => x.ref === ref0) || null;
     render();
 
-    async function refresh() { state = await api('GET', '/api/state'); a = state.applications.find(x => x.id === (a && a.id)) || pick(state.applications); render(); }
+    async function refresh() { state = await api('GET', '/api/state'); a = state.applications.find(x => x.id === (a && a.id)) || null; render(); }
 
     function render() {
-      const ul = $('models'); ul.innerHTML = '';
-      (state.registered_models || []).forEach(m => ul.append(el('li', null, `<strong>${esc(m.model)}</strong><span class="small"><span class="mono">${esc(m.registration)}</span> · approved ${d(m.assured)}</span>${tag(m.status)}`)));
-      state.applications.forEach(x => ul.append(el('li', null, `<strong>${esc(v(x.fields, 'model', 'model_name') || 'PayGPT 6.0')}</strong><span class="small"><a href="${location.pathname}?ref=${x.ref}" class="mono">${esc(x.ref)}</a> · this registration</span>${tag(x.model_status === 'revoked' ? 'revoked' : x.model_status === 'suspended' ? 'suspended' : x.status)}`)));
+      const apps = state.applications, prior = state.registered_models || [];
+      const agentsOn = (x) => state.passports.filter(p => p.application_id === x.id && p.status !== 'pending').length;
+      tiles('pv-tiles', [[prior.length + apps.length, 'models registered'], [prior.filter(m => m.status === 'active').length + apps.filter(x => x.status === 'approved' && (x.model_status || 'active') === 'active').length, 'approved and active', 'green'], [apps.filter(x => x.status === 'submitted' || x.status === 'info_requested').length, 'under review', 'amber'], [apps.reduce((n, x) => n + agentsOn(x), 0), 'live agents on your models']]);
+      rows('pv-models', [
+        ...apps.map(x => ({ href: `/provider?ref=${x.ref}`, cells: [`<a href="/provider?ref=${x.ref}" class="mono">${esc(x.ref)}</a>`, `<strong>${esc(v(x.fields, 'model', 'model_name') || 'Untitled')}</strong><span class="small mono">${esc(v(x.fields, 'model', 'model_id') || '')}</span>`, `<span class="mono">${esc(v(x.fields, 'model', 'model_version') || '—')}</span>`, d(x.submitted_at) || '—', x.decided_at ? `${d(x.decided_at)}<span class="small">${esc(x.officer || '')}</span>` : '—', String(agentsOn(x)), modelStatus(x)] })),
+        ...prior.map(m => ({ cells: [`<span class="mono">${esc(m.registration)}</span>`, `<strong>${esc(m.model)}</strong>`, `<span class="mono">${esc(m.version || '—')}</span>`, d(m.assured) || '—', `${d(m.assured)}<span class="small">prior register</span>`, '—', tag(m.status)] })),
+      ], 7);
       const has = !!a, draft = has && a.status === 'draft';
-      $('btn-new').hidden = draft;
-      $('btn-new').textContent = has ? 'Start another registration' : 'Start registration';
+      $('pv-form').hidden = !has;
+      if (has) { $('pv-ref').textContent = a.ref; $('pv-status').innerHTML = modelStatus(a); }
       $('btn-prefill').hidden = !draft;
       document.querySelector('[data-step="3"]').hidden = !has;
       if (has) { renderFacts(a.fields, draft); } else { $('facts').innerHTML = ''; $('btn-save-fields').hidden = true; }
@@ -126,13 +135,16 @@ const AP = (() => {
 
   async function regulator() {
     let state = await api('GET', '/api/state');
-    let a = pick(state.applications.filter(x => x.status !== 'draft')) || pick(state.applications);
-    let p = null;
+    const q = new URLSearchParams(location.search);
+    const issued = () => state.passports.filter(x => x.status !== 'pending');
+    let p = q.get('passport') ? issued().find(x => x.passport_id === q.get('passport')) || null : null;
+    let a = p ? state.applications.find(x => x.id === p.application_id) : (q.get('ref') ? state.applications.find(x => x.ref === q.get('ref') && x.status !== 'draft') || null : null);
+    const mode = p ? 'agent' : a ? 'case' : 'dash';
     let selectedVid = null;
     render();
 
-    async function refresh() { state = await api('GET', '/api/state'); a = state.applications.find(x => x.id === a.id) || a; render(); }
-    function passportFor() { const ref = new URLSearchParams(location.search).get('passport'); return a ? (state.passports.find(x => x.application_id === a.id && x.passport_id === ref) || state.passports.find(x => x.application_id === a.id)) : null; }
+    async function refresh() { state = await api('GET', '/api/state'); if (a) a = state.applications.find(x => x.id === a.id) || a; render(); }
+    function passportFor() { return p ? (state.passports.find(x => x.passport_id === p.passport_id) || p) : null; }
     function renderModel() {
       const box = $('rg-model'); const ok = a && a.status === 'approved'; box.hidden = !ok; if (!ok) return;
       const m = (state.models || []).find(x => x.application_id === a.id) || { model_status: 'active', passports: [] };
@@ -142,9 +154,9 @@ const AP = (() => {
       $('md-summary').innerHTML = [['Model', `<strong>${esc(m.model_name || '')}</strong> <span class="mono">${esc(m.model_id || '')}</span> · ${esc(m.company || '')}`], ['Approved', `${d(m.approved_at)} by ${esc(a.officer || '')}`], ['Policy ceilings', `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp)} · expiry ≤ ${esc(pol.max_validity)}`], ['Condition', `hold instructions above ${gbp(((a.condition || {}).human_confirm_above || {}).amount)}`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       $('btn-md-suspend').hidden = ms !== 'active'; $('btn-md-reinstate').hidden = ms !== 'suspended'; $('btn-md-revoke').hidden = ms === 'revoked';
       const ul = $('md-passports'); ul.innerHTML = '';
-      const mine = state.passports.filter(x => x.application_id === a.id);
-      mine.forEach(x => ul.append(el('li', null, `<a href="/regulator?ref=${a.ref}&passport=${x.passport_id}" class="mono">${esc(x.passport_id)}</a> ${tag(x.status)} <span class="small">${x.status === 'pending' ? 'agent registered, no passport until the customer signs' : 'mandate signed'}</span>`)));
-      if (!mine.length) ul.append(el('li', 'small', 'None yet: customers register agents on this model in the Customer Panel.'));
+      const mine = issued().filter(x => x.application_id === a.id);
+      mine.forEach(x => ul.append(el('li', null, `<a href="/regulator?passport=${x.passport_id}" class="mono">${esc(x.passport_id)}</a> ${tag(x.status)} <span class="small">${esc(((x.agent_identity || {}).agent || {}).name || '')} · ${esc(((x.mandate_proposed || {}).customer || {}).legal_name || '')}</span>`)));
+      if (!mine.length) ul.append(el('li', 'small', 'None yet: an agent appears here when a customer registers it on this model and signs its mandate.'));
     }
     async function modelLife(status) {
       const reason = $('md-reason').value.trim(); $('md-error').hidden = true;
@@ -156,12 +168,40 @@ const AP = (() => {
     $('btn-md-revoke').onclick = () => modelLife('revoked');
 
     function render() {
-      applist(state.applications);
-      const has = a && a.status !== 'draft';
-      $('rg-empty').hidden = !!has; $('rg-case').hidden = !has;
-      $('rg-ref').textContent = a ? a.ref : '—';
-      $('rg-status').innerHTML = a ? tag(a.status) : '';
-      if (!has) return;
+      $('rg-dash').hidden = mode !== 'dash'; $('rg-case').hidden = mode !== 'case'; $('rg-agent').hidden = mode !== 'agent';
+      p = passportFor();
+      $(mode === 'agent' ? 'rg-agent-anomaly' : 'rg-dash-anomaly').append($('rg-anomaly'));
+      $(mode === 'agent' ? 'rg-agent-history' : 'rg-case-history').append($('rg-history-wrap'));
+      $('rg-anomaly').hidden = mode === 'case'; $('rg-history-wrap').hidden = mode === 'dash';
+      if (mode === 'dash') renderDash(); else if (mode === 'agent') renderAgent(); else renderCase();
+      renderExceptions();
+      renderIncidents();
+      renderHistory();
+    }
+    function renderDash() {
+      const apps = state.applications.filter(x => x.status !== 'draft'), live = issued(), models = state.models || [], viol = state.violations || [];
+      const refusals = (pid) => viol.filter(x => x.passport_id === pid).length;
+      tiles('rg-tiles', [
+        [models.filter(m => m.model_status === 'active').length, 'approved models on the register', 'green'],
+        [apps.filter(x => x.status === 'submitted' || x.status === 'info_requested').length, 'registrations awaiting decision', 'amber'],
+        [live.filter(x => x.status === 'active').length, 'live agents'],
+        [live.filter(x => x.status !== 'active').length, 'agents suspended or revoked', live.some(x => x.status !== 'active') ? 'red' : 'grey'],
+        [viol.filter(x => x.status === 'OPEN').length, 'open refusals', viol.some(x => x.status === 'OPEN') ? 'amber' : 'grey'],
+        [(state.incidents || []).length, 'incidents', (state.incidents || []).length ? 'red' : 'grey'],
+      ]);
+      rows('rg-models', apps.map(x => {
+        const f = x.fields, ch = x.checks || [], flagged = ch.filter(c => c.result !== 'pass').length;
+        return { href: `/regulator?ref=${x.ref}`, cells: [`<a href="/regulator?ref=${x.ref}" class="mono">${esc(x.ref)}</a>`, esc(v(f, 'company', 'legal_name') || ''), `<strong>${esc(v(f, 'model', 'model_name') || '')}</strong><span class="small mono">${esc(v(f, 'model', 'model_id') || '')}</span>`, `<span class="mono">${esc(v(f, 'model', 'model_version') || '')}</span>`, d(x.submitted_at), ch.length ? (flagged ? `<span class="tag tag--amber">${flagged} flagged</span>` : `<span class="tag tag--green">${ch.length} pass</span>`) : '—', String(live.filter(p_ => p_.application_id === x.id).length), modelStatus(x)] };
+      }), 8);
+      rows('rg-agents', live.map(x => {
+        const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}, m = x.mandate || {}, ad = ((m.authorization_details || mp.authorization_details) || [{}])[0] || {};
+        const app = state.applications.find(y => y.id === x.application_id) || {};
+        return { href: `/regulator?passport=${x.passport_id}`, cells: [`<a href="/regulator?passport=${x.passport_id}" class="mono">${esc(x.passport_id)}</a>`, `<strong>${esc(ag.name || '')}</strong><span class="small mono">${esc(mp.agent_id || '')}</span>`, esc((mp.customer || {}).legal_name || ''), `${esc(ag.model_name || '')}<span class="small mono">${esc(app.ref || '')}</span>`, ad.per_payment_limit ? `≤ ${gbp(ad.per_payment_limit.amount)} per payment<span class="small">≤ ${gbp((ad.monthly_limit_per_account || {}).amount)} per account, 30 days</span>` : '—', String(x.payments || 0), refusals(x.passport_id) ? `<span class="tag tag--amber">${refusals(x.passport_id)}</span>` : '0', tag(x.status)] };
+      }), 8);
+    }
+    function renderCase() {
+      $('rg-ref').textContent = a.ref;
+      $('rg-status').innerHTML = modelStatus(a);
       const f = a.fields;
       $('rg-summary').innerHTML = [
         ['Model company', `${esc(v(f, 'company', 'legal_name'))} · Companies House <span class="mono">${esc(v(f, 'company', 'companies_house_number'))}</span> · ${esc(v(f, 'company', 'website'))}`],
@@ -171,27 +211,33 @@ const AP = (() => {
         ['Registered use domain', `<strong>${esc(v(f, 'intended_use', 'action_type'))}</strong> · ${esc(v(f, 'intended_use', 'description'))} · no customer named: each customer registers its own agent and mandate within the policy ceilings`],
       ].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       const pol = state.policy || {};
-      if ($('rg-ceilings')) $('rg-ceilings').textContent = `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp)} · expiry ≤ ${pol.max_validity} · actions ${(pol.action_types || []).join(', ')}`;
+      $('rg-ceilings').textContent = `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp)} · expiry ≤ ${pol.max_validity} · actions ${(pol.action_types || []).join(', ')}`;
       const cb = $('rg-checks').querySelector('tbody'); cb.innerHTML = '';
       (a.checks || []).forEach(c => cb.append(el('tr', null, `<td>${esc(c.id)}</td><td>${esc(c.title)} <span class="tag tag--${c.status === 'CURRENT' ? 'green' : 'grey'}">${esc(c.status)}</span><br><span class="small">${esc(c.detail)}</span></td><td>${esc(c.source)}<br><span class="small">${esc(c.evidence)}</span></td><td>${c.result === 'pass' ? '<span class="tag tag--green">Pass</span>' : '<span class="tag tag--amber">Flag</span>'}</td>`)));
       $('rg-filenote').value = a.file_note || '';
       if (pol.human_confirm_above_gbp && !$('rg-condition').dataset.touched) $('rg-condition').value = pol.human_confirm_above_gbp;
       if (a.review) renderReview(a.review); else if (!a._reviewing) { a._reviewing = true; runReview(true); }
-      p = passportFor();
       $('rg-decide').hidden = !(a.status === 'submitted' || a.status === 'info_requested');
       renderModel();
-      $('rg-issued').hidden = !p;
-      if (p) renderPassport(p);
-      renderExceptions();
+    }
+    function renderAgent() {
+      const ag = (p.agent_identity || {}).agent || {}, mp = p.mandate_proposed || {};
+      $('ag-meta').innerHTML = `<strong>${esc(ag.name || '')}</strong> · customer ${esc((mp.customer || {}).legal_name || '')} · on ${esc(ag.model_name || '')} <span class="mono">${esc(ag.model_version || '')}</span>, registration <a href="/regulator?ref=${esc(a.ref)}" class="mono">${esc(a.ref)}</a> · issued ${d(p.issued_at)} when the customer signed its mandate`;
+      renderPassport(p);
+    }
+    function renderIncidents() {
       const inc = $('rg-incidents'); inc.innerHTML = '';
       const mine = (state.incidents || []).filter(i => !p || i.subject === p.passport_id);
-      mine.forEach(i => inc.append(el('li', null, `<time>${t(i.ts)}</time><span>${tag('revoked', 'Incident')} ${esc(i.entry.event)}: ${esc(i.entry.reason)} · last refusal ${esc(i.entry.last_rule)} ${esc(i.entry.last_code)} · audit #${i.id} <span class="mono small">${esc(i.hash.slice(0, 12))}</span></span>`)));
+      mine.forEach(i => inc.append(el('li', null, `<time>${t(i.ts)}</time><span>${tag('revoked', 'Incident')} <a href="/regulator?passport=${esc(i.subject)}" class="mono">${esc(i.subject)}</a> ${esc(i.entry.event)}: ${esc(i.entry.reason)} · last refusal ${esc(i.entry.last_rule)} ${esc(i.entry.last_code)} · audit #${i.id} <span class="mono small">${esc(i.hash.slice(0, 12))}</span></span>`)));
       if (!mine.length) inc.append(el('li', 'log__empty', 'No incidents.'));
+    }
+    function renderHistory() {
       const hist = $('rg-history'); hist.innerHTML = '';
+      if (!a) return;
       const lines = [];
       if (a.submitted_at) lines.push([a.submitted_at, 'Model registration submitted; documentation accuracy attested; checks M.1–M.6 run.']);
       if (a.officer_note) lines.push([a.decided_at || a.submitted_at, `${a.officer}: ${a.status.replace('_', ' ')} — “${a.officer_note}”`]);
-      if (p && p.mandate_signed_at) lines.push([p.mandate_signed_at, `${(p.mandate.signed_by || {}).name}, ${(p.mandate.signed_by || {}).role} (customer): wrote and signed the mandate; within policy ceilings.`]);
+      if (p && p.mandate_signed_at) lines.push([p.mandate_signed_at, `${(p.mandate.signed_by || {}).name}, ${(p.mandate.signed_by || {}).role} (customer): wrote and signed the mandate; within policy ceilings. Passport issued.`]);
       (p ? p.history : []).forEach(h => lines.push([h.ts, `${h.officer}: ${h.from ? h.from + ' → ' : ''}${h.to} — ${h.reason}`]));
       lines.sort((x, y) => x[0] < y[0] ? -1 : 1).reverse().forEach(([ts, txt]) => hist.append(el('li', null, `<time>${t(ts)}</time><span>${esc(txt)}</span>`)));
       if (!lines.length) hist.append(el('li', 'log__empty', 'Nothing yet.'));
@@ -228,7 +274,7 @@ const AP = (() => {
       else al.hidden = true;
       $('ex-meta').textContent = mine.length ? `${mine.length} refusals · ${mine.filter(x => x.status === 'OPEN').length} open` : 'no refusals yet';
       const tb = $('rg-violations').querySelector('tbody'); tb.innerHTML = '';
-      mine.forEach(x => { const tr = el('tr', null, `<td>${t(x.ts)}</td><td class="mono small">${esc(x.agent_id || '')}</td><td><span class="mono">${esc(x.rule)}</span><br><span class="small">${esc(x.code)}</span></td><td>${esc(x.instruction.action_type)} · ${esc(x.instruction.supplier_name || '')} · <span class="mono">${esc(x.instruction.payee_account_ref || '')}</span> · ${gbp(x.instruction.amount)}${x.evidence ? ` <span class="tag tag--grey">invoice ${esc(x.evidence.invoice)}</span>` : ''}</td><td>${tag('revoked', x.outcome)}</td><td>${tag(x.status === 'OPEN' ? 'amber' : x.status === 'INVESTIGATING' ? 'blue' : 'green', x.status)}${x.resolution ? `<br><span class="small">${esc(x.resolution)}</span>` : ''}</td>`); tr.dataset.vid = x.id; tr.setAttribute('aria-selected', String(x.id === selectedVid)); tr.onclick = () => { selectedVid = x.id; renderEvidence(x); renderExceptions(); }; tb.append(tr); });
+      mine.forEach(x => { const tr = el('tr', null, `<td>${t(x.ts)}</td><td class="mono small">${esc(x.agent_id || '')}${p ? '' : `<br><a href="/regulator?passport=${esc(x.passport_id)}">${esc(x.passport_id)}</a>`}</td><td><span class="mono">${esc(x.rule)}</span><br><span class="small">${esc(x.code)}</span></td><td>${esc(x.instruction.action_type)} · ${esc(x.instruction.supplier_name || '')} · <span class="mono">${esc(x.instruction.payee_account_ref || '')}</span> · ${gbp(x.instruction.amount)}${x.evidence ? ` <span class="tag tag--grey">invoice ${esc(x.evidence.invoice)}</span>` : ''}</td><td>${tag('revoked', x.outcome)}</td><td>${tag(x.status === 'OPEN' ? 'amber' : x.status === 'INVESTIGATING' ? 'blue' : 'green', x.status)}${x.resolution ? `<br><span class="small">${esc(x.resolution)}</span>` : ''}</td>`); tr.dataset.vid = x.id; tr.setAttribute('aria-selected', String(x.id === selectedVid)); tr.onclick = () => { selectedVid = x.id; renderEvidence(x); renderExceptions(); }; tb.append(tr); });
       if (!mine.length) tb.append(el('tr', null, '<td colspan="6" class="small">Nothing refused yet.</td>'));
       const ex = $('exception'); ex.hidden = !p; if (!p) return;
       const inv = p.investigation === 'investigating';
@@ -301,25 +347,26 @@ const AP = (() => {
   async function customer() {
     let state = await api('GET', '/api/state');
     const ref = new URLSearchParams(location.search).get('ref');
-    let p = state.passports.find(x => x.passport_id === ref) || state.passports[0] || null;
+    let p = state.passports.find(x => x.passport_id === ref) || null;
     const d0 = state.mandate_draft || { customer: {}, authorising_officer: {} };
     const draft = JSON.parse(JSON.stringify(d0)); let checkTimer = null;
     render();
 
     function render() {
-      const ul = $('cu-list'); ul.innerHTML = state.passports.length ? '' : '<li class="small">None yet.</li>';
-      state.passports.forEach(x => ul.append(el('li', null, `<a href="/customer?ref=${x.passport_id}" class="mono">${esc(x.passport_id)}</a> ${x.status === 'pending' ? tag('unsigned', 'agent registered · no passport yet') : tag(x.status, 'passport ' + x.status)}`)));
       const models = (state.models || []).filter(m => m.model_status === 'active');
+      tiles('cu-tiles', [[state.passports.length, 'agents registered'], [state.passports.filter(x => x.status === 'active').length, 'live passports', 'green'], [state.passports.filter(x => x.status === 'pending').length, 'awaiting your signature', state.passports.some(x => x.status === 'pending') ? 'amber' : 'grey'], [models.length, 'approved models available']]);
+      rows('cu-agents', state.passports.map(x => { const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}; return { href: `/customer?ref=${x.passport_id}`, cells: [`<a href="/customer?ref=${x.passport_id}" class="mono">${esc(x.passport_id)}</a>`, `<strong>${esc(ag.name || '')}</strong><span class="small mono">${esc(mp.agent_id || '')}</span>`, `${esc(ag.model_name || '')} <span class="mono small">${esc(ag.model_version || '')}</span>`, x.mandate_signed ? tag('signed', 'signed ' + d(x.mandate_signed_at)) : tag('unsigned', 'not signed'), x.status === 'pending' ? '<span class="small">issued when you sign</span>' : tag(x.status, 'passport ' + x.status)] }; }), 5);
       $('cu-empty').hidden = !!(models.length || p);
       $('cu-create').hidden = !models.length;
       const sel = $('cu-model'); sel.innerHTML = models.map(m => `<option value="${m.application_id}">${esc(m.model_name)} · ${esc(m.company)} · ${esc(m.model_version)}</option>`).join('');
       const pol = state.policy || {};
-      $('cu-model-kv').innerHTML = models.length ? [['Approved models', `${models.length} on the register`], ['Policy ceilings', `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp)} · expiry ≤ ${esc(pol.max_validity)}`], ['Your deployment', `${esc((state.agent_draft || {}).key_storage || 'customer-held key store')} · a key pair is generated for this deployment and proves possession by signing the authority's challenge`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('') : '';
+      if (!$('cu-agent-name').value) $('cu-agent-name').value = (state.agent_draft || {}).agent_name || '';
+      $('cu-model-kv').innerHTML = models.length ? [['Policy ceilings', `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp)} · expiry ≤ ${esc(pol.max_validity)}`], ['Your deployment', `${esc((state.agent_draft || {}).key_storage || 'customer-held key store')} · a key pair is generated for this deployment and proves possession by signing the authority's challenge`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('') : '';
       $('cu-mandate').hidden = !p;
       if (!p) return;
       const mp = p.mandate_proposed, ad = mp.authorization_details[0], signed = p.mandate_signed, ag = p.agent || {};
       $('cu-agent-kv').innerHTML = [['Agent', `<strong>${esc(p.agent_identity.agent.name)}</strong> · <span class="mono">${esc(mp.agent_id)}</span> · on ${esc(p.agent_identity.agent.model_name)} (${esc(p.agent_identity.agent.model_provider)} <span class="mono">${esc(p.agent_identity.agent.model_version)}</span>)`], ['Agent key', `<span class="mono">kid ${esc(mp.agent_kid)}</span> · ${ag.pop_verified ? '<span class="tag tag--green">possession proven</span>' : '<span class="tag tag--amber">possession pending</span>'} · config <span class="mono small">${esc((ag.config_sha256 || '').slice(0, 12))}…</span>`], [p.status === 'pending' ? 'Agent record' : 'Passport', `<span class="mono">${esc(p.passport_id)}</span> ${tag(p.status)} · ${p.status === 'pending' ? 'passport issued when you sign the mandate' : 'issued from the model approval when the mandate was signed'}`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
-      $('cu-id').textContent = p.passport_id;
+      $('cu-id').textContent = p.passport_id; $('cu-ref').textContent = p.passport_id;
       $('cu-state').innerHTML = signed ? tag('signed', 'signed') : tag('unsigned', 'awaiting signature');
       $('cu-card').classList.toggle('mandate--signed', signed);
       $('cu-kv').innerHTML = [['Customer', `${esc((mp.customer || d0.customer).legal_name)} · Companies House <span class="mono">${esc((mp.customer || d0.customer).companies_house_number)}</span>`], ['Authorising officer', `${esc((mp.authorising_officer || d0.authorising_officer).name)}, ${esc((mp.authorising_officer || d0.authorising_officer).role)}`], ['Supervisor condition', `the bank holds anything above ${gbp(p.assurance.condition.human_confirm_above.amount)} for your confirmation`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
@@ -327,7 +374,7 @@ const AP = (() => {
     }
     $('btn-create-agent').onclick = async () => {
       const b = $('btn-create-agent'); b.disabled = true; $('cu-create-error').hidden = true; $('cu-create-note').textContent = 'generating key, signing challenge…';
-      try { const np = await api('POST', '/api/agents', { application_id: Number($('cu-model').value) }); state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${p.passport_id}`); render(); }
+      try { const np = await api('POST', '/api/agents', { application_id: Number($('cu-model').value), agent_name: $('cu-agent-name').value.trim() || null }); state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${p.passport_id}`); render(); }
       catch (e) { $('cu-create-error').textContent = e.message; $('cu-create-error').hidden = false; }
       finally { b.disabled = false; $('cu-create-note').textContent = ''; }
     };

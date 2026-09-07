@@ -1,43 +1,39 @@
 {% extends "base.html" %}
 {% block title %}Provider Panel{% endblock %}
 {% block content %}
-<div class="grid">
-  <div class="col-main">
-    <h1 class="h1">Register a model</h1>
-    <p class="lede lede--tight">Phase 1. {{ operator }} registers its model once: company, model and pinned version, links to benchmark data and training details, documentation. A named person attests the documentation is accurate. No agent, no key, no customer data.</p>
+<h1 class="h1">Provider Panel</h1>
+<p class="lede lede--tight">Phase 1. {{ operator }} registers each model once: company, model and pinned version, links to benchmark data and training details, documentation. A named person attests the documentation is accurate. No agent, no key, no customer data.</p>
+<div class="tiles" id="pv-tiles"></div>
 
-    <ol class="steps" id="steps">
-      <li class="step" data-step="1">
-        <div class="step__head">
-          <h2 class="h2">1 · Registration</h2>
-          <div class="step__actions">
-            <button class="btn btn--secondary btn--small" id="btn-prefill" hidden>Prefill demo data</button>
-            <button class="btn btn--small" id="btn-new">Start registration</button>
-          </div>
-        </div>
-        <div id="facts"></div>
-        <div class="actions"><button class="btn btn--secondary" id="btn-save-fields" hidden>Save</button><span class="actions__note" id="save-note"></span></div>
-      </li>
+<h2 class="h2">Your models <button class="btn btn--small" id="btn-new">Register a model</button></h2>
+<div class="dash-wrap"><table class="dash" id="pv-models"><thead><tr><th>Ref</th><th>Model</th><th>Version</th><th>Submitted</th><th>Decision</th><th>Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
 
-      <li class="step" data-step="3" hidden>
-        <h2 class="h2">2 · Submit</h2>
-        <p class="hint">By submitting, the named person attests that the registered documentation is accurate. The company carries no liability for what any agent later does with the model; a model becomes an agent when a customer gives it a mandate.</p>
-        <div class="actions">
-          <button class="btn btn--start" id="btn-submit">Submit registration <span class="btn__arrow" aria-hidden="true"></span></button>
+<div id="pv-form" hidden>
+  <ol class="steps" id="steps">
+    <li class="step" data-step="1">
+      <div class="step__head">
+        <h2 class="h2">Model registration <span class="mono" id="pv-ref"></span> <span id="pv-status"></span></h2>
+        <div class="step__actions">
+          <button class="btn btn--secondary btn--small" id="btn-prefill" hidden>Prefill demo data</button>
         </div>
-        <div class="panel panel--confirm" id="confirm" hidden>
-          <h2 class="panel__title">Registration submitted</h2>
-          <p class="panel__ref">Your reference<br><strong id="confirm-ref"></strong></p>
-          <p>Automated checks M.1–M.6 have run. A case officer will review the model and decide.</p>
-        </div>
-      </li>
-    </ol>
-  </div>
+      </div>
+      <div id="facts"></div>
+      <div class="actions"><button class="btn btn--secondary" id="btn-save-fields" hidden>Save</button><span class="actions__note" id="save-note"></span></div>
+    </li>
 
-  <aside class="col-side">
-    <h2 class="h3">Your registered models</h2>
-    <ul class="models" id="models"></ul>
-  </aside>
+    <li class="step" data-step="3" hidden>
+      <h2 class="h2">Submit</h2>
+      <p class="hint">By submitting, the named person attests that the registered documentation is accurate. The company carries no liability for what any agent later does with the model; a model becomes an agent when a customer gives it a mandate.</p>
+      <div class="actions">
+        <button class="btn btn--start" id="btn-submit">Submit registration <span class="btn__arrow" aria-hidden="true"></span></button>
+      </div>
+      <div class="panel panel--confirm" id="confirm" hidden>
+        <h2 class="panel__title">Registration submitted</h2>
+        <p class="panel__ref">Your reference<br><strong id="confirm-ref"></strong></p>
+        <p>Automated checks M.1–M.6 have run. A case officer will review the model and decide.</p>
+      </div>
+    </li>
+  </ol>
 </div>
 {% endblock %}
 {% block scripts %}<script>AP.provider();</script>{% endblock %}

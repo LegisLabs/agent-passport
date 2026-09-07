@@ -1,22 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Sign mandate{% endblock %}
 {% block content %}
-<div class="grid">
-  <div class="col-main">
-    <h1 class="h1">Register your agent</h1>
-    <p class="lede lede--tight">Phase 3. {{ customer }} registers its agent on an approved model and signs its mandate within the policy ceilings. Live immediately; no authority review.</p>
+<div>
+  <div>
+    <h1 class="h1">Customer Panel</h1>
+    <p class="lede lede--tight">Phase 3. {{ customer }} registers its agents on approved models and signs each mandate within the policy ceilings. Live immediately; no authority review.</p>
+    <div class="tiles" id="cu-tiles"></div>
+
+    <h2 class="h2">Your agents</h2>
+    <div class="dash-wrap"><table class="dash" id="cu-agents"><thead><tr><th>Record</th><th>Agent</th><th>Model</th><th>Mandate</th><th>Passport</th></tr></thead><tbody></tbody></table></div>
 
     <div class="empty" id="cu-empty"><p>No approved model yet. The authority approves models in the <a href="/regulator">Regulator Panel</a>.</p></div>
 
     <div id="cu-create" hidden>
-      <h2 class="h2">1 · Register the agent on an approved model</h2>
+      <h2 class="h2">Register an agent</h2>
       <dl class="kv" id="cu-model-kv"></dl>
-      <div class="actions"><select class="input" id="cu-model" aria-label="Approved model"></select><button class="btn" id="btn-create-agent">Register agent</button><span class="actions__note" id="cu-create-note"></span></div>
+      <div class="fields">
+        <label class="label" for="cu-agent-name">Agent name</label><input class="input" id="cu-agent-name" placeholder="e.g. PayGPT 6.0 · Northgate deployment">
+        <label class="label" for="cu-model">Approved model</label><select class="input" id="cu-model"></select>
+      </div>
+      <div class="actions"><button class="btn" id="btn-create-agent">Register agent</button><span class="actions__note" id="cu-create-note"></span></div>
       <p class="error" id="cu-create-error" hidden></p>
     </div>
 
     <div id="cu-mandate" hidden>
-      <h2 class="h2">2 · Write and sign the mandate</h2>
+      <h2 class="h2">Mandate for <span class="mono" id="cu-ref"></span></h2>
       <dl class="kv" id="cu-agent-kv"></dl>
       <div class="mandate" id="cu-card">
         <div class="mandate__head"><span>Payment Mandate (OAuth 2.0 RFC 9396 Rich Authorization Request) · <span class="mono" id="cu-id"></span></span><span id="cu-state"></span></div>
@@ -51,11 +59,6 @@
       </details>
     </div>
   </div>
-
-  <aside class="col-side">
-    <h2 class="h3">Your agents</h2>
-    <ul class="applist" id="cu-list"></ul>
-  </aside>
 </div>
 {% endblock %}
 {% block scripts %}<script>AP.customer();</script>{% endblock %}
