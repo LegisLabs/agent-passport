@@ -6,7 +6,9 @@
 <title>{% block title %}Agent Passport{% endblock %} — Agent Passport · payments</title>
 <meta name="robots" content="noindex">
 <link rel="stylesheet" href="/static/app.css">
-<link rel="icon" href="data:,">
+<link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
+<link rel="icon" href="/static/favicon.png" sizes="32x32">
+<link rel="apple-touch-icon" href="/static/favicon-180.png">
 </head>
 <body data-view="{{ view }}">
 <a href="#main" class="skip">Skip to main content</a>
@@ -19,10 +21,8 @@
     </a>
     <nav class="masthead__nav" aria-label="Header">
       <a class="masthead__link" href="/bank">Action Terminal</a>
-      <button class="masthead__menu" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel">Menu</button>
-    </nav>
-  </div>
-  <div class="menu-panel" id="menu-panel" hidden>
+      <button class="masthead__menu" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel" aria-haspopup="true">Menu</button>
+      <div class="menu-panel" id="menu-panel" hidden>
     <ul class="wrap menu-panel__list">
       <li><a href="/" {% if view == 'home' %}aria-current="page"{% endif %}>Home</a></li>
       <li><a href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}>Provider Panel</a></li>
@@ -30,8 +30,10 @@
       <li><a href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>Customer Panel</a></li>
       <li><a href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>Action Terminal</a></li>
       <li><a href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>Audit</a></li>
-      <li><a href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>About</a></li>
+      <li><a href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>How it works</a></li>
     </ul>
+      </div>
+    </nav>
   </div>
 </header>
 
@@ -44,7 +46,7 @@
       <li><a href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>Customer Panel</a></li>
       <li><a href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>Action Terminal</a></li>
       <li><a href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>Audit</a></li>
-      <li><a href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>About</a></li>
+      <li><a href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>How it works</a></li>
     </ul>
   </nav>{% endif %}
   <main id="main" class="main">
@@ -54,10 +56,32 @@
 {% block after %}{% endblock %}
 
 <footer class="footer">
-  <div class="wrap footer__row">
-    <span>Legis Labs</span>
-    <button class="link" id="demo-reset" type="button">Reset demo</button>
+  <div class="wrap footer__grid">
+    <div>
+      <h2 class="footer__h">Agent Passport</h2>
+      <ul class="footer__list">
+        <li><a href="/provider">Provider Panel</a></li><li><a href="/regulator">Regulator Panel</a></li><li><a href="/customer">Customer Panel</a></li><li><a href="/bank">Action Terminal</a></li><li><a href="/audit">Audit</a></li><li><a href="/about">How it works</a></li>
+      </ul>
+    </div>
+    <div>
+      <h2 class="footer__h">Prototype</h2>
+      <ul class="footer__list">
+        <li>Version {{ version }} · rule pack {{ rule_pack }}</li>
+        <li>Extraction {{ extraction_mode }} · vouch {{ vouch_mode }} · rail {{ payment_rail }}</li>
+        <li>Built on OAuth 2.0 RFC 9396, W3C Verifiable Credentials, RFC 7800, Ed25519</li>
+        <li><button class="link" id="demo-reset" type="button">Reset demo</button></li>
+      </ul>
+    </div>
+    <div>
+      <h2 class="footer__h">Legis Labs</h2>
+      <ul class="footer__list">
+        <li><a href="https://legislabs.uk">legislabs.uk</a></li>
+        <li><a href="https://cdir.legislabs.uk">Tax vertical (HMRC demonstrator)</a></li>
+        <li>Finalist, C:\&gt;DIR Global 'Agentic Regulator' Hackathon 2026</li>
+      </ul>
+    </div>
   </div>
+  <div class="wrap footer__base"><span>A design prototype of a proposed assurance framework. Not a current legal requirement.</span><span>© Legis Labs Ltd 2026</span></div>
 </footer>
 
 <script src="/static/app.js"></script>

@@ -2,11 +2,19 @@
 {% block title %}About{% endblock %}
 {% block content %}
 <div class="prose">
-  <h1 class="h1">Agent Passport</h1>
-  <p><strong>Identity is not authority.</strong> Delegation can only narrow authority, never expand it. Two components, one engine: the <strong>Standards Review Assistant</strong> (the brief's KY-A Standards Sandbox Copilot) at assurance time, and the <strong>Cryptographic Delegation Verifier</strong> (R.1–R.9) at payment time. The three-signature envelope realises the Passport / Principal Mandate / Action Intent Manifest model: Layer A agent assurance is the authority signature, Layer B the customer's mandate, Layer C the instruction signed by the agent key, Layer D the bank's R.1–R.9 decision, Layer E the anomaly and escalation feed to the regulator.</p>
+  <h1 class="h1">How it works</h1>
+  <p class="lede">Identity is not authority. Knowing who an agent is tells you nothing about what it may do. Agent Passport binds the two: a model the authority approved, a mandate the customer signed, and a bank that checks both before a penny moves. Delegation can only narrow authority, never expand it.</p>
+  <ol class="steps-nav steps-nav--tight">
+    <li data-n="1"><h3><a href="/provider">A provider registers a model</a></h3><p>Once. Pinned version, attested documentation.</p></li>
+    <li data-n="2"><h3><a href="/regulator">The authority approves it with ceilings</a></h3><p>Automated checks, the Standards Review Assistant, a case officer's decision.</p></li>
+    <li data-n="3"><h3><a href="/customer">A customer signs the mandate</a></h3><p>Whom to pay, how much, until when. The passport is issued at signing.</p></li>
+    <li data-n="4"><h3><a href="/bank">The bank verifies every payment</a></h3><p>Nine checks, deny by default, a signed receipt.</p></li>
+    <li data-n="5"><h3><a href="/audit">Refusals reach the authority</a></h3><p>Alert, suspend, investigate, revoke.</p></li>
+  </ol>
+  <p>Two components, one engine: the <strong>Standards Review Assistant</strong> at assurance time and the <strong>Cryptographic Delegation Verifier</strong> (R.1–R.9) at payment time. The three-signature envelope realises the Passport / Principal Mandate / Action Intent Manifest model: Layer A agent assurance is the authority signature, Layer B the customer's mandate, Layer C the instruction signed by the agent key, Layer D the bank's R.1–R.9 decision, Layer E the anomaly and escalation feed to the regulator.</p>
 
   <h2 class="h2">What it is</h2>
-  <p>Agent Passport focuses on bridging the delegation gap. It enables a payment institution's AI agent to carry a verifiable, human-approved payment mandate, and enables the relying bank to verify every payment action against that mandate before execution. Agent identity, regulatory assurance, action-time enforcement, anomaly detection, escalation and revocation are supporting components required to make that delegation control credible.</p>
+  <p>Agent Passport closes the delegation gap. An AI agent carries a mandate a person signed, and the bank checks every payment against it before execution. Agent identity, regulatory assurance, action-time enforcement, anomaly detection, escalation and revocation are supporting components required to make that delegation control credible.</p>
 
   <h2 class="h2">What it is not</h2>
   <p>This prototype does not attempt to solve: biometric synthetic-identity detection; agent swarm detection at infrastructure scale; complete cross-border mutual recognition; legal liability calculation or consumer-redress compensation; or systemic payment-infrastructure risk modelling. The mandate enforces money destination and authority — not invoice semantic accuracy; full invoice verification is a production extension. These are acknowledged problems in the broader KYA landscape, noted as production roadmap items.</p>

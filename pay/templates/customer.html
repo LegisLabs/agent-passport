@@ -4,12 +4,12 @@
 <div>
   <div>
     <h1 class="h1">Customer Panel</h1>
-    <p class="lede lede--tight">Register an agent on an approved model and sign its payment mandate: the suppliers it may pay, the limits, the expiry. The passport is issued when the mandate is signed and is live at once.</p>
+    <p class="lede lede--tight">Choose an approved model. Name your agent. Sign a mandate that says exactly whom it may pay, how much, and until when. The passport is issued the moment you sign.</p>
 
     <h2 class="h2">Your agents</h2>
     <div class="dash-wrap"><table class="dash" id="cu-agents"><thead><tr><th>Record</th><th>Agent</th><th>Model</th><th>Status</th></tr></thead><tbody></tbody></table></div>
 
-    <div class="empty" id="cu-empty"><p>No approved model yet. The authority approves models in the <a href="/regulator">Regulator Panel</a>.</p></div>
+    <div class="empty" id="cu-empty"><p>No approved model yet. Approval happens in the <a href="/regulator">Regulator Panel</a>.</p></div>
 
     <div id="cu-create" hidden>
       <h2 class="h2">Register an agent</h2>
@@ -49,7 +49,7 @@
         <span class="actions__note" id="cu-signer"></span>
       </div>
       <p class="error" id="cu-error" hidden></p>
-      <div class="notice" id="cu-after" hidden><p>The envelope is complete. Continue in the <a href="/bank">Action Terminal</a>.</p></div>
+      <div class="notice" id="cu-after" hidden><p>Your agent is live. Watch it pay in the <a href="/bank">Action Terminal</a>.</p></div>
       <details class="jwt" id="cu-jwt-wrap" hidden>
         <summary>Signed mandate (JWT (OIDC-compatible), EdDSA / Ed25519, {{ customer }} key)</summary>
         <pre class="code" id="cu-jwt-payload"></pre>
