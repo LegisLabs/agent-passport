@@ -1268,3 +1268,11 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .standard-split .home__lede { text-align: left; }
 .standard-split .standard-one { order: 2; }
 .standard-split .home__lede { order: 1; }
+
+.standard-split { grid-template-columns: minmax(0, 1fr) 400px; }
+.standard-split .standard-page { width: 400px; }
+.standard-split .standard-text { order: 1; }
+.standard-split .standard-one { order: 2; }
+.plain-steps--std { font-size: 19px; margin-top: 20px; }
+.plain-steps--std li { margin-bottom: 10px; }
+@media (max-width: 800px) { .standard-split { grid-template-columns: minmax(0, 1fr); } .standard-split .standard-page { width: 100%; max-width: 400px; } }

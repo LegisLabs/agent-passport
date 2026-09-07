@@ -57,7 +57,15 @@ flowchart LR
       <a class="standard-page" href="/static/APS_1001.pdf" aria-label="APS 1001, first page (PDF)"><img src="/static/aps-p1-bold.png" alt="First page of APS 1001, the proposed standard"></a>
       <a class="btn btn--secondary btn--small" href="/static/APS_1001.pdf">Read the whole standard</a>
     </div>
-    <p class="home__lede">We think the answer is not to watch agents more closely, but to make every agent transparent by design: an authority's approval, a customer's signature and a bank's verdict, carried on every payment and provable afterwards. <strong class="claim">For the first time, an AI model becomes an official actor with a defined, provable, revocable authority.</strong></p>
+    <div class="standard-text">
+      <p class="home__lede">We think the answer is not to watch agents more closely, but to make every agent transparent by design: an authority's approval, a customer's signature and a bank's verdict, carried on every payment and provable afterwards. <strong class="claim">For the first time, an AI model becomes an official actor with a defined, provable, revocable authority.</strong></p>
+    <ol class="plain-steps plain-steps--std">
+    <li><strong>The provider registers a model.</strong> Once.</li>
+    <li><strong>The authority approves it</strong> and sets the ceilings. Once.</li>
+    <li><strong>The customer signs the mandate.</strong> Whom to pay, how much, until when.</li>
+    <li><strong>The bank checks every payment.</strong> Nine questions. Allow, escalate or deny.</li>
+  </ol>
+    </div>
   </div>
 
   <h2 class="h2 vouch__h">Powered by <a href="https://vouch.finance" class="vouch__logo" aria-label="vouch.finance"><img src="/static/logos/vouch.svg" alt="" width="46" height="40"><span>vouch.finance</span></a></h2>
@@ -66,12 +74,6 @@ flowchart LR
 
   <h2 class="h2">Our proposal</h2>
   <p class="home__lede">One approval, one signature, nine questions, and a receipt anyone can check. No new licence for every agent. No review of anyone's invoices.</p>
-  <ol class="plain-steps">
-    <li><strong>The provider registers a model.</strong> Once.</li>
-    <li><strong>The authority approves it</strong> and sets the ceilings. Once.</li>
-    <li><strong>The customer signs the mandate.</strong> Whom to pay, how much, until when.</li>
-    <li><strong>The bank checks every payment.</strong> Nine questions. Allow, escalate or deny.</li>
-  </ol>
 </div>
 {% endblock %}
 {% block scripts %}<script src="/static/vendor/chart.umd.js"></script><script src="/static/vendor/mermaid.min.js"></script><script>AP.home();</script>{% endblock %}
