@@ -1,13 +1,8 @@
 {
- "_comment": "Prefilled registration fields for the demo (Phase 1). Values only; the provider types or corrects them on the Provider Panel. No documents, no extraction.",
- "provider": {
+ "_comment": "Prefilled model registration for the demo (Phase 1). The model company registers its model, not an agent. Values only; a person types or corrects them on the Model Panel.",
+ "company": {
   "legal_name": {
    "value": "OpenPay Ltd",
-   "source_doc": null,
-   "quote": null
-  },
-  "licence_ref": {
-   "value": "PSP-4471",
    "source_doc": null,
    "quote": null
   },
@@ -16,20 +11,20 @@
    "source_doc": null,
    "quote": null
   },
-  "permissions": {
-   "value": "Payment initiation services; account information services",
+  "website": {
+   "value": "openpay.example",
    "source_doc": null,
    "quote": null
   }
  },
- "accountable_person": {
+ "attestation": {
   "name": {
    "value": "Daniel Okoye",
    "source_doc": null,
    "quote": null
   },
   "role": {
-   "value": "Head of Compliance",
+   "value": "Head of Model Governance",
    "source_doc": null,
    "quote": null
   },
@@ -39,46 +34,19 @@
    "quote": null
   }
  },
- "insurance": {
-  "provider": {
-   "value": "Demo Mutual Insurance Association",
-   "source_doc": null,
-   "quote": null
-  },
-  "policy_ref": {
-   "value": "PI-2026-88213",
-   "source_doc": null,
-   "quote": null
-  },
-  "cover_gbp": {
-   "value": 2000000,
-   "source_doc": null,
-   "quote": null
-  },
-  "valid_until": {
-   "value": "2027-03-31",
-   "source_doc": null,
-   "quote": null
-  }
- },
- "agent": {
-  "agent_name": {
+ "model": {
+  "model_name": {
    "value": "PayGPT 6.0",
    "source_doc": null,
    "quote": null
   },
-  "agent_id": {
+  "model_id": {
    "value": "openpay-paygpt-6",
    "source_doc": null,
    "quote": null
   },
-  "software": {
-   "value": "PayGPT",
-   "source_doc": null,
-   "quote": null
-  },
-  "software_version": {
-   "value": "6.0",
+  "release": {
+   "value": "6.0.2",
    "source_doc": null,
    "quote": null
   },
@@ -102,30 +70,20 @@
    "source_doc": null,
    "quote": null
   },
-  "config_hash": {
-   "value": "0742d2a29aaa65ffb40e172b1eeb00f46c40e8e970a94d8bab68c15e76a5edfc",
-   "source_doc": null,
-   "quote": null
-  },
-  "key_storage": {
-   "value": "hardware-backed key store in OpenPay's deployment; not exportable",
-   "source_doc": null,
-   "quote": null
-  },
-  "key_rotation": {
-   "value": "every 12 months, or immediately on suspected compromise",
+  "documentation_ref": {
+   "value": "PayGPT 6.0 model card v6.0.2 (published)",
    "source_doc": null,
    "quote": null
   }
  },
- "requested": {
+ "intended_use": {
   "action_type": {
    "value": "pay_invoice",
    "source_doc": null,
    "quote": null
   },
-  "human_confirm_above_gbp": {
-   "value": 5000,
+  "description": {
+   "value": "read supplier invoices and initiate payment instructions within a customer-signed mandate",
    "source_doc": null,
    "quote": null
   }

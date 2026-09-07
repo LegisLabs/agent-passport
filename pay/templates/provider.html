@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}Provider Panel{% endblock %}
+{% block title %}Model Panel{% endblock %}
 {% block content %}
 <div class="grid">
   <div class="col-main">
-    <h1 class="h1">Register an agent</h1>
-    <p class="lede lede--tight">Phase 1. {{ operator }} registers the model once: documentation, key, configuration hash, insurance. No customer data.</p>
+    <h1 class="h1">Register a model</h1>
+    <p class="lede lede--tight">Phase 1. {{ operator }} registers its model once: company, model and pinned version, benchmarks, training type, documentation. A named person attests the documentation is accurate. No agent, no key, no customer data.</p>
 
     <ol class="steps" id="steps">
       <li class="step" data-step="1">
@@ -18,26 +18,16 @@
         <div class="actions"><button class="btn btn--secondary" id="btn-save-fields" hidden>Save</button><span class="actions__note" id="save-note"></span></div>
       </li>
 
-      <li class="step" data-step="2" hidden>
-        <h2 class="h2">2 · The agent's key</h2>
-        <p class="hint">The authority sends a one-off challenge; only the holder of the private key can sign it.</p>
-        <dl class="kv" id="agent-kv"></dl>
-        <div class="actions">
-          <button class="btn" id="btn-key">Generate agent key and request challenge</button>
-          <button class="btn" id="btn-sign" hidden>Agent signs the challenge</button>
-        </div>
-      </li>
-
       <li class="step" data-step="3" hidden>
-        <h2 class="h2">3 · Submit</h2>
-        <p class="hint">By submitting, the accountable person named above accepts responsibility for the agent's actions. {{ operator }} signs the agent identity with its own key.</p>
+        <h2 class="h2">2 · Submit</h2>
+        <p class="hint">By submitting, the named person attests that the registered documentation is accurate. The company carries no liability for what any agent later does with the model; a model becomes an agent when a customer gives it a mandate.</p>
         <div class="actions">
           <button class="btn btn--start" id="btn-submit">Submit registration <span class="btn__arrow" aria-hidden="true"></span></button>
         </div>
         <div class="panel panel--confirm" id="confirm" hidden>
           <h2 class="panel__title">Registration submitted</h2>
           <p class="panel__ref">Your reference<br><strong id="confirm-ref"></strong></p>
-          <p>Automated checks have run. A case officer will review and decide.</p>
+          <p>Automated checks M.1–M.6 have run. A case officer will review the model and decide.</p>
         </div>
       </li>
     </ol>

@@ -1,0 +1,6 @@
+{
+ "_comment": "Northgate's deployment details for creating its agent on an approved model (Phase 3). Deployment-specific material lives here, never in the model registration.",
+ "agent_name": "PayGPT 6.0 \u00b7 Northgate deployment",
+ "key_storage": "customer-held key store (demo); not exportable",
+ "key_rotation": "every 12 months or on suspected compromise"
+}

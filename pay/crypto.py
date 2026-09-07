@@ -2,8 +2,9 @@
 
 Three signers, each entitled to exactly one claim set:
   authority  signs the assurance JWT      (KY-A assurance + supervisor condition)
-  openpay    signs the agent_identity JWT (agent name, agent public key, software, config hash)
-  northgate  signs the mandate JWT        (supplier allowlist, limits, expiry)
+  openpay    reserved: the model company attests its documentation, it does not sign
+  northgate  signs the agent_identity JWT (its deployment of an approved model: agent key, config hash)
+             and the mandate JWT          (supplier allowlist, limits, expiry)
 Each is an Ed25519 key generated once into KEYS_DIR (never committed). The
 agent has a fourth key, generated per application; the demo agent lives inside
 this process, so its private key is kept in the database for the simulation.
@@ -186,7 +187,7 @@ def verify_envelope(env: dict) -> dict:
     if out["assurance"] is None:
         out["failure"] = "assurance"
         return out
-    out["agent_identity"] = verify_jwt("openpay", env.get("agent_identity"))
+    out["agent_identity"] = verify_jwt("northgate", env.get("agent_identity"))
     if out["agent_identity"] is None:
         out["failure"] = "agent_identity"
         return out

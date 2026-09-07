@@ -20,12 +20,12 @@ const AP = (() => {
   const NUMERIC = new Set(['human_confirm_above_gbp', 'cover_gbp']);
 
   const LABELS = {
-    provider: { title: 'Provider', legal_name: 'Legal name', licence_ref: 'Licence reference', companies_house_number: 'Companies House number', permissions: 'Licence permissions' },
-    accountable_person: { title: 'Accountable person', name: 'Named responsible individual', role: 'Role or title', declaration_ref: 'Declaration reference' },
-    insurance: { title: 'Insurance', provider: 'Insurer', policy_ref: 'Policy reference', cover_gbp: 'Cover (£)', valid_until: 'In force until' },
-    agent: { title: 'The agent: model documentation and key management', agent_name: 'Agent name', agent_id: 'Agent identifier', software: 'Software', software_version: 'Version', model_provider: 'Model provider', model_version: 'Model version', benchmarks: 'Benchmarks', training_type: 'Training type', config_hash: 'Configuration SHA-256', key_storage: 'Private key storage', key_rotation: 'Key rotation' },
-    requested: { title: 'Requested authority', action_type: 'Action type', human_confirm_above_gbp: 'Proposed human confirmation above (£)' },
+    company: { title: 'Model company', legal_name: 'Legal name', companies_house_number: 'Companies House number', website: 'Website' },
+    attestation: { title: 'Attestation (documentation accuracy)', name: 'Named person', role: 'Role or title', declaration_ref: 'Declaration reference' },
+    model: { title: 'The model', model_name: 'Model name', model_id: 'Model identifier', release: 'Release', model_provider: 'Foundation model provider', model_version: 'Foundation model version (pinned)', benchmarks: 'Benchmarks', training_type: 'Training type', documentation_ref: 'Model card / documentation' },
+    intended_use: { title: 'Intended use', action_type: 'Action type', description: 'Description' },
   };
+
 
   function applist(apps, id = 'applist') {
     const ul = $(id); if (!ul) return;
@@ -48,19 +48,18 @@ const AP = (() => {
 
     function render() {
       const ul = $('models'); ul.innerHTML = '';
-      (state.registered_models || []).forEach(m => ul.append(el('li', null, `<strong>${esc(m.model)}</strong><span class="small"><span class="mono">${esc(m.passport_id)}</span> · assured ${d(m.assured)}</span>${tag(m.status)}`)));
-      state.applications.forEach(x => ul.append(el('li', null, `<strong>${esc(v(x.fields, 'agent', 'agent_name') || 'PayGPT 6.0')}</strong><span class="small"><a href="${location.pathname}?ref=${x.ref}" class="mono">${esc(x.ref)}</a> · this registration</span>${tag(x.status)}`)));
+      (state.registered_models || []).forEach(m => ul.append(el('li', null, `<strong>${esc(m.model)}</strong><span class="small"><span class="mono">${esc(m.registration)}</span> · approved ${d(m.assured)}</span>${tag(m.status)}`)));
+      state.applications.forEach(x => ul.append(el('li', null, `<strong>${esc(v(x.fields, 'model', 'model_name') || 'PayGPT 6.0')}</strong><span class="small"><a href="${location.pathname}?ref=${x.ref}" class="mono">${esc(x.ref)}</a> · this registration</span>${tag(x.model_status === 'revoked' ? 'revoked' : x.model_status === 'suspended' ? 'suspended' : x.status)}`)));
       const has = !!a, draft = has && a.status === 'draft';
       $('btn-new').hidden = draft;
       $('btn-new').textContent = has ? 'Start another registration' : 'Start registration';
       $('btn-prefill').hidden = !draft;
       $('facts-meta').textContent = has ? `${a.ref} · ${a.status.replace('_', ' ')}` : '';
       $('extract-note').textContent = draft ? 'Fill in the fields by hand, or prefill the demo data (OpenPay Ltd registering PayGPT 6.0).' : '';
-      document.querySelector('[data-step="2"]').hidden = !has;
       document.querySelector('[data-step="3"]').hidden = !has;
-      if (has) { renderFacts(a.fields, draft); renderAgent(); } else { $('facts').innerHTML = ''; $('btn-save-fields').hidden = true; }
+      if (has) { renderFacts(a.fields, draft); } else { $('facts').innerHTML = ''; $('btn-save-fields').hidden = true; }
       const submitted = has && a.status !== 'draft';
-      $('btn-submit').hidden = submitted || !(a && a.agent && a.agent.pop_verified);
+      $('btn-submit').hidden = submitted;
       $('confirm').hidden = !submitted;
       if (submitted) $('confirm-ref').textContent = a.ref;
     }
@@ -94,18 +93,9 @@ const AP = (() => {
       return f;
     }
 
-    function renderAgent() {
-      const ag = a.agent, dl = $('agent-kv'); dl.innerHTML = '';
-      if (!ag || !ag.kid) { dl.innerHTML = '<div><dt>Agent key</dt><dd>not generated</dd></div>'; $('btn-key').hidden = a.status !== 'draft'; $('btn-sign').hidden = true; return; }
-      dl.innerHTML = `<div><dt>Agent</dt><dd class="mono">${esc(ag.agent_id)}</dd></div><div><dt>Public key</dt><dd class="mono small">Ed25519 · kid ${esc(ag.kid)} · x=${esc(ag.jwk.x)}</dd></div><div><dt>Challenge (nonce)</dt><dd class="mono small">${esc(ag.challenge)}</dd></div><div><dt>Proof of possession</dt><dd>${ag.pop_verified ? '<span class="tag tag--green">Verified</span> signature over the nonce checks against the submitted key' : '<span class="tag tag--amber">Pending</span> challenge not yet signed'}</dd></div>${a.agent_identity_jwt ? '<div><dt>Agent identity</dt><dd><span class="tag tag--green">Signed</span> by the provider’s key at submission</dd></div>' : ''}`;
-      $('btn-key').hidden = true; $('btn-sign').hidden = !!ag.pop_verified || a.status !== 'draft';
-    }
-
     $('btn-new').onclick = async () => { a = await api('POST', '/api/applications'); history.replaceState(null, '', `?ref=${a.ref}`); await refresh(); };
     $('btn-prefill').onclick = async () => { a = await api('POST', `/api/applications/${a.id}/prefill`); await refresh(); };
     $('btn-save-fields').onclick = async () => { a = await api('PUT', `/api/applications/${a.id}/fields`, { fields: collectFields() }); $('save-note').textContent = 'Saved ' + t(new Date().toISOString()); await refresh(); };
-    $('btn-key').onclick = async () => { await api('PUT', `/api/applications/${a.id}/fields`, { fields: collectFields() }); a = await api('POST', `/api/applications/${a.id}/agent-key`); await refresh(); };
-    $('btn-sign').onclick = async () => { a = await api('POST', `/api/applications/${a.id}/sign-challenge`); await refresh(); };
     $('btn-submit').onclick = async () => { await api('PUT', `/api/applications/${a.id}/fields`, { fields: collectFields() }); a = await api('POST', `/api/applications/${a.id}/submit`); await refresh(); window.scrollTo({ top: document.body.scrollHeight }); };
   }
 
@@ -117,14 +107,14 @@ const AP = (() => {
     const kv = (rows) => `<dl class="envelope__kv">${rows.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('')}</dl>`;
     return `
       <section>
-        <span class="envelope__who">Signed by the authority</span>
+        <span class="envelope__who">Signed by the authority · issued from the model approval</span>
         <h3 class="envelope__title">Assurance ${sig(ver.assurance)}</h3>
-        ${kv([['Provider', `${esc(a.provider.legal_name)} · <span class="mono">${esc(a.provider.licence_ref)}</span>`], ['KY-A status', `${esc(a.assurance.kya_status)} · ${a.assurance.checks_passed} checks passed${a.assurance.checks_flagged.length ? ', flagged ' + esc(a.assurance.checks_flagged.join(', ')) : ''}`], ['Condition', `hold above ${gbp(a.condition.human_confirm_above.amount)}`], ['Accountable', `${esc(a.accountable_person.name)}, ${esc(a.accountable_person.role)} · <span class="mono small">${esc(a.accountable_person.declaration_ref)}</span>`], ['Valid until', esc(a.valid_until)], ['Bound to', `agent identity <span class="mono small">${esc(a.binds.agent_identity_sha256.slice(0, 12))}…</span>`]])}
+        ${kv([['Approved model', `${esc(a.model_ref.model_name)} <span class="mono">${esc(a.model_ref.model_id)}</span> · ${esc(a.model_ref.company)} · <span class="mono small">${esc(a.model_ref.registration)}</span>`], ['Status', `${esc(a.assurance.kya_status)} · ${a.assurance.checks_passed} checks passed${a.assurance.checks_flagged.length ? ', flagged ' + esc(a.assurance.checks_flagged.join(', ')) : ''}`], ['Condition', `hold above ${gbp(a.condition.human_confirm_above.amount)}`], ['Ceilings', `≤ ${gbp(a.policy_ceilings.per_payment_ceiling.amount)} per payment · ≤ ${gbp(a.policy_ceilings.monthly_per_account_ceiling.amount)} per account in 30 days`], ['Attested by', `${esc(a.attestation.name)}, ${esc(a.attestation.role)} · documentation accuracy only`], ['Valid until', esc(a.valid_until)], ['Bound to', `agent identity <span class="mono small">${esc(a.binds.agent_identity_sha256.slice(0, 12))}…</span>`]])}
       </section>
       <section>
-        <span class="envelope__who">Signed by the provider</span>
+        <span class="envelope__who">Signed by the customer · its deployment of the model</span>
         <h3 class="envelope__title">Agent identity ${sig(ver.agent_identity)}</h3>
-        ${kv([['Agent', `${esc(i.agent.name)} · <span class="mono">${esc(i.agent.agent_id)}</span>`], ['Public key', `<abbr title="Agent key binding provides workload-identity guarantees equivalent to SPIFFE SVID."><span class="mono small">kid ${esc(full.minimal.agent_kid)}</span></abbr>`], ['Software', `${esc(i.agent.software)} ${esc(i.agent.software_version)}`], ['Model provider', esc(i.agent.model_provider)], ['Config SHA-256', `<span class="mono small">${esc((i.agent.config_sha256 || '').slice(0, 16))}…</span>`]])}
+        ${kv([['Agent', `${esc(i.agent.name)} · <span class="mono">${esc(i.agent.agent_id)}</span>`], ['Public key', `<abbr title="Agent key binding provides workload-identity guarantees equivalent to SPIFFE SVID."><span class="mono small">kid ${esc(full.minimal.agent_kid)}</span></abbr> · possession ${i.deployment && i.deployment.proof_of_possession ? 'proven' : 'not proven'}`], ['Model', `${esc(i.agent.model_name)} · ${esc(i.agent.model_provider)} <span class="mono small">${esc(i.agent.model_version)}</span>`], ['Config SHA-256', `<span class="mono small">${esc((i.agent.config_sha256 || '').slice(0, 16))}…</span>`], ['Key custody', esc((i.deployment || {}).key_storage || '')]])}
       </section>
       <section>
         <span class="envelope__who">Signed by the customer</span>
@@ -144,7 +134,28 @@ const AP = (() => {
     render();
 
     async function refresh() { state = await api('GET', '/api/state'); a = state.applications.find(x => x.id === a.id) || a; render(); }
-    function passportFor() { return a ? state.passports.find(x => x.application_id === a.id) : null; }
+    function passportFor() { const ref = new URLSearchParams(location.search).get('passport'); return a ? (state.passports.find(x => x.application_id === a.id && x.passport_id === ref) || state.passports.find(x => x.application_id === a.id)) : null; }
+    function renderModel() {
+      const box = $('rg-model'); const ok = a && a.status === 'approved'; box.hidden = !ok; if (!ok) return;
+      const m = (state.models || []).find(x => x.application_id === a.id) || { model_status: 'active', passports: [] };
+      const ms = m.model_status || 'active';
+      $('md-status').innerHTML = tag(ms === 'active' ? 'active' : ms, ms === 'active' ? 'approved · active' : ms);
+      const pol = state.policy || {};
+      $('md-summary').innerHTML = [['Model', `<strong>${esc(m.model_name || '')}</strong> <span class="mono">${esc(m.model_id || '')}</span> · ${esc(m.company || '')}`], ['Approved', `${d(m.approved_at)} by ${esc(a.officer || '')}`], ['Policy ceilings', `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp)} · expiry ≤ ${esc(pol.max_validity)}`], ['Condition', `hold instructions above ${gbp(((a.condition || {}).human_confirm_above || {}).amount)}`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
+      $('btn-md-suspend').hidden = ms !== 'active'; $('btn-md-reinstate').hidden = ms !== 'suspended'; $('btn-md-revoke').hidden = ms === 'revoked';
+      const ul = $('md-passports'); ul.innerHTML = '';
+      const mine = state.passports.filter(x => x.application_id === a.id);
+      mine.forEach(x => ul.append(el('li', null, `<a href="/regulator?ref=${a.ref}&passport=${x.passport_id}" class="mono">${esc(x.passport_id)}</a> ${tag(x.status)} <span class="small">${x.mandate_signed ? 'mandate signed' : 'mandate not signed'}</span>`)));
+      if (!mine.length) ul.append(el('li', 'small', 'None yet: customers create agents on this model in the Customer Panel.'));
+    }
+    async function modelLife(status) {
+      const reason = $('md-reason').value.trim(); $('md-error').hidden = true;
+      try { await api('POST', `/api/models/${a.id}/status`, { status, reason }); $('md-reason').value = ''; await refresh(); }
+      catch (e) { $('md-error').textContent = e.message; $('md-error').hidden = false; }
+    }
+    $('btn-md-suspend').onclick = () => modelLife('suspended');
+    $('btn-md-reinstate').onclick = () => modelLife('active');
+    $('btn-md-revoke').onclick = () => modelLife('revoked');
 
     function render() {
       applist(state.applications);
@@ -155,23 +166,22 @@ const AP = (() => {
       if (!has) return;
       const f = a.fields;
       $('rg-summary').innerHTML = [
-        ['Provider', `${esc(v(f, 'provider', 'legal_name'))} · licence <span class="mono">${esc(v(f, 'provider', 'licence_ref'))}</span> · Companies House <span class="mono">${esc(v(f, 'provider', 'companies_house_number'))}</span>`],
-        ['Accountable person', `${esc(v(f, 'accountable_person', 'name'))}, ${esc(v(f, 'accountable_person', 'role'))} · declaration <span class="mono">${esc(v(f, 'accountable_person', 'declaration_ref'))}</span> · responsibility accepted on submission`],
-        ['Insurance', `${esc(v(f, 'insurance', 'provider'))} · <span class="mono">${esc(v(f, 'insurance', 'policy_ref'))}</span> · ${gbp(v(f, 'insurance', 'cover_gbp'))} until ${esc(v(f, 'insurance', 'valid_until'))}`],
-        ['Agent', `${esc(v(f, 'agent', 'agent_name'))} <span class="mono">${esc(v(f, 'agent', 'agent_id'))}</span> · ${esc(v(f, 'agent', 'software'))} ${esc(v(f, 'agent', 'software_version'))} · ${esc(v(f, 'agent', 'model_provider'))} · key kid <span class="mono">${esc(a.agent && a.agent.kid)}</span> ${a.agent && a.agent.pop_verified ? '<span class="tag tag--green">possession proven</span>' : '<span class="tag tag--red">possession not proven</span>'} ${a.agent_identity_jwt ? '<span class="tag tag--green">identity signed by provider</span>' : ''}`],
-        ['Model documentation', `${esc(v(f, 'agent', 'model_provider'))} · <span class="mono">${esc(v(f, 'agent', 'model_version'))}</span> · ${esc(v(f, 'agent', 'training_type'))}<br><span class="small">${esc(v(f, 'agent', 'benchmarks'))}</span>`],
-        ['Key management', `${esc(v(f, 'agent', 'key_storage'))} · rotation ${esc(v(f, 'agent', 'key_rotation'))}`],
-        ['Requested authority', `<strong>${esc(v(f, 'requested', 'action_type'))}</strong> · provider proposes confirmation above ${gbp(v(f, 'requested', 'human_confirm_above_gbp'))} · no customer named: each customer writes its own mandate within the policy ceilings`],
+        ['Model company', `${esc(v(f, 'company', 'legal_name'))} · Companies House <span class="mono">${esc(v(f, 'company', 'companies_house_number'))}</span> · ${esc(v(f, 'company', 'website'))}`],
+        ['Attestation', `${esc(v(f, 'attestation', 'name'))}, ${esc(v(f, 'attestation', 'role'))} · declaration <span class="mono">${esc(v(f, 'attestation', 'declaration_ref'))}</span> · documentation accuracy only, no liability for agents' actions`],
+        ['Model', `<strong>${esc(v(f, 'model', 'model_name'))}</strong> <span class="mono">${esc(v(f, 'model', 'model_id'))}</span> · release ${esc(v(f, 'model', 'release'))} · ${esc(v(f, 'model', 'model_provider'))} <span class="mono">${esc(v(f, 'model', 'model_version'))}</span>`],
+        ['Documentation', `${esc(v(f, 'model', 'documentation_ref'))} · ${esc(v(f, 'model', 'training_type'))}<br><span class="small">${esc(v(f, 'model', 'benchmarks'))}</span>`],
+        ['Intended use', `<strong>${esc(v(f, 'intended_use', 'action_type'))}</strong> · ${esc(v(f, 'intended_use', 'description'))} · no customer named: each customer creates its own agent and mandate within the policy ceilings`],
       ].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       const pol = state.policy || {};
       if ($('rg-ceilings')) $('rg-ceilings').textContent = `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp)} · expiry ≤ ${pol.max_validity} · actions ${(pol.action_types || []).join(', ')}`;
       const cb = $('rg-checks').querySelector('tbody'); cb.innerHTML = '';
       (a.checks || []).forEach(c => cb.append(el('tr', null, `<td>${esc(c.id)}</td><td>${esc(c.title)} <span class="tag tag--${c.status === 'CURRENT' ? 'green' : 'grey'}">${esc(c.status)}</span><br><span class="small">${esc(c.detail)}</span></td><td>${esc(c.source)}<br><span class="small">${esc(c.evidence)}</span></td><td>${c.result === 'pass' ? '<span class="tag tag--green">Pass</span>' : '<span class="tag tag--amber">Flag</span>'}</td>`)));
       $('rg-filenote').value = a.file_note || '';
-      if (v(f, 'requested', 'human_confirm_above_gbp') && !$('rg-condition').dataset.touched) $('rg-condition').value = v(f, 'requested', 'human_confirm_above_gbp');
+      if (pol.human_confirm_above_gbp && !$('rg-condition').dataset.touched) $('rg-condition').value = pol.human_confirm_above_gbp;
       if (a.review) renderReview(a.review); else if (!a._reviewing) { a._reviewing = true; runReview(true); }
       p = passportFor();
       $('rg-decide').hidden = !(a.status === 'submitted' || a.status === 'info_requested');
+      renderModel();
       $('rg-issued').hidden = !p;
       if (p) renderPassport(p);
       renderExceptions();
@@ -181,7 +191,7 @@ const AP = (() => {
       if (!mine.length) inc.append(el('li', 'log__empty', 'No incidents.'));
       const hist = $('rg-history'); hist.innerHTML = '';
       const lines = [];
-      if (a.submitted_at) lines.push([a.submitted_at, 'Application submitted; agent identity signed by the provider; automated checks run.']);
+      if (a.submitted_at) lines.push([a.submitted_at, 'Model registration submitted; documentation accuracy attested; checks M.1–M.6 run.']);
       if (a.officer_note) lines.push([a.decided_at || a.submitted_at, `${a.officer}: ${a.status.replace('_', ' ')} — “${a.officer_note}”`]);
       if (p && p.mandate_signed_at) lines.push([p.mandate_signed_at, `${(p.mandate.signed_by || {}).name}, ${(p.mandate.signed_by || {}).role} (customer): wrote and signed the mandate; within policy ceilings.`]);
       (p ? p.history : []).forEach(h => lines.push([h.ts, `${h.officer}: ${h.from ? h.from + ' → ' : ''}${h.to} — ${h.reason}`]));
@@ -194,7 +204,7 @@ const AP = (() => {
       const kv = (o) => `<dl class="kv">${Object.entries(o).map(([k, v_]) => `<div><dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${Array.isArray(v_) ? v_.map(esc).join('<br>') : esc(String(v_ ?? '—'))}</dd></div>`).join('')}</dl>`;
       for (const st of r.steps) {
         let body = '', state = 'done', badge = '';
-        if (st.id === 'evidence') body = `<p class="small">Provider claims</p>${kv(st.data.provider_claims)}<p class="small">Customer authorises</p>${kv(st.data.customer_authorises)}<p class="small">Authority is asked to certify</p>${kv(st.data.authority_asked_to_certify)}<p class="small">${esc(st.data.registration || '')}</p>`;
+        if (st.id === 'evidence') body = `<p class="small">The model company registers</p>${kv(st.data.company_registers || st.data.provider_claims || {})}<p class="small">Customers will</p>${kv(st.data.customers_will || st.data.customer_authorises || {})}<p class="small">The authority is asked to certify</p>${kv(st.data.authority_asked_to_certify || {})}<p class="small">${esc(st.data.registration || '')}</p>`;
         if (st.id === 'rule_map') { badge = `<span class="tag tag--blue">${esc(r.assistant)}</span> <span class="mono small">${esc(st.data.rule_pack)}</span>`; body = `<table class="rulemap"><thead><tr><th>Rule</th><th>Requirement</th><th>Evidence</th><th>Result</th></tr></thead><tbody>${st.data.rules.map(x => `<tr><td>${esc(x.id)}</td><td>${esc(x.title)} <span class="tag tag--${x.status === 'CURRENT' ? 'green' : 'grey'}">${esc(x.status)}</span></td><td>${x.evidence ? `<span class="mono small">${esc(String(x.evidence.value))}</span>${x.evidence.source_doc ? `<br><span class="small">${esc(x.evidence.source_doc)}</span>` : ''}` : '<span class="tag tag--red">uncovered</span>'}</td><td>${x.result === 'pass' ? '<span class="tag tag--green">Pass</span>' : '<span class="tag tag--amber">Flag</span>'}</td></tr>`).join('')}</tbody></table>${st.data.uncovered.length ? `<p class="error">Uncovered: ${esc(st.data.uncovered.join(', '))}</p>` : '<p class="small">Every rule maps to cited evidence.</p>'}`; }
         if (st.id === 'tests') body = `<div class="cards">${st.data.map(x => `<div><strong>${esc(x.id)} · ${esc(x.title)}</strong><span class="small">${esc(x.instruction.supplier_name)} · ${esc(x.instruction.payee_account_ref)} · ${gbp(x.instruction.amount)}${x.variant !== 'normal' ? ' · ' + esc(x.variant) : ''}</span><span class="small">expect <b>${esc(x.expect)} ${esc(x.expect_rule)}</b></span></div>`).join('')}</div>`;
         if (st.id === 'sandbox') { const ok = st.data.filter(x => x.pass).length; badge = `<span class="tag tag--${ok === st.data.length ? 'green' : 'red'}">${ok} of ${st.data.length} as expected</span> <span class="small">same code path as /bank</span>`; body = `<div class="cards">${st.data.map(x => `<div data-pass="${x.pass}"><strong>${esc(x.id)} ${x.pass ? 'PASS' : 'FAIL'}</strong><span>${esc(x.decision)} <span class="mono">${esc(x.rule)} · ${esc(x.code)}</span></span><span class="small">${esc(x.reason)}</span></div>`).join('')}</div>`; }
@@ -294,29 +304,46 @@ const AP = (() => {
     let state = await api('GET', '/api/state');
     const ref = new URLSearchParams(location.search).get('ref');
     let p = state.passports.find(x => x.passport_id === ref) || state.passports[0] || null;
-    let draft = JSON.parse(JSON.stringify(state.mandate_draft || {}));
-    let checkTimer = null;
+    const d0 = state.mandate_draft || { customer: {}, authorising_officer: {} };
+    const draft = JSON.parse(JSON.stringify(d0)); let checkTimer = null;
     render();
 
     function render() {
       const ul = $('cu-list'); ul.innerHTML = state.passports.length ? '' : '<li class="small">None yet.</li>';
       state.passports.forEach(x => ul.append(el('li', null, `<a href="/customer?ref=${x.passport_id}" class="mono">${esc(x.passport_id)}</a> ${tag(x.mandate_signed ? 'signed' : 'unsigned', x.mandate_signed ? 'signed' : 'awaiting signature')}`)));
-      $('cu-empty').hidden = !!p; $('cu-mandate').hidden = !p;
+      const models = (state.models || []).filter(m => m.model_status === 'active');
+      $('cu-empty').hidden = !!(models.length || p);
+      $('cu-create').hidden = !models.length;
+      const sel = $('cu-model'); sel.innerHTML = models.map(m => `<option value="${m.application_id}">${esc(m.model_name)} · ${esc(m.company)} · ${esc(m.model_version)}</option>`).join('');
+      const pol = state.policy || {};
+      $('cu-model-kv').innerHTML = models.length ? [['Approved models', `${models.length} on the register`], ['Policy ceilings', `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp)} · expiry ≤ ${esc(pol.max_validity)}`], ['Your deployment', `${esc((state.agent_draft || {}).key_storage || 'customer-held key store')} · a key pair is generated for this deployment and proves possession by signing the authority's challenge`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('') : '';
+      $('cu-mandate').hidden = !p;
       if (!p) return;
-      const mp = p.mandate_proposed, signed = p.mandate_signed, ce = mp.ceilings || (p.assurance.policy_ceilings) || {};
-      const ad = (p.mandate || mp).authorization_details[0];
+      const mp = p.mandate_proposed, ad = mp.authorization_details[0], signed = p.mandate_signed, ag = p.agent || {};
+      $('cu-agent-kv').innerHTML = [['Agent', `<strong>${esc(p.agent_identity.agent.name)}</strong> · <span class="mono">${esc(mp.agent_id)}</span> · on ${esc(p.agent_identity.agent.model_name)} (${esc(p.agent_identity.agent.model_provider)} <span class="mono">${esc(p.agent_identity.agent.model_version)}</span>)`], ['Agent key', `<span class="mono">kid ${esc(mp.agent_kid)}</span> · ${ag.pop_verified ? '<span class="tag tag--green">possession proven</span>' : '<span class="tag tag--amber">possession pending</span>'} · config <span class="mono small">${esc((ag.config_sha256 || '').slice(0, 12))}…</span>`], ['Passport', `<span class="mono">${esc(p.passport_id)}</span> ${tag(p.status)} · assurance issued automatically from the model approval`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       $('cu-id').textContent = p.passport_id;
       $('cu-state').innerHTML = signed ? tag('signed', 'signed') : tag('unsigned', 'awaiting signature');
       $('cu-card').classList.toggle('mandate--signed', signed);
-      const who = signed ? mp.customer : draft.customer, off = signed ? mp.authorising_officer : draft.authorising_officer;
-      $('cu-kv').innerHTML = [['Customer', `${esc((who || {}).legal_name || '')} · Companies House <span class="mono">${esc((who || {}).companies_house_number || '')}</span>`], ['Authorising officer', `${esc((off || {}).name || '')}, ${esc((off || {}).role || '')}`], ['Agent', `${esc(p.agent_identity.agent.name)} · <span class="mono">${esc(mp.agent_id)}</span> · key kid <span class="mono">${esc(mp.agent_kid)}</span>`], ['Operated by', `${esc(mp.provider)} · assured by the ${esc(p.assurance.iss)} until ${esc(p.assurance.valid_until)}`], ['Policy ceilings', `per payment ≤ ${gbp((ce.per_payment_ceiling || {}).amount)} · per supplier account in 30 days ≤ ${gbp((ce.monthly_per_account_ceiling || {}).amount)} · expiry ≤ ${esc(ce.max_validity || '')} · actions ${esc((ce.action_types || []).join(', '))}`], ['Supervisor condition', `the bank holds anything above ${gbp(p.assurance.condition.human_confirm_above.amount)} for your confirmation`]].concat(signed ? [['Action', `<strong>${esc(ad.actions.join(', '))}</strong> in ${esc(ad.currency)}`], ['Per payment', `not more than ${gbp(ad.per_payment_limit.amount)}`], ['Per supplier account', `not more than ${gbp(ad.monthly_limit_per_account.amount)} in any rolling 30 days`], ['Expires', esc(mp.valid_until)]] : []).map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
+      $('cu-kv').innerHTML = [['Customer', `${esc((mp.customer || d0.customer).legal_name)} · Companies House <span class="mono">${esc((mp.customer || d0.customer).companies_house_number)}</span>`], ['Authorising officer', `${esc((mp.authorising_officer || d0.authorising_officer).name)}, ${esc((mp.authorising_officer || d0.authorising_officer).role)}`], ['Supervisor condition', `the bank holds anything above ${gbp(p.assurance.condition.human_confirm_above.amount)} for your confirmation`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
+      renderMandateForm(p, signed, ad, mp);
+    }
+    $('btn-create-agent').onclick = async () => {
+      const b = $('btn-create-agent'); b.disabled = true; $('cu-create-error').hidden = true; $('cu-create-note').textContent = 'generating key, signing challenge…';
+      try { const np = await api('POST', '/api/agents', { application_id: Number($('cu-model').value) }); state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${p.passport_id}`); render(); }
+      catch (e) { $('cu-create-error').textContent = e.message; $('cu-create-error').hidden = false; }
+      finally { b.disabled = false; $('cu-create-note').textContent = ''; }
+    };
+    function renderMandateForm(p, signed, ad, mp) {
+      const ce = mp.ceilings || p.assurance.policy_ceilings || {};
       $('cu-form').hidden = signed || p.status === 'revoked';
       $('cu-suppliers-signed').hidden = !signed;
       if (signed) {
         const tb = $('cu-suppliers-signed').querySelector('tbody'); tb.innerHTML = '';
         ad.supplier_allowlist.forEach(s => tb.append(el('tr', null, `<td><span class="mono">${esc(s.supplier_id)}</span> ${esc(s.name)}</td><td class="mono">${esc(s.account_ref)}</td>`)));
+        $('cu-kv').insertAdjacentHTML('beforeend', [['Action', `<strong>${esc(ad.actions.join(', '))}</strong> in ${esc(ad.currency)}`], ['Per payment', `not more than ${gbp(ad.per_payment_limit.amount)}`], ['Per supplier account', `not more than ${gbp(ad.monthly_limit_per_account.amount)} in any rolling 30 days`], ['Expires', esc(mp.valid_until)]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join(''));
         $('cu-containment').className = 'containment containment--ok'; $('cu-containment').textContent = 'Ceiling containment: this mandate sits within the policy ceilings the authority set. Checked at signing; the bank checks it again on every payment.';
       } else {
+        $('cu-kv').insertAdjacentHTML('beforeend', `<div><dt>Policy ceilings</dt><dd>per payment ≤ ${gbp((ce.per_payment_ceiling || {}).amount)} · per supplier account in 30 days ≤ ${gbp((ce.monthly_per_account_ceiling || {}).amount)} · expiry ≤ ${esc(ce.max_validity || '')}</dd></div>`);
         renderForm(); runCheck();
       }
       $('cu-signer').textContent = `${(draft.authorising_officer || {}).name}, ${(draft.authorising_officer || {}).role}, signs with the ${(draft.customer || {}).legal_name} key.`;
@@ -353,11 +380,14 @@ const AP = (() => {
     $('btn-sign-mandate').onclick = async () => {
       const b = $('btn-sign-mandate'); b.disabled = true; $('cu-error').hidden = true;
       try { await api('POST', `/api/passports/${p.passport_id}/mandate/sign`, collect()); state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === p.passport_id); render(); }
-      catch (e) { $('cu-error').textContent = e.message; $('cu-error').hidden = false; b.disabled = false; }
+      catch (e) { $('cu-error').textContent = typeof e.message === 'string' ? e.message : JSON.stringify(e.message); $('cu-error').hidden = false; b.disabled = false; }
     };
   }
 
-  // ───────────── Bank ─────────────
+  // ───────────── Bank · Action Terminal ─────────────
+  // Presentation only: every verdict below comes from POST /api/verify unchanged. Two magnifications of the same
+  // response: the gauntlet (sequential reveal, slowed for demonstration) and the expert console (the raw log).
+  const SHORT = { 'R.1': 'authority signature', 'R.2': 'registry status', 'R.3': 'agent identity signature', 'R.4': 'agent signature', 'R.5': 'customer mandate', 'R.6': 'payee on allowlist', 'R.7': 'per-payment limit', 'R.8': '30-day limit', 'R.9': 'supervisor condition', 'C.a': 'root scope', 'C.b': 'delegation ⊆ root', 'C.c': 'action ⊆ delegation' };
   async function bank() {
     let state = await api('GET', '/api/state');
     const ref = new URLSearchParams(location.search).get('ref');
@@ -365,8 +395,11 @@ const AP = (() => {
     const rules = (await api('GET', '/api/rulepack')).runtime_rules;
     const rl = $('rules'); rules.forEach(r => rl.append(el('li', null, `<code>${esc(r.id)}</code> ${esc(r.title)} → <code>${esc(r.on_fail)}</code> <span class="small">— ${esc(r.data)}</span>`)));
     const lines = $('term-lines');
+    const RM = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const pause = (ms) => new Promise(r => setTimeout(r, RM ? 0 : ms));
     let denies = 0;
 
+    // ── 1 · standing state ──
     async function strip() {
       if (!p) return;
       const full = await api('GET', `/api/passports/${p.passport_id}`);
@@ -382,16 +415,97 @@ const AP = (() => {
       ad.supplier_allowlist.forEach(s => {
         const total = (full.ledger[s.account_ref] || { total: 0 }).total;
         const pct = Math.min(1, total / cap);
-        const row = el('div', null, `<span class="meters__k">${esc(s.name)}</span><span class="meters__v">${gbp(total)} of ${gbp(cap)}</span><span class="meter"><span class="meter__fill ${pct >= 1 ? 'over' : pct >= .75 ? 'warn' : ''}" style="transform:scaleX(${pct})"></span></span>`);
-        mt.append(row);
+        mt.append(el('div', null, `<span class="meters__k">${esc(s.name)} <span class="tm-dim mono">${esc(s.account_ref)}</span></span><span class="meters__v">${gbp(total)} of ${gbp(cap)}</span><span class="meter"><span class="meter__fill ${pct >= 1 ? 'over' : pct >= .75 ? 'warn' : ''}" style="transform:scaleX(${pct})"></span></span>`));
       });
-      $('rp-passport').innerHTML = [['Passport', `<span class="mono">${esc(m.passport_id)}</span>`], ['Issuer', esc(m.issuer)], ['Provider', `${esc(m.provider)} · <span class="mono">${esc(m.licence_ref)}</span>`], ['Agent', `${esc(m.agent)} · <span class="mono">${esc(m.agent_id)}</span> · key kid <span class="mono">${esc(m.agent_kid)}</span>`], ['Mandate', `${esc(m.scope.actions.join(', '))} · ${m.scope.suppliers} payee accounts · ${gbp(m.scope.per_payment_limit.amount)} per payment · ${gbp(m.scope.monthly_limit_per_account.amount)} per account in 30 days`], ['Condition', `hold above ${gbp(m.condition.human_confirm_above.amount)}`], ['Valid until', esc(m.valid_until)], ['Signatures', `<span class="mono small">assurance ${esc(m.signers.assurance)} · agent identity ${esc(m.signers.agent_identity)} · mandate ${esc(m.signers.mandate)}</span> ${full.verification.ok ? '<span class="tag tag--green">all three verify</span>' : `<span class="tag tag--amber">${esc(full.verification.failure.replace('_', ' '))}</span>`}`], ['Status (live)', `${tag(m.status)} <button class="link small" id="rp-recheck" type="button">re-check</button>`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
+      const parts = full.verification.parts || {};
+      const light = (ok, label) => `<span class="sig sig--${ok === false ? 'bad' : ok ? 'ok' : 'none'}">${ok === false ? '✗' : ok ? '✓' : '·'} ${label}</span>`;
+      const rows = [['Passport', `<span class="mono">${esc(m.passport_id)}</span>`], ['Issuer', esc(m.issuer)]];
+      if (m.model) rows.push(['Approved model', `${esc(m.model)}${m.model_ref && m.model_ref.model_id ? ` · <span class="mono">${esc(m.model_ref.model_id)}</span>` : ''}`]);
+      rows.push([m.model ? 'Model company' : 'Provider', `${esc(m.provider)}${m.licence_ref ? ` · <span class="mono">${esc(m.licence_ref)}</span>` : ''}`]);
+      rows.push(['Agent', `${esc(m.agent)} · <span class="mono">${esc(m.agent_id)}</span> · key <span class="mono">${esc(m.agent_kid)}</span>`]);
+      rows.push(['Mandate', m.mandate_signed ? `${esc(m.scope.actions.join(', '))} · ${m.scope.suppliers} payee accounts · ${gbp(m.scope.per_payment_limit.amount)} per payment · ${gbp(m.scope.monthly_limit_per_account.amount)} per account in 30 days` : `<span class="tm-warn">not yet signed by the customer</span> · until then every instruction stops at R.5`]);
+      rows.push(['Condition', `hold above ${gbp(m.condition.human_confirm_above.amount)} for a named human`], ['Valid until', esc(m.valid_until)]);
+      rows.push(['Signatures', `${light(parts.assurance, 'assurance')} ${light(parts.agent_identity, 'agent identity')} ${light(parts.mandate, 'mandate')} ${full.verification.ok ? '<span class="tag tag--green">all three verify</span>' : `<span class="tag tag--amber">${esc((full.verification.failure || '').replace('_', ' '))}</span>`}<br><span class="tm-dim mono small">${esc(m.signers.assurance)} · ${esc(m.signers.agent_identity)} · ${esc(m.signers.mandate)}</span>`]);
+      rows.push(['Status (live)', `${tag(m.status)} <button class="link small" id="rp-recheck" type="button">re-check registry</button>`]);
+      $('rp-passport').innerHTML = rows.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       $('rp-recheck').onclick = strip;
       setDenies(denies);
     }
     function setDenies(n) { denies = n; $('denies').querySelectorAll('i').forEach((i, k) => i.classList.toggle('on', k < n)); }
-    if (!p) $('rp-passport').innerHTML = '<div><dt>Passport</dt><dd>none issued yet — approve an application in <a href="/regulator">Review &amp; issue</a></dd></div>';
+    if (!p) $('rp-passport').innerHTML = '<div><dt>Passport</dt><dd>none issued yet — approve an application in the <a href="/regulator">Regulator Panel</a></dd></div>';
     else await strip();
+
+    // ── 3 · the judgment: the gauntlet ──
+    const judgment = $('judgment'), gWrap = $('gauntlet-wrap'), gCells = $('gauntlet'), gVerdict = $('g-verdict'), fullBox = $('tm-full');
+    const inView = (n) => { const r = n.getBoundingClientRect(); return r.top >= 0 && r.bottom <= window.innerHeight; };
+    function openFull() { judgment.classList.add('is-full'); document.body.classList.add('tm-lock'); $('g-close').hidden = false; }
+    function closeFull() { judgment.classList.remove('is-full'); document.body.classList.remove('tm-lock'); $('g-close').hidden = true; }
+    gWrap.addEventListener('click', (e) => { if (judgment.classList.contains('is-full') && !judgment.classList.contains('is-live') && !e.target.closest('label, input, a, details')) closeFull(); });
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeFull(); });
+    function subjectHtml(b, k) {
+      return `<b>instruction under test</b> ${esc(b.action_type)} · ${esc(b.supplier_name)} · <span class="mono">${esc(b.payee_account_ref)}</span> · ${gbp(b.amount)}${k ? ' · #' + k : ''}${b.signer === 'rogue' ? ' · <span class="tm-warn">signed with a rogue key</span>' : ''}${b.invoice ? ` · from invoice <span class="mono">${esc(b.invoice)}</span>` : ''}`;
+    }
+    function cellIds(trace) {
+      const ids = [];
+      rules.forEach(r => { if (r.id === 'R.6') trace.filter(t => t.rule.startsWith('C.')).forEach(t => ids.push(t.rule)); ids.push(r.id); });
+      return ids;
+    }
+    function setCell(li, state, note) { li.dataset.state = state; li.querySelector('.g-cell__s').innerHTML = note; }
+    async function judge(b, r, k, fast) {
+      const step = fast ? 110 : 240;
+      const byRule = Object.fromEntries(r.trace.map(t => [t.rule, t]));
+      const ids = cellIds(r.trace);
+      judgment.classList.add('is-live'); gWrap.dataset.decision = '';
+      if (fullBox.checked) openFull(); else if (!inView(gWrap)) gWrap.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' });
+      $('g-subject').innerHTML = subjectHtml(b, k); $('g-count').textContent = '';
+      gCells.innerHTML = ''; ids.forEach(id => { const li = el('li', 'g-cell'); li.dataset.rule = id; li.dataset.state = 'idle'; li.innerHTML = `<b>${esc(id)}</b><span class="g-cell__t">${esc(SHORT[id] || (rules.find(x => x.id === id) || {}).title || '')}</span><span class="g-cell__s">—</span>`; gCells.append(li); });
+      gVerdict.className = 'g__verdict'; gVerdict.innerHTML = '<span class="tm-dim">evaluating…</span>';
+      const cells = [...gCells.children];
+      let stopped = false;
+      for (let i = 0; i < ids.length; i++) {
+        const li = cells[i], tr = byRule[ids[i]];
+        if (stopped || !tr) { setCell(li, 'skip', 'not evaluated · denied by default'); await pause(step / 4); continue; }
+        $('g-count').textContent = `check ${i + 1} of ${ids.length}`;
+        setCell(li, 'checking', 'checking…'); await pause(step);
+        setCell(li, tr.ok ? 'pass' : (r.decision === 'ESCALATE' ? 'hold' : 'fail'), esc(tr.note));
+        if (!tr.ok) { stopped = true; $('g-count').textContent = `stopped at ${ids[i]}`; }
+      }
+      if (!stopped) $('g-count').textContent = `${ids.length} of ${ids.length} passed`;
+      await pause(step * 1.2);
+      const cite = r.decision === 'ALLOW' ? `all ${ids.length} checks passed · ${esc(r.code)}` : `${esc(r.rule)} · ${esc(r.code)}`;
+      const sig = r.signature ? `<span>R.4 instruction signature <b class="${r.signature.verified ? 'ok' : 'fail'}">${r.signature.checked ? (r.signature.verified ? 'VERIFIED' : 'FAILED') : 'not reached'}</b> · ${esc(r.signature.alg)} · agent key <span class="mono">${esc(r.signature.agent_kid || '—')}</span> · payload sha256 <span class="mono">${esc((r.signature.instruction_hash || '').slice(0, 12))}</span></span>` : '';
+      const settle = r.settlement ? `<span class="ok">${esc(r.settlement.rail_reason)} · 30-day total for this account now ${gbp(r.settlement.ledger_total_after)}</span>` : '';
+      const reg = r.rails && r.rails.authority_registry, rv = r.rails && r.rails.vouch;
+      const rails = r.rails && (reg !== 'active' || (rv && rv.status === 'REVOKED')) ? `<span>authority registry <b class="${reg !== 'active' ? 'fail' : ''}">${esc(reg)}</b> · vouch rail <b class="${rv.status === 'REVOKED' ? 'fail' : ''}">${esc(rv.status || 'none')}</b>${reg !== 'active' && rv.status === 'REVOKED' ? ' · one supervisory action, two rails refuse' : ''}</span>` : '';
+      const fatf = r.decision === 'DENY' && r.rule === 'R.6' ? '<span>Named-beneficiary mandate check (FATF 2025 AML/CFT alignment): the customer signed for accounts, not names.</span>' : '';
+      gVerdict.className = 'g__verdict g__verdict--' + r.decision; gWrap.dataset.decision = r.decision;
+      gVerdict.innerHTML = `<span class="g-word">${r.decision}</span><span class="g-cite">${cite}</span><span class="g-reason">${esc(r.reason)}</span><span class="g-notes">${fatf}${sig}${settle}${rails}<span class="tm-dim">receipt signed by the authority · audit #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> ← <span class="mono">${esc(r.prev_hash.slice(0, 12))}</span> · rule pack ${esc(r.rule_pack)} · decision replayable</span></span>`;
+      judgment.classList.remove('is-live');
+    }
+
+    // ── 5 · the exhaust ──
+    const ex = $('exhaust');
+    function exhaust(b, r) {
+      if (ex.querySelector('.tm-dim') && ex.children.length === 1) ex.innerHTML = '';
+      const who = `${esc(b.action_type)} · ${esc(b.supplier_name)} · ${gbp(b.amount)}`;
+      const audit = `audit #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> <a href="/audit">→ Audit</a>`;
+      let body;
+      if (r.decision === 'DENY') body = `<b class="x-k x-k--DENY">refusal</b> ${who} · ${esc(r.rule)} ${esc(r.code)}${r.violation ? ` · violation #${r.violation.id} recorded ${esc(r.violation.status)} <a href="/regulator">→ Regulator Panel</a>` : ''} · ${audit}`;
+      else if (r.decision === 'ESCALATE') body = `<b class="x-k x-k--ESCALATE">held</b> ${who} · ${esc(r.code)} · waits for a named human, nothing executed · ${audit}`;
+      else body = `<b class="x-k x-k--ALLOW">executed</b> ${who}${r.settlement ? ` · payment #${r.settlement.payment_id} on the ${esc(r.settlement.rail)} rail` : ''} · ${audit}`;
+      ex.prepend(el('li', null, `<span class="x-time">${t(new Date().toISOString())}</span><span>${body}</span>`));
+      if (r.incident) ex.prepend(el('li', 'x-incident', `<span class="x-time">${t(new Date().toISOString())}</span><span><b>INCIDENT</b> escalated to supervisor · ${r.incident.denies} refused instructions · audit #${r.incident.audit_id} <span class="mono">${esc(r.incident.hash.slice(0, 12))}</span> <a href="/regulator">→ Regulator Panel incident feed</a></span>`));
+      while (ex.children.length > 14) ex.lastChild.remove();
+    }
+    function logLine(b, r, k) {
+      if (lines.querySelector('.terminal__hint')) lines.innerHTML = '';
+      lines.append(termLine(b, r, k));
+      if (r.incident) { lines.append(el('li', 't-incident', `<span><b>INCIDENT</b> escalated to supervisor · ${r.incident.denies} refused instructions · audit #${r.incident.audit_id} <b>${esc(r.incident.hash.slice(0, 12))}</b> · visible in the regulator’s incident feed</span>`)); setDenies(0); }
+      else if (r.decision === 'DENY') setDenies(Math.min(3, (r.deny_count || denies + 1)));
+      lines.scrollTop = lines.scrollHeight;
+    }
+    // one instruction, both magnifications, then the exhaust
+    async function present(b, r, k, fast) { await judge(b, r, k, fast); logLine(b, r, k); exhaust(b, r); }
 
     // ── Part B: delegation chain toggle ──
     const ct = $('chain-toggle'); ct.checked = !!state.delegation_chain;
@@ -405,9 +519,7 @@ const AP = (() => {
         btn.disabled = true; btn.dataset.running = 'true';
         try {
           const r = await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, invoice_ref: b.invoice_ref, signer: b.signer, chain: true, delegate_amount: b.delegate_amount, delegate_account: b.delegate_account || null });
-          if (lines.querySelector('.terminal__hint')) lines.innerHTML = '';
-          lines.append(termLine(b, r)); lines.scrollTop = lines.scrollHeight;
-          if (r.decision === 'DENY') setDenies(Math.min(3, (r.deny_count || denies + 1)));
+          await present(b, r);
           await strip();
         } finally { btn.disabled = false; delete btn.dataset.running; }
       };
@@ -419,7 +531,7 @@ const AP = (() => {
       return `<span class="chain__inv">${esc(ch.invariant)}</span><div class="chain__scopes"><div><strong>S0 · root mandate</strong>${s.S0.beneficiaries} beneficiaries · ceiling ${gbp(s.S0.ceiling)} · ${esc(s.S0.actions.join(', '))}</div><div><strong>S1 · delegation</strong>${esc((s.S1.beneficiaries || []).join(', ') || '—')} · ceiling ${gbp(s.S1.ceiling)} · ${esc((s.S1.actions || []).join(', '))}<br><span class="small">${esc(s.S1.issuer || '')} → ${esc(s.S1.delegate || '')}</span></div><div><strong>action</strong>${esc(s.action.action)} · ${esc(s.action.payee)} · ${gbp(s.action.amount)}</div></div><ul class="chain__checks">${ch.checks.map(c => `<li class="${c.ok ? '' : (c.note.startsWith('not evaluated') ? 'skip' : 'fail')}"><b>${esc(c.id)}</b> ${esc(c.title)}: ${esc(c.note)}</li>`).join('')}</ul>`;
     }
 
-    // ── Task 1: the agent reads an invoice ──
+    // ── 2 · the actor: the agent reads an invoice ──
     const ib = $('invoice-buttons');
     (state.invoices || []).forEach(inv => {
       const b = el('button', 'btn ' + (inv.id.endsWith('clean') ? 'btn--secondary' : 'btn--warning'), esc(inv.label) + ' <span class="btn__sub mono">' + esc(inv.id) + '</span>'); b.type = 'button'; b.disabled = !p;
@@ -431,7 +543,6 @@ const AP = (() => {
       };
       ib.append(b);
     });
-    const pause = (ms) => new Promise(r => setTimeout(r, ms));
     async function showInvoice(r) {
       const steps = $('invoice-steps'); steps.hidden = false;
       steps.querySelectorAll('.invoice__step').forEach(x => x.hidden = true);
@@ -440,7 +551,7 @@ const AP = (() => {
       // a. what the agent read, account number marked
       $('inv-text').innerHTML = esc(r.text).replace(new RegExp('(Account number:\\s*)(' + digits + ')'), `$1<mark class="${ok ? 'ok' : ''}">$2</mark>`).replace(/(IMPORTANT: our bank details have changed[^\n]*)/, '<mark>$1</mark>');
       $('inv-facts').innerHTML = Object.entries(r.extraction).filter(([k]) => !k.startsWith('_')).map(([k, f]) => `<div><dt>${esc(k.replace(/_/g, ' '))}</dt><dd>${k === 'account_number' ? `<span class="${ok ? 'right' : 'wrong'}">${esc(f.value)}</span>` : esc(String(f.value))} <span class="prov">from <span class="mono">${esc(f.source_doc || '')}</span>: <q>${esc(f.quote || '')}</q></span></dd></div>`).join('') + `<div><dt>read by</dt><dd>${esc(modeLabel(r.extraction_mode))}</dd></div>`;
-      steps.querySelector('[data-step="a"]').hidden = false; await pause(700);
+      steps.querySelector('[data-step="a"]').hidden = false; steps.scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'start' }); await pause(900);
       // b. the generated instruction
       const i = r.instruction;
       $('inv-instruction').innerHTML = [['Action', esc(i.action_type)], ['Payee', esc(i.supplier_name)], ['Account', `<span class="${ok ? 'right' : 'wrong'}">${esc(acct)}</span>${ok ? ' on the customer-signed mandate' : ` not on the mandate; the customer signed for <span class="mono">${esc(r.registered_payee || '—')}</span>`}`], ['Amount', gbp(i.amount) + ' ' + esc(i.currency)], ['Invoice', esc(i.invoice_ref)], ['Signed by', 'the agent key bound in agent_identity (Ed25519)']].map(([k, v_]) => `<div><dt>${k}</dt><dd>${v_}</dd></div>`).join('');
@@ -448,26 +559,26 @@ const AP = (() => {
       if (r.chain && r.result.chain) { chv.hidden = false; chv.innerHTML = `<strong>Delegation chain</strong> <span class="small">the AP Orchestrator Agent read the invoice and delegated exactly what it read to the Payment Execution Agent, which signed the instruction</span>` + chainHtml(r.result.chain, r.delegation); }
       else if (r.chain) { chv.hidden = false; chv.innerHTML = '<strong>Delegation chain</strong> <span class="small">presented; the bank refused before reaching it</span>'; }
       else chv.hidden = true;
-      steps.querySelector('[data-step="b"]').hidden = false; await pause(700);
-      // c. the bank's decision
+      steps.querySelector('[data-step="b"]').hidden = false; await pause(900);
+      // c. the bank's decision: the gauntlet runs, then the compact verdict is written back into the actor's panel
       const res = r.result;
+      const subject = { action_type: i.action_type, supplier_name: i.supplier_name, payee_account_ref: acct, amount: i.amount, signer: 'agent', invoice: r.invoice };
+      await judge(subject, res);
       const box = $('inv-verdict'); box.className = 'invoice__verdict invoice__verdict--' + res.decision;
       const rulesHtml = res.trace.map(s => `<li class="${s.ok ? 'ok' : 'fail'}">${esc(s.rule)} ${s.ok ? '✓' : '✗'}</li>`).join('');
-      box.innerHTML = `<div><span class="t-verdict t-verdict--${res.decision}" style="color:${res.decision === 'DENY' ? 'var(--red)' : res.decision === 'ALLOW' ? 'var(--green)' : 'var(--amber-ink)'}">${res.decision}</span> <strong>${res.decision === 'ALLOW' ? 'all nine checks passed' : esc(res.rule)} · ${esc(res.code)}</strong></div><div>${esc(res.reason)}</div><ul class="invoice__rules">${rulesHtml}</ul>${res.rule === 'R.6' && res.decision === 'DENY' ? '<div class="invoice__note">Named-beneficiary mandate check (FATF 2025 AML/CFT alignment). The customer signed for accounts, not names: a changed account on a genuine-looking invoice has no authority.</div>' : ''}${res.violation ? `<div class="invoice__note">Violation #${res.violation.id} recorded as ${esc(res.violation.status)} for the supervisor’s exception panel.</div>` : ''}${res.settlement ? `<div class="invoice__note">${esc(res.settlement.rail_reason)}</div>` : ''}${res.signature ? `<div class="invoice__note">R.4 instruction signature: <strong>${res.signature.checked ? (res.signature.verified ? 'VERIFIED' : 'FAILED') : 'not reached'}</strong> (${esc(res.signature.alg)}) · agent key <span class="mono">${esc(res.signature.agent_kid || '—')}</span></div>` : ''}<div class="invoice__note">audit #${res.audit_id} <span class="mono">${esc(res.audit_hash.slice(0, 12))}</span> · receipt signed by the authority · decision replayable</div>`;
+      box.innerHTML = `<div><span class="t-verdict t-verdict--${res.decision}">${res.decision}</span> <strong>${res.decision === 'ALLOW' ? 'all nine checks passed' : esc(res.rule)} · ${esc(res.code)}</strong></div><div>${esc(res.reason)}</div><ul class="invoice__rules">${rulesHtml}</ul>${res.rule === 'R.6' && res.decision === 'DENY' ? '<div class="invoice__note">Named-beneficiary mandate check (FATF 2025 AML/CFT alignment). The customer signed for accounts, not names: a changed account on a genuine-looking invoice has no authority.</div>' : ''}${res.violation ? `<div class="invoice__note">Violation #${res.violation.id} recorded as ${esc(res.violation.status)} for the supervisor’s exception panel.</div>` : ''}${res.settlement ? `<div class="invoice__note">${esc(res.settlement.rail_reason)}</div>` : ''}${res.signature ? `<div class="invoice__note">R.4 instruction signature: <strong>${res.signature.checked ? (res.signature.verified ? 'VERIFIED' : 'FAILED') : 'not reached'}</strong> (${esc(res.signature.alg)}) · agent key <span class="mono">${esc(res.signature.agent_kid || '—')}</span></div>` : ''}<div class="invoice__note">audit #${res.audit_id} <span class="mono">${esc(res.audit_hash.slice(0, 12))}</span> · receipt signed by the authority · decision replayable</div>`;
       steps.querySelector('[data-step="c"]').hidden = false;
-      if (lines.querySelector('.terminal__hint')) lines.innerHTML = '';
-      lines.append(termLine({ action_type: i.action_type, supplier_name: i.supplier_name, payee_account_ref: acct, amount: i.amount, signer: 'agent' }, res)); lines.scrollTop = lines.scrollHeight;
-      if (res.incident) { lines.append(el('li', 't-incident', `<span><b>INCIDENT</b> escalated to supervisor · ${res.incident.denies} refused instructions · audit #${res.incident.audit_id}</span>`)); setDenies(0); }
-      else if (res.decision === 'DENY') setDenies(Math.min(3, (res.deny_count || denies + 1)));
+      logLine(subject, res); exhaust(subject, res);
       await pause(700);
       // d. caption
       $('inv-caption').textContent = ok
         ? 'The AI read a genuine invoice and paid the account the customer signed for. Same agent, same mandate: the next invoice is the test.'
         : 'The AI read a manipulated invoice and would have paid the wrong account. The mandate stopped it.';
       steps.querySelector('[data-step="d"]').hidden = false;
-      steps.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+      if (!judgment.classList.contains('is-full')) steps.querySelector('[data-step="c"]').scrollIntoView({ behavior: RM ? 'auto' : 'smooth', block: 'nearest' });
     }
 
+    // ── 4 · the script ──
     state.beats.forEach(b => {
       const btn = el('button', 'beat'); btn.type = 'button'; btn.disabled = !p;
       btn.innerHTML = `<span class="beat__label">${esc(b.label)}<small>${esc(b.hint)}</small></span><span class="beat__expect">${esc(b.expect)}</span>`;
@@ -476,11 +587,7 @@ const AP = (() => {
         try {
           for (let k = 0; k < (b.repeat || 1); k++) {
             const r = await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, invoice_ref: b.repeat ? `${b.invoice_ref}-${k + 1}` : b.invoice_ref, signer: b.signer });
-            if (lines.querySelector('.terminal__hint')) lines.innerHTML = '';
-            lines.append(termLine(b, r, b.repeat ? k + 1 : null));
-            if (r.incident) { lines.append(el('li', 't-incident', `<span><b>INCIDENT</b> escalated to supervisor · ${r.incident.denies} refused instructions · audit #${r.incident.audit_id} <b>${esc(r.incident.hash.slice(0, 12))}</b> · visible in the regulator’s incident feed</span>`)); setDenies(0); }
-            else if (r.decision === 'DENY') setDenies(Math.min(3, (r.deny_count || denies + 1)));
-            lines.scrollTop = lines.scrollHeight;
+            await present(b, r, b.repeat ? k + 1 : null, k > 0);
             if (r.decision !== 'ALLOW') break;
           }
           await strip();

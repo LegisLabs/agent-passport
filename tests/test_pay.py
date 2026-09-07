@@ -27,20 +27,18 @@ def client():
 
 
 def issue_one(client, sign_mandate=True):
-    """Drive the whole path: draft → extract → key → challenge → submit → approve (→ customer signs)."""
+    """Drive the whole path: model registration → prefill → submit → approve (model) → customer creates the agent (→ signs the mandate)."""
     a = client.post("/api/applications").json()
-    assert a["extraction_mode"] == "form" and a["fields"]["provider"]["legal_name"]["value"] is None
+    assert a["ref"].startswith("MR-2026-") and a["extraction_mode"] == "form"
     a = client.post(f"/api/applications/{a['id']}/prefill").json()
-    assert a["extraction_mode"] == "prefill" and a["fields"]["provider"]["legal_name"]["value"] == "OpenPay Ltd"
-    a = client.post(f"/api/applications/{a['id']}/agent-key").json()
-    a = client.post(f"/api/applications/{a['id']}/sign-challenge").json()
-    assert a["agent"]["pop_verified"] is True
+    assert a["extraction_mode"] == "prefill"
     a = client.post(f"/api/applications/{a['id']}/submit").json()
-    assert a["agent_identity_jwt"]
     flagged = {c["id"] for c in a["checks"] if c["result"] != "pass"}
     assert flagged == set(), flagged
-    r = client.post(f"/api/applications/{a['id']}/decision", json={"decision": "approve", "note": "All eight checks pass. Condition: hold above £5,000."}).json()
-    p = r["passport"]
+    r = client.post(f"/api/applications/{a['id']}/decision", json={"decision": "approve", "note": "All six checks pass. Ceilings per policy; condition £5,000."}).json()
+    assert r["model"]["model_status"] == "active" and "passport" not in r
+    p = client.post("/api/agents", json={"application_id": a["id"]}).json()
+    assert p["passport_id"].startswith("AP-2026-") and p["agent"]["pop_verified"] is True and "private_pem" not in p["agent"]
     if sign_mandate:
         p = client.post(f"/api/passports/{p['passport_id']}/mandate/sign").json()
     return p, a
@@ -63,11 +61,12 @@ def test_envelope_three_signers_and_minimal(client, issued):
     ver = crypto.verify_envelope(env)
     assert ver["ok"] and ver["failure"] is None
     assert crypto.verify_jwt("authority", env["assurance"])["jti"] == p["passport_id"]
-    assert crypto.verify_jwt("openpay", env["agent_identity"])["cnf"]["jwk"]["kty"] == "OKP"
+    assert crypto.verify_jwt("northgate", env["agent_identity"])["cnf"]["jwk"]["kty"] == "OKP"
     assert crypto.verify_jwt("northgate", env["mandate"])["passport_id"] == p["passport_id"]
     # each JWT only verifies against its own signer
-    assert crypto.verify_jwt("openpay", env["assurance"]) is None
+    assert crypto.verify_jwt("northgate", env["assurance"]) is None
     assert crypto.verify_jwt("authority", env["mandate"]) is None
+    assert crypto.verify_jwt("authority", env["assurance"])["model_ref"]["model_id"] == "openpay-paygpt-6"
     # assurance binds the exact agent_identity it was issued for
     assert crypto.verify_jwt("authority", env["assurance"])["binds"]["agent_identity_sha256"] == crypto.sha256_hex(env["agent_identity"])
     # no bank details of the customer, no email, no personal contact data in any JWT
@@ -91,10 +90,10 @@ def test_oracle(client, issued, case):
         if case.get("tamper"):
             env = dict(db.get_passport(pid) and client.get(f"/api/passports/{pid}").json()["envelope"])
             env[case["tamper"]] = env[case["tamper"]][:-4] + "AAAA"
-            a = db.get_application(db.get_passport(pid)["application_id"])
+            pa = db.get_passport(pid)["agent"]
             req = {"passport_id": pid, "action_type": case["action_type"], "payee_account_ref": case["payee_account_ref"], "supplier_name": case["supplier_name"],
                    "amount": case["amount"], "currency": "GBP", "invoice_ref": "INV-T", "nonce": "n"}
-            req["agent_signature"] = crypto.sign_bytes(a["agent"]["private_pem"], rules.request_signing_input(req))
+            req["agent_signature"] = crypto.sign_bytes(pa["private_pem"], rules.request_signing_input(req))
             res = client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": env}).json()
         else:
             res = act(client, pid, case)
@@ -170,6 +169,7 @@ def test_rule_pack_labels_and_codes():
     for r in pack["application_rules"] + pack["runtime_rules"]:
         assert r["status"] in ("CURRENT", "PROTOTYPE", "FUTURE") and r["source"]
     assert [r["id"] for r in pack["runtime_rules"]] == [f"R.{i}" for i in range(1, 10)]
+    assert [r["id"] for r in pack["application_rules"]] == [f"M.{i}" for i in range(1, 7)]
 
 
 def test_vouch_fixture_adapter_never_touches_network():
@@ -185,27 +185,27 @@ def test_vouch_fixture_adapter_never_touches_network():
 def test_no_verdict_vocabulary_in_fixture_note():
     from pay import extraction
     facts = extraction.fixture()
-    checks = rules.run_application_checks(facts, {"pop_verified": True, "kid": "x"})
-    note, _ = extraction.draft_file_note("AP-TEST", facts, checks)
+    checks = rules.run_application_checks(facts)
+    note, _ = extraction.draft_file_note("MR-TEST", facts, checks)
     for banned in ("approve", "reject", "recommend"):
         assert banned not in note.lower()
 
 
-def test_config_hash_mismatch_flags_a8():
+def test_duplicate_model_id_flags_m6():
     from pay import extraction
     facts = extraction.fixture()
-    facts["agent"]["config_hash"]["value"] = "deadbeef"
-    checks = rules.run_application_checks(facts, {"pop_verified": True, "kid": "x"})
-    assert next(c for c in checks if c["id"] == "A.8")["result"] == "flag"
-
-
+    facts["model"]["model_id"]["value"] = "openpay-5-6"   # already on the register, active
+    checks = rules.run_application_checks(facts)
+    assert next(c for c in checks if c["id"] == "M.6")["result"] == "flag"
+    facts["model"]["model_id"]["value"] = "openpay-5-5"   # expired registration does not block
+    assert next(c for c in rules.run_application_checks(facts) if c["id"] == "M.6")["result"] == "pass"
 def test_verify_accepts_flat_contract_and_aliases(client):
     """The brief's POST /api/verify shape: flat instruction fields + agent_signature → decision, rule_id, reason, audit_ref, receipt."""
     p, _ = issue_one(client)
-    a = db.get_application(db.get_passport(p["passport_id"])["application_id"])
+    pa = db.get_passport(p["passport_id"])["agent"]
     flat = {"passport_id": p["passport_id"], "action_type": "pay_invoice", "payee_account_ref": "60-11-22 10101010", "supplier_name": "Fenwick Timber Ltd",
             "amount": 3200, "currency": "GBP", "invoice_ref": "FT-1042", "nonce": "n1"}
-    flat["agent_signature"] = crypto.sign_bytes(a["agent"]["private_pem"], rules.request_signing_input(flat))
+    flat["agent_signature"] = crypto.sign_bytes(pa["private_pem"], rules.request_signing_input(flat))
     r = client.post("/api/verify", json=flat).json()
     assert r["decision"] == "ALLOW" and r["rule_id"] == r["rule"] == "R.9" and r["audit_ref"] == r["audit_hash"] and r["receipt"]
     assert r["rails"]["authority_registry"] == "active" and r["rails"]["vouch"]["status"] == "ACTIVE"
@@ -274,45 +274,38 @@ def test_every_bank_deny_writes_a_violation_row(client):
 # ── Iteration 2, Task 2: Standards Review Assistant ─────────────────────────
 def test_review_six_steps_sandbox_uses_real_engine_and_never_decides(client):
     a = client.post("/api/applications").json()
-    a = client.post(f"/api/applications/{a['id']}/prefill").json()
     assert client.post(f"/api/applications/{a['id']}/review").status_code == 400  # not submitted yet
-    client.post(f"/api/applications/{a['id']}/agent-key"); client.post(f"/api/applications/{a['id']}/sign-challenge")
+    a = client.post(f"/api/applications/{a['id']}/prefill").json()
     a = client.post(f"/api/applications/{a['id']}/submit").json()
     r = client.post(f"/api/applications/{a['id']}/review").json()
     rv = r["review"]
     assert [s["id"] for s in rv["steps"]] == ["evidence", "rule_map", "tests", "sandbox", "recommendation", "signoff"]
-    assert rv["rule_pack"] == "payments-2026.09" and "Standards Review Assistant" in rv["assistant"]
     rule_map = rv["steps"][1]["data"]
-    assert [x["id"] for x in rule_map["rules"]] == [f"A.{i}" for i in range(1, 9)] and rule_map["uncovered"] == [] and rule_map["flagged"] == []
-    tests = rv["steps"][2]["data"]
-    assert [t["id"] for t in tests] == ["T1", "T2", "T3", "T4", "T5"]
+    assert [x["id"] for x in rule_map["rules"]] == [f"M.{i}" for i in range(1, 7)] and rule_map["uncovered"] == [] and rule_map["flagged"] == []
     sb = rv["steps"][3]["data"]
     assert [(t["decision"], t["rule"]) for t in sb] == [("DENY", "R.6"), ("DENY", "R.7"), ("DENY", "R.2"), ("DENY", "R.4"), ("ESCALATE", "R.9")]
     assert all(t["pass"] for t in sb)
     rec = rv["steps"][4]["data"]
-    assert rec["verdict"] == "APPROVE WITH CONDITIONS" and rec["decides"] is False and rec["label"] == "AI recommendation — human decision required"
+    assert rec["verdict"] == "APPROVE WITH CONDITIONS" and rec["decides"] is False
     for banned in ("approve", "reject", "recommend"):
         assert banned not in rec["narrative"].lower()
-    # nothing was issued by the review
-    assert r["application"]["status"] == "submitted" and not [p for p in client.get("/api/state").json()["passports"] if p["application_id"] == a["id"]]
-    # sandbox passports never enter the registry
+    # the review issues nothing; approval enters the model in the registry; only the customer creates a passport
+    assert r["application"]["status"] == "submitted" and not [x for x in client.get("/api/state").json()["passports"] if x["application_id"] == a["id"]]
     assert client.get(f"/api/status/SANDBOX-{a['ref']}").status_code == 404
-    # only the human decision signs
     d = client.post(f"/api/applications/{a['id']}/decision", json={"decision": "approve", "note": "Assistant recommends; I decide.", "human_confirm_above": 5000}).json()
-    assert d["passport"]["status"] == "active"
-    assert client.get("/api/state").json()["applications"][0]["review"]["steps"][4]["data"]["verdict"] == "APPROVE WITH CONDITIONS"
+    assert d["model"]["model_status"] == "active" and "passport" not in d
+    assert client.get("/api/state").json()["models"][0]["model_id"] == "openpay-paygpt-6"
 
 
 def test_review_refers_when_a_check_flags(client):
     a = client.post("/api/applications").json()
     a = client.post(f"/api/applications/{a['id']}/prefill").json()
-    f = a["fields"]; f["insurance"]["policy_ref"]["value"] = None
+    f = a["fields"]; f["model"]["model_version"]["value"] = "latest"
     client.put(f"/api/applications/{a['id']}/fields", json={"fields": f})
-    client.post(f"/api/applications/{a['id']}/agent-key"); client.post(f"/api/applications/{a['id']}/sign-challenge")
     a = client.post(f"/api/applications/{a['id']}/submit").json()
-    assert "A.4" in [c["id"] for c in a["checks"] if c["result"] == "flag"]
+    assert "M.4" in [c["id"] for c in a["checks"] if c["result"] == "flag"]
     rv = client.post(f"/api/applications/{a['id']}/review").json()["review"]
-    assert rv["steps"][4]["data"]["verdict"] == "REFER" and "A.4" in rv["steps"][1]["data"]["flagged"]
+    assert rv["steps"][4]["data"]["verdict"] == "REFER" and "M.4" in rv["steps"][1]["data"]["flagged"]
 
 
 # ── Iteration 2, Task 3: exception panel, pattern alert, revocation loop ────
@@ -421,7 +414,7 @@ def test_expanding_delegation_refused_at_c_b(client):
 def test_poisoned_invoice_with_chain_refused(client):
     p, _ = issue_one(client)
     r = client.post("/api/agent/invoice", json={"passport_id": p["passport_id"], "invoice_id": "INV-9001-poisoned", "chain": True}).json()
-    assert r["chain"] is True and r["delegation"]["scope"]["beneficiaries"] == ["60-11-22 99887766"] and r["delegation"]["iss"] == "openpay-paygpt-6"
+    assert r["chain"] is True and r["delegation"]["scope"]["beneficiaries"] == ["60-11-22 99887766"] and r["delegation"]["iss"].startswith("northgate-openpay-paygpt-6")
     assert r["result"]["decision"] == "DENY" and r["result"]["rule"] == "C.b"
     ok = client.post("/api/agent/invoice", json={"passport_id": p["passport_id"], "invoice_id": "INV-9001-clean", "chain": True}).json()
     assert ok["result"]["decision"] == "ALLOW" and ok["result"]["chain"]["ok"] is True
@@ -438,10 +431,10 @@ def test_rogue_execution_key_fails_r4_even_with_valid_delegation(client):
 
 # ── Iteration 3, Task 2: instruction-level Ed25519 verification, proven by tamper ──
 def _signed_instruction(client, pid):
-    a = db.get_application(db.get_passport(pid)["application_id"])
+    pa = db.get_passport(pid)["agent"]
     req = {"passport_id": pid, "action_type": "pay_invoice", "payee_account_ref": "60-11-22 10101010", "supplier_name": "Fenwick Timber Ltd",
            "amount": 2500, "currency": "GBP", "invoice_ref": "INV-9001", "nonce": "tamper-test"}
-    req["agent_signature"] = crypto.sign_bytes(a["agent"]["private_pem"], rules.request_signing_input(req))
+    req["agent_signature"] = crypto.sign_bytes(pa["private_pem"], rules.request_signing_input(req))
     return req
 
 
@@ -451,7 +444,7 @@ def test_r4_is_real_ed25519_over_the_canonical_instruction_bytes(client):
     req = _signed_instruction(client, pid)
     r = client.post("/api/verify", json={"passport_id": pid, "instruction": req}).json()
     assert r["decision"] == "ALLOW" and r["signature"]["verified"] is True and r["signature"]["alg"].startswith("Ed25519")
-    assert r["signature"]["agent_kid"] == db.get_application(db.get_passport(pid)["application_id"])["agent"]["kid"]
+    assert r["signature"]["agent_kid"] == db.get_passport(pid)["agent"]["kid"]
     assert r["signature"]["signed_fields"] == list(rules.REQUEST_FIELDS)
     # the bytes that were signed are canonical JSON of exactly those fields
     assert rules.request_signing_input(req) == crypto.canonical({k: req[k] for k in rules.REQUEST_FIELDS}).encode()
@@ -499,12 +492,13 @@ def test_envelope_tamper_each_signer_flips_one_byte(client):
 # ── Iteration 3, Task 3: Issuance Flow v4 — customer writes its own mandate within policy ceilings ──
 def test_registration_carries_no_customer_and_assurance_carries_ceilings(client):
     p, a = issue_one(client, sign_mandate=False)
-    assert "customer" not in a["fields"] and "suppliers" not in a["fields"] and "mandate" not in a["fields"]
-    assert a["fields"]["agent"]["model_version"]["value"] == "claude-sonnet-5" and a["fields"]["agent"]["key_rotation"]["value"]
+    assert set(a["fields"]) == {"company", "attestation", "model", "intended_use"}   # no customer, no agent, no key, no insurance
+    assert a["fields"]["model"]["model_version"]["value"] == "claude-sonnet-5"
     assert [c["id"] for c in a["checks"] if c["result"] != "pass"] == []
     assert p["assurance"]["policy_ceilings"]["per_payment_ceiling"]["amount"] == 10000 and p["assurance"]["policy_ceilings"]["monthly_per_account_ceiling"]["amount"] == 50000
+    assert p["assurance"]["model_ref"]["registration"] == a["ref"] and p["assurance"]["attestation"]["covers"] == "documentation accuracy only"
     assert p["mandate_proposed"]["customer"] is None and p["mandate_proposed"]["authorization_details"][0]["supplier_allowlist"] == []
-    assert p["agent_identity"]["agent"]["model_version"] == "claude-sonnet-5" and p["agent_identity"]["key_management"]["rotation"]
+    assert p["agent_identity"]["iss"] == "northgate-joinery-ltd" and p["agent_identity"]["agent"]["model_version"] == "claude-sonnet-5" and p["agent_identity"]["deployment"]["proof_of_possession"] is True
 
 
 def test_customer_mandate_is_gated_only_by_ceiling_containment(client):
@@ -554,3 +548,24 @@ def test_demo_seed_twice_gives_identical_baselines(client):
     s = client.post("/api/demo/seed?stage=submitted").json()
     assert s["stage"] == "submitted" and "passport_id" not in s and client.get("/api/state").json()["applications"][0]["status"] == "submitted"
     assert client.post("/api/demo/seed?stage=nope").status_code == 400
+
+
+# ── Model register: cascade ─────────────────────────────────────────────────
+def test_model_revoke_cascades_to_passports_and_passport_revoke_is_unchanged(client):
+    p1, a = issue_one(client)
+    p2 = client.post("/api/agents", json={"application_id": a["id"]}).json()
+    client.post(f"/api/passports/{p2['passport_id']}/mandate/sign")
+    ok = {"action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455", "amount": 900}
+    assert act(client, p1["passport_id"], ok)["decision"] == "ALLOW" and act(client, p2["passport_id"], ok)["decision"] == "ALLOW"
+    r = client.post(f"/api/models/{a['id']}/status", json={"status": "suspended", "reason": "model card inaccurate"}).json()
+    assert r["model"]["model_status"] == "suspended" and set(r["passports"]) == {p1["passport_id"], p2["passport_id"]}
+    assert act(client, p1["passport_id"], ok)["rule"] == "R.2" and act(client, p2["passport_id"], ok)["rule"] == "R.2"
+    assert client.post("/api/agents", json={"application_id": a["id"]}).status_code == 400   # no new agents on a suspended model
+    r = client.post(f"/api/models/{a['id']}/status", json={"status": "active", "reason": "corrected"}).json()
+    assert act(client, p1["passport_id"], ok)["decision"] == "ALLOW"
+    r = client.post(f"/api/models/{a['id']}/status", json={"status": "revoked", "reason": "withdrawn"}).json()
+    for pid in (p1["passport_id"], p2["passport_id"]):
+        assert client.get(f"/api/status/{pid}").json()["status"] == "revoked" and act(client, pid, ok)["rule"] == "R.2"
+        assert client.get(f"/api/passports/{pid}").json()["vouch_status"] == "REVOKED"
+    assert client.post(f"/api/models/{a['id']}/status", json={"status": "active", "reason": "undo"}).status_code == 400
+    a2 = client.get("/api/audit").json(); assert a2["chain"]["ok"]

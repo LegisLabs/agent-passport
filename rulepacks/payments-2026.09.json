@@ -11,7 +11,7 @@
     "monthly_per_account_ceiling_gbp": 50000,
     "monthly_window": "P30D",
     "max_validity": "2027-03-31",
-    "ceilings_note": "Policy ceilings set by the authority at Phase 2. Every customer mandate must stay within them; the containment check runs when the customer signs.",
+    "ceilings_note": "Policy ceilings set by the authority when it approves the model. Every customer mandate must stay within them; the containment check runs when the customer signs.",
     "human_confirm_above_gbp": 5000,
     "min_insurance_cover_gbp": 1000000,
     "recognised_software": ["PayGPT", "OpenPay", "LedgerLine Payables", "InvoiceBot"],
@@ -25,14 +25,12 @@
     {"id": "C.c", "title": "Action lies inside the narrowest scope", "status": "PROTOTYPE", "source": "Instruction signed by the delegated execution key named in the delegation", "data": "delegation JWT + instruction", "on_fail": "DENY", "code": "ACTION_OUTSIDE_DELEGATION"}
   ],
   "application_rules": [
-    {"id": "A.1", "title": "Provider licence reference resolves and is active", "status": "CURRENT", "source": "Payment-institution register (analogue of the FCA Financial Services Register)", "check": "licence_active", "fail": "flag"},
-    {"id": "A.2", "title": "Companies House number resolves to the provider", "status": "CURRENT", "source": "Companies House register", "check": "companies_house_match", "fail": "flag"},
-    {"id": "A.3", "title": "Accountable person named, with role and signed declaration", "status": "PROTOTYPE", "source": "SM&CR-style accountability (prototype condition)", "check": "accountable_person", "fail": "flag"},
-    {"id": "A.4", "title": "Professional indemnity insurance evidenced and in force", "status": "PROTOTYPE", "source": "Rule pack policy: minimum cover (prototype condition)", "check": "insurance_evidenced", "fail": "flag"},
-    {"id": "A.5", "title": "Agent controls the submitted public key (signed challenge)", "status": "CURRENT", "source": "RFC 7800 proof-of-possession pattern", "check": "proof_of_possession", "fail": "flag"},
-    {"id": "A.6", "title": "Model documentation declared (provider, version, benchmarks, training type)", "status": "PROTOTYPE", "source": "Registration pack; EU AI Act-style provider documentation (prototype condition)", "check": "model_documented", "fail": "flag"},
-    {"id": "A.7", "title": "Key management declared (storage, rotation) and requested authority within policy", "status": "PROTOTYPE", "source": "Rule pack policy table; key rotation condition", "check": "key_management", "fail": "flag"},
-    {"id": "A.8", "title": "Software and configuration declared; config hash matches the deployed file", "status": "PROTOTYPE", "source": "Recognised-software list; SHA-256 of the declared configuration", "check": "software_declared", "fail": "flag"}
+    {"id": "M.1", "title": "Model company resolves at Companies House", "status": "CURRENT", "source": "Companies House register", "check": "companies_house_match", "fail": "flag"},
+    {"id": "M.2", "title": "A named person attests the registered documentation is accurate", "status": "PROTOTYPE", "source": "Truthfulness declaration, as for a Companies House filing (prototype condition); no liability for what agents later do", "check": "attestation", "fail": "flag"},
+    {"id": "M.3", "title": "Model documentation complete (provider, version, benchmarks, training type, model card)", "status": "PROTOTYPE", "source": "Registration form; EU AI Act-style provider documentation (prototype condition)", "check": "model_documented", "fail": "flag"},
+    {"id": "M.4", "title": "Foundation model version is pinned", "status": "PROTOTYPE", "source": "Registration form: a fixed version, no floating alias", "check": "version_pinned", "fail": "flag"},
+    {"id": "M.5", "title": "Intended use within the policy's action types", "status": "PROTOTYPE", "source": "Rule pack policy table", "check": "intended_use_within_policy", "fail": "flag"},
+    {"id": "M.6", "title": "Model not already on the register", "status": "PROTOTYPE", "source": "Approved-models registry", "check": "not_already_registered", "fail": "flag"}
   ],
   "runtime_rules": [
     {"id": "R.1", "title": "Assurance signature genuine (authority key)", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "envelope.assurance", "on_fail": "DENY", "code": "ASSURANCE_SIGNATURE_INVALID"},

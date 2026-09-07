@@ -75,7 +75,7 @@ def rulepack():
 @app.get("/api/signers")
 def signers():
     """The three public keys a relying party needs. Nothing private."""
-    return {n: {"kid": s["kid"], "jwk": s["jwk"], "alg": "EdDSA", "signs": {"authority": "assurance", "openpay": "agent_identity", "northgate": "mandate"}[n]}
+    return {n: {"kid": s["kid"], "jwk": s["jwk"], "alg": "EdDSA", "signs": {"authority": "assurance (issued from the model approval)", "openpay": "unused: the model company attests, it does not sign", "northgate": "agent_identity and mandate"}[n]}
             for n, s in crypto.all_signers().items()}
 
 
@@ -94,10 +94,25 @@ def state():
     return {"applications": [public_app(a) for a in apps], "passports": [public_passport(p) for p in pps], "beats": fixtures.BEATS,
             "invoices": [{"id": k, "label": "Clean invoice" if k.endswith("clean") else "Poisoned invoice", "text": t} for k, t in extraction.invoices().items()],
             "registered_models": fixtures.registered_models(),
+            "models": [model_summary(a) for a in apps if a["status"] == "approved"],
             "incidents": db.list_audit(50, kind="incident"), "violations": db.list_violations(), "alerts": db.pattern_alerts(pat["count"], pat["window_hours"]), "pattern_threshold": pat,
             "vouch_mode": vouch.mode(), "payment_rail": vouch.rail(),
             "mandate_draft": mandate_draft(), "policy": {k: pol[k] for k in ("per_payment_ceiling_gbp", "monthly_per_account_ceiling_gbp", "max_validity", "action_types", "currency", "human_confirm_above_gbp")},
             "delegation_chain": config.DELEGATION_CHAIN == "on", "delegation_max_gbp": config.DELEGATION_MAX_GBP, "chain_beats": fixtures.CHAIN_BEATS, "chain_rules": rules.pack().get("chain_rules", [])}
+
+
+def model_summary(a: dict) -> dict:
+    f = a.get("fields") or {}
+    return {"application_id": a["id"], "ref": a["ref"], "model_name": rules._v(f, "model", "model_name"), "model_id": rules._v(f, "model", "model_id"),
+            "company": rules._v(f, "company", "legal_name"), "model_version": rules._v(f, "model", "model_version"), "model_status": a.get("model_status") or "active",
+            "approved_at": a.get("decided_at"), "condition": a.get("condition"), "passports": [p["passport_id"] for p in db.passports_for_application(a["id"])]}
+
+
+def agent_draft() -> dict:
+    import json as _json
+    d = _json.loads((config.FIXTURES_DIR / "customer" / "agent_draft.json").read_text())
+    d.pop("_comment", None)
+    return d
 
 
 def mandate_draft() -> dict:
@@ -119,6 +134,11 @@ def public_app(a: dict) -> dict:
 
 def public_passport(p: dict) -> dict:
     p = dict(p)
+    if p.get("agent"):
+        ag = {k: v for k, v in p["agent"].items() if k != "private_pem"}
+        if ag.get("execution"):
+            ag["execution"] = {k: v for k, v in ag["execution"].items() if k != "private_pem"}
+        p["agent"] = ag
     p["envelope"] = envelope_of(p)
     p["mandate_signed"] = bool(p.get("mandate_jwt"))
     p["payments"] = db.count_payments(p["passport_id"])
@@ -143,11 +163,11 @@ def envelope_of(p: dict) -> dict:
 @app.post("/api/applications")
 def create_application():
     """Phase 1: an empty registration form. The provider fills it in; nothing is extracted from documents."""
-    n = db.count_applications() + 107
-    ref = f"AP-2026-{n:04d}"
+    n = db.count_applications() + 11
+    ref = f"MR-2026-{n:04d}"
     a = db.create_application(ref, [])
     a = db.update_application(a["id"], fields=extraction.blank_fields(), extraction_mode="form")
-    audit.record("application", ref, {"event": "registration started", "provider": config.OPERATOR})
+    audit.record("application", ref, {"event": "model registration started", "company": config.OPERATOR})
     return public_app(a)
 
 
@@ -175,58 +195,16 @@ def put_fields(app_id: int, body: FieldsIn):
     return public_app(a)
 
 
-@app.post("/api/applications/{app_id}/agent-key")
-def agent_key(app_id: int):
-    """OpenPay provisions the agent's key pair and the authority issues a challenge."""
-    a = db.get_application(app_id) or _404()
-    priv, pub = crypto.generate_keypair()
-    jwk = crypto.public_jwk(pub)
-    agent_id = rules._v(a.get("fields") or {}, "agent", "agent_id") or "agent"
-    ag = {"agent_id": agent_id, "public_pem": pub, "private_pem": priv, "jwk": jwk, "kid": crypto.jwk_thumbprint(jwk)[:16],
-          "challenge": crypto.new_nonce(), "challenge_sig": None, "pop_verified": False}
-    a = db.update_application(app_id, agent=ag)
-    audit.record("application", a["ref"], {"event": "agent key registered, challenge issued", "agent_id": agent_id, "kid": ag["kid"]})
-    return public_app(a)
-
-
-@app.post("/api/applications/{app_id}/sign-challenge")
-def sign_challenge(app_id: int):
-    """Simulated agent: signs the authority's nonce with its private key; authority verifies."""
-    a = db.get_application(app_id) or _404()
-    ag = a.get("agent") or _400("no agent key yet")
-    sig = crypto.sign_bytes(ag["private_pem"], ag["challenge"].encode())
-    ok = crypto.verify_bytes(ag["public_pem"], ag["challenge"].encode(), sig)
-    ag.update({"challenge_sig": sig, "pop_verified": ok})
-    a = db.update_application(app_id, agent=ag)
-    audit.record("application", a["ref"], {"event": "challenge signed by agent", "kid": ag["kid"], "verified": ok})
-    return public_app(a)
-
-
-def agent_identity_payload(a: dict) -> dict:
-    f, ag = a["fields"], a["agent"]
-    return {
-        "iss": "openpay-ltd", "typ": "agent_identity", "sub": ag["agent_id"], "iat": crypto.now_ts(), "application": a["ref"],
-        "operator": {"legal_name": rules._v(f, "provider", "legal_name"), "licence_ref": rules._v(f, "provider", "licence_ref")},
-        "agent": {"name": rules._v(f, "agent", "agent_name"), "agent_id": ag["agent_id"], "software": rules._v(f, "agent", "software"),
-                  "software_version": rules._v(f, "agent", "software_version"), "model_provider": rules._v(f, "agent", "model_provider"),
-                  "model_version": rules._v(f, "agent", "model_version"), "training_type": rules._v(f, "agent", "training_type"),
-                  "config_sha256": rules._v(f, "agent", "config_hash")},
-        "key_management": {"storage": rules._v(f, "agent", "key_storage"), "rotation": rules._v(f, "agent", "key_rotation")},
-        "cnf": {"jwk": ag["jwk"]},
-    }
-
-
 @app.post("/api/applications/{app_id}/submit")
 def submit(app_id: int):
+    """The model company submits its registration. Submitting is the attestation that the documentation is accurate."""
     a = db.get_application(app_id) or _404()
     if not a.get("fields"):
-        _400("read the documents first")
-    checks = rules.run_application_checks(a["fields"], a.get("agent"))
-    ident_jwt = crypto.sign_jwt("openpay", agent_identity_payload(a), typ="agent-identity+jwt") if a.get("agent") else None
-    a = db.update_application(app_id, status="submitted", submitted_at=db.now_iso(), checks=checks, agent_identity_jwt=ident_jwt)
-    audit.record("check", a["ref"], {"event": "registration submitted; accountable person accepts responsibility for the agent's actions; agent_identity signed by the provider; automated checks run",
-                                     "passed": sum(c["result"] == "pass" for c in checks), "flagged": [c["id"] for c in checks if c["result"] != "pass"],
-                                     "agent_identity_sha256": crypto.sha256_hex(ident_jwt) if ident_jwt else None})
+        _400("fill in the registration first")
+    checks = rules.run_application_checks(a["fields"])
+    a = db.update_application(app_id, status="submitted", submitted_at=db.now_iso(), checks=checks)
+    audit.record("check", a["ref"], {"event": "model registration submitted; documentation accuracy attested; automated checks M.1–M.6 run",
+                                     "passed": sum(c["result"] == "pass" for c in checks), "flagged": [c["id"] for c in checks if c["result"] != "pass"]})
     return public_app(a)
 
 
@@ -269,11 +247,11 @@ def decide(app_id: int, body: DecisionIn):
     if body.decision == "approve":
         thr = float(body.human_confirm_above if body.human_confirm_above is not None else rules.pack()["policy"]["human_confirm_above_gbp"])
         condition = {"human_confirm_above": {"amount": thr, "currency": "GBP"}}
-        p = issue_passport(a, body.note, condition)
-        a = db.update_application(app_id, status="approved", decided_at=db.now_iso(), officer=config.OFFICER, officer_note=body.note, condition=condition)
-        audit.record("decision", a["ref"], {"event": "approved with condition; assurance signed", "officer": config.OFFICER, "note": body.note, "condition": condition, "passport_id": p["passport_id"]})
-        p = mirror_on_vouch(p)
-        return {"application": public_app(a), "passport": public_passport(p)}
+        pol = rules.pack()["policy"]
+        a = db.update_application(app_id, status="approved", decided_at=db.now_iso(), officer=config.OFFICER, officer_note=body.note, condition=condition, model_status="active")
+        audit.record("decision", a["ref"], {"event": "model approved and entered in the approved-models registry; policy ceilings and condition set", "officer": config.OFFICER, "note": body.note, "condition": condition,
+                                            "model_id": rules._v(a["fields"], "model", "model_id"), "policy_ceilings": {"per_payment": pol["per_payment_ceiling_gbp"], "monthly_per_account": pol["monthly_per_account_ceiling_gbp"], "max_validity": pol["max_validity"]}})
+        return {"application": public_app(a), "model": model_summary(a)}
     if body.decision == "request_info":
         a = db.update_application(app_id, status="info_requested", officer=config.OFFICER, officer_note=body.note)
         audit.record("decision", a["ref"], {"event": "further information requested", "officer": config.OFFICER, "note": body.note})
@@ -285,49 +263,120 @@ def decide(app_id: int, body: DecisionIn):
     _400("unknown decision")
 
 
-def issue_passport(a: dict, note: str, condition: dict) -> dict:
-    f = a["fields"]
-    ag = a["agent"] or _400("agent key not registered")
-    if not ag.get("pop_verified"):
-        _400("agent has not proven possession of its key")
-    ident_jwt = a.get("agent_identity_jwt") or _400("agent identity not signed by the provider")
-    ident = crypto.verify_jwt("openpay", ident_jwt) or _400("agent identity signature does not verify")
+def policy_ceilings() -> dict:
     pol = rules.pack()["policy"]
+    return {"per_payment_ceiling": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
+            "monthly_per_account_ceiling": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]},
+            "max_validity": pol["max_validity"], "action_types": list(pol["action_types"])}
+
+
+def create_agent_on_model(a: dict, deployment: dict) -> dict:
+    """Phase 3, step one: the customer turns an approved model into its agent. Deployment-specific material lives here:
+    the agent key pair (demo: kept with the passport), proof of possession by signed challenge, configuration hash, key custody.
+    The customer signs agent_identity; the authority's system issues the assurance automatically from the model approval."""
+    if a["status"] != "approved" or (a.get("model_status") or "active") != "active":
+        _400("model is not approved and active")
+    f = a["fields"]
+    pol = rules.pack()["policy"]
+    n = db.count_passports() + 107
+    pid = f"AP-2026-{n:04d}"
+    priv, pub = crypto.generate_keypair()
+    jwk = crypto.public_jwk(pub)
+    agent_id = f"northgate-{rules._v(f, 'model', 'model_id')}-{n - 106:02d}"
+    challenge = crypto.new_nonce()
+    sig = crypto.sign_bytes(priv, challenge.encode())
+    pop = crypto.verify_bytes(pub, challenge.encode(), sig)
+    ag = {"agent_id": agent_id, "public_pem": pub, "private_pem": priv, "jwk": jwk, "kid": crypto.jwk_thumbprint(jwk)[:16], "challenge": challenge, "challenge_sig": sig, "pop_verified": pop,
+          "config_sha256": rules.agent_config_hash(), "key_storage": deployment.get("key_storage"), "key_rotation": deployment.get("key_rotation")}
+    ident_payload = {"iss": "northgate-joinery-ltd", "typ": "agent_identity", "sub": agent_id, "iat": crypto.now_ts(), "passport_id": pid,
+                     "agent": {"name": deployment.get("agent_name") or f"{rules._v(f, 'model', 'model_name')} · customer deployment", "agent_id": agent_id,
+                               "model_id": rules._v(f, "model", "model_id"), "model_name": rules._v(f, "model", "model_name"), "model_provider": rules._v(f, "model", "model_provider"),
+                               "model_version": rules._v(f, "model", "model_version"), "registration": a["ref"], "config_sha256": ag["config_sha256"]},
+                     "deployment": {"key_storage": ag["key_storage"], "key_rotation": ag["key_rotation"], "proof_of_possession": pop},
+                     "cnf": {"jwk": jwk}}
+    ident_jwt = crypto.sign_jwt("northgate", ident_payload, typ="agent-identity+jwt")
     valid_until = pol["max_validity"]
     exp = int(datetime.fromisoformat(valid_until + "T23:59:59+00:00").timestamp())
     checks = a.get("checks") or []
-    ceilings = {"per_payment_ceiling": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
-                "monthly_per_account_ceiling": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]},
-                "max_validity": pol["max_validity"], "action_types": list(pol["action_types"])}
     assurance = {
-        "iss": config.ISSUER, "typ": "assurance", "jti": a["ref"], "iat": crypto.now_ts(), "nbf": crypto.now_ts(), "exp": exp,
-        "valid_until": valid_until, "rule_pack_version": rules.pack()["id"],
-        "provider": {"legal_name": rules._v(f, "provider", "legal_name"), "licence_ref": rules._v(f, "provider", "licence_ref"), "companies_house_number": rules._v(f, "provider", "companies_house_number")},
-        "agent_id": ag["agent_id"],
-        "assurance": {"kya_status": "ASSURED", "checks_passed": sum(c["result"] == "pass" for c in checks), "checks_flagged": [c["id"] for c in checks if c["result"] != "pass"]},
-        "condition": condition,
-        "policy_ceilings": ceilings,
-        "accountable_person": {"name": rules._v(f, "accountable_person", "name"), "role": rules._v(f, "accountable_person", "role"), "declaration_ref": rules._v(f, "accountable_person", "declaration_ref")},
+        "iss": config.ISSUER, "typ": "assurance", "jti": pid, "iat": crypto.now_ts(), "nbf": crypto.now_ts(), "exp": exp, "valid_until": valid_until, "rule_pack_version": rules.pack()["id"],
+        "model_ref": {"registration": a["ref"], "model_id": rules._v(f, "model", "model_id"), "model_name": rules._v(f, "model", "model_name"), "model_version": rules._v(f, "model", "model_version"),
+                      "company": rules._v(f, "company", "legal_name"), "approved_by": a.get("officer") or config.OFFICER, "approved_at": a.get("decided_at")},
+        "agent_id": agent_id,
+        "assurance": {"kya_status": "MODEL_APPROVED", "checks_passed": sum(c["result"] == "pass" for c in checks), "checks_flagged": [c["id"] for c in checks if c["result"] != "pass"],
+                      "issued": "automatically from the model approval; no per-customer review"},
+        "condition": a.get("condition") or {"human_confirm_above": {"amount": float(pol["human_confirm_above_gbp"]), "currency": "GBP"}},
+        "policy_ceilings": policy_ceilings(),
+        "attestation": {"name": rules._v(f, "attestation", "name"), "role": rules._v(f, "attestation", "role"), "declaration_ref": rules._v(f, "attestation", "declaration_ref"), "covers": "documentation accuracy only"},
         "binds": {"agent_identity_sha256": crypto.sha256_hex(ident_jwt), "agent_kid": ag["kid"]},
-        "status": {"registry": f"/api/status/{a['ref']}"},
-        "issued_by": config.OFFICER,
+        "status": {"registry": f"/api/status/{pid}"}, "issued_by": "authority system, from the model approval",
     }
-    # Phase 3 belongs to the customer: until it signs, the envelope carries only the ceilings the mandate must fit in.
     mandate_proposed = {
-        "typ": "mandate", "passport_id": a["ref"], "valid_until": valid_until, "exp": exp, "customer": None, "authorising_officer": None,
-        "provider": rules._v(f, "provider", "legal_name"), "agent_id": ag["agent_id"], "agent_kid": ag["kid"], "written_by": "customer",
-        "authorization_details": [{
-            "type": "payment_initiation", "actions": list(pol["action_types"]), "currency": pol["currency"], "supplier_allowlist": [],
-            "per_payment_limit": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
-            "monthly_limit_per_account": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]},
-        }],
-        "ceilings": ceilings,
+        "typ": "mandate", "passport_id": pid, "valid_until": valid_until, "exp": exp, "customer": None, "authorising_officer": None,
+        "provider": rules._v(f, "company", "legal_name"), "agent_id": agent_id, "agent_kid": ag["kid"], "written_by": "customer",
+        "authorization_details": [{"type": "payment_initiation", "actions": list(pol["action_types"]), "currency": pol["currency"], "supplier_allowlist": [],
+                                   "per_payment_limit": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
+                                   "monthly_limit_per_account": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]}}],
+        "ceilings": policy_ceilings(),
     }
     token = crypto.sign_jwt("authority", assurance, typ="assurance+jwt")
-    p = db.create_passport(a["ref"], a["id"], token, assurance, ident_jwt, ident, mandate_proposed, valid_until, config.OFFICER)
-    audit.record("issue", a["ref"], {"event": "assurance signed and entered in registry as ACTIVE; policy ceilings set; the customer writes its own mandate",
-                                     "authority_kid": crypto.signer("authority")["kid"], "agent_kid": ag["kid"], "condition": condition, "policy_ceilings": ceilings})
+    p = db.create_passport(pid, a["id"], token, assurance, ident_jwt, ident_payload, mandate_proposed, valid_until, config.OFFICER, agent=ag)
+    audit.record("issue", pid, {"event": "customer created its agent on an approved model: key generated, possession proven, agent_identity signed by the customer; assurance issued automatically from the model approval",
+                                "model": a["ref"], "agent_id": agent_id, "agent_kid": ag["kid"], "pop_verified": pop, "config_sha256": ag["config_sha256"], "authority_kid": crypto.signer("authority")["kid"]})
     return p
+
+
+class AgentIn(BaseModel):
+    application_id: int
+    agent_name: str | None = None
+    key_storage: str | None = None
+    key_rotation: str | None = None
+
+
+@app.post("/api/agents")
+def create_agent(body: AgentIn):
+    a = db.get_application(body.application_id) or _404()
+    d = {**agent_draft(), **{k: v for k, v in body.model_dump().items() if v is not None and k != "application_id"}}
+    p = create_agent_on_model(a, d)
+    p = mirror_on_vouch(p)
+    return public_passport(p)
+
+
+class ModelStatusIn(BaseModel):
+    status: str   # suspended | active | revoked
+    reason: str
+
+
+@app.post("/api/models/{app_id}/status")
+def model_lifecycle(app_id: int, body: ModelStatusIn):
+    """Model-level supervision. Cascades to every passport on the model: suspend freezes them, reinstate releases the ones
+    the cascade froze, revoke closes them all and revokes their vouch vouchers."""
+    a = db.get_application(app_id) or _404()
+    if a["status"] != "approved":
+        _400("model is not approved")
+    if body.status not in ("suspended", "active", "revoked"):
+        _400("status must be suspended, active or revoked")
+    if not body.reason.strip():
+        _400("an officer reason is required")
+    if (a.get("model_status") or "active") == "revoked":
+        _400("a revoked model cannot change status; a fresh registration is needed")
+    a = db.update_application(app_id, model_status=body.status)
+    touched = []
+    for p in db.passports_for_application(app_id):
+        if p["status"] == "revoked":
+            continue
+        if body.status == "active" and p["status"] != "suspended":
+            continue
+        p = db.set_passport_status(p["passport_id"], body.status, config.OFFICER, f"model {body.status}: {body.reason}")
+        if body.status in ("revoked", "active"):
+            db.set_violation_status(p["passport_id"], "RESOLVED", "revoked" if body.status == "revoked" else "reinstated")
+            db.set_investigation(p["passport_id"], None)
+        if body.status == "revoked":
+            r = vouch.revoke_mandate(p.get("vouch_voucher_id"))
+            db.set_vouch(p["passport_id"], p.get("vouch_voucher_id"), r["mode"], r["status"])
+        touched.append(p["passport_id"])
+    audit.record("lifecycle", a["ref"], {"event": f"model {body.status}; cascaded to {len(touched)} passports", "officer": config.OFFICER, "reason": body.reason, "model_id": rules._v(a["fields"], "model", "model_id"), "passports": touched})
+    return {"model": model_summary(a), "passports": touched}
 
 
 def mirror_on_vouch(p: dict) -> dict:
@@ -498,7 +547,7 @@ def get_passport(passport_id: str):
     env = envelope_of(p)
     ver = crypto.verify_envelope(env)
     parts = {"assurance": crypto.verify_jwt("authority", env["assurance"]) is not None,
-             "agent_identity": crypto.verify_jwt("openpay", env["agent_identity"]) is not None,
+             "agent_identity": crypto.verify_jwt("northgate", env["agent_identity"]) is not None,
              "mandate": (crypto.verify_jwt("northgate", env["mandate"]) is not None) if env.get("mandate") else None}
     headers = {k: crypto.decode_unverified(env[k])[0] for k in ("assurance", "agent_identity", "mandate") if env.get(k)}
     return {**public_passport(p), "verification": {"ok": ver["ok"], "failure": ver["failure"], "parts": parts}, "headers": headers, "minimal": minimal_passport(p)}
@@ -509,32 +558,32 @@ def minimal_passport(p: dict) -> dict:
     a, i, m = p["assurance"], p["agent_identity"], p.get("mandate")
     ad = (m or p["mandate_proposed"])["authorization_details"][0]
     return {
-        "passport_id": p["passport_id"], "issuer": a["iss"], "provider": a["provider"]["legal_name"], "licence_ref": a["provider"]["licence_ref"], "policy_ceilings": a.get("policy_ceilings"),
+        "passport_id": p["passport_id"], "issuer": a["iss"], "provider": a["model_ref"]["company"], "model": f"{a['model_ref']['model_name']} · {a['model_ref']['model_version']}", "model_ref": a["model_ref"], "policy_ceilings": a.get("policy_ceilings"),
         "agent": i["agent"]["name"], "agent_id": i["agent"]["agent_id"], "agent_kid": crypto.jwk_thumbprint(i["cnf"]["jwk"])[:16],
         "condition": a["condition"], "valid_until": a["valid_until"], "status": p["status"], "mandate_signed": bool(m),
         "scope": {"actions": ad["actions"], "currency": ad["currency"], "suppliers": len(ad["supplier_allowlist"]), "per_payment_limit": ad["per_payment_limit"], "monthly_limit_per_account": ad["monthly_limit_per_account"]},
-        "signers": {"assurance": crypto.signer("authority")["kid"], "agent_identity": crypto.signer("openpay")["kid"], "mandate": crypto.signer("northgate")["kid"]},
+        "signers": {"assurance": crypto.signer("authority")["kid"], "agent_identity": crypto.signer("northgate")["kid"], "mandate": crypto.signer("northgate")["kid"]},
     }
 
 
 # ── Part B: AP Orchestrator Agent → Payment Execution Agent ─────────────────
-def execution_key(a: dict) -> dict:
-    """The Payment Execution Agent's own key pair, generated once per application and kept with the agent record (demo)."""
-    ag = a["agent"]
+def execution_key(p: dict) -> dict:
+    """The Payment Execution Agent's own key pair, generated once per passport and kept with the agent record (demo)."""
+    ag = p["agent"]
     if not ag.get("execution"):
         priv, pub = crypto.generate_keypair()
         jwk = crypto.public_jwk(pub)
         ag["execution"] = {"agent_id": f"{ag['agent_id']}-exec", "private_pem": priv, "public_pem": pub, "jwk": jwk, "kid": crypto.jwk_thumbprint(jwk)[:16]}
-        db.update_application(a["id"], agent=ag)
+        db.set_passport_agent(p["passport_id"], ag)
     return ag["execution"]
 
 
-def make_delegation(a: dict, passport_id: str, beneficiary: str, max_amount: float, valid_until: str) -> str:
+def make_delegation(p: dict, passport_id: str, beneficiary: str, max_amount: float, valid_until: str) -> str:
     """The orchestrator (the key bound in agent_identity) delegates a narrowed scope to the execution agent."""
-    ex = execution_key(a)
-    payload = {"iss": a["agent"]["agent_id"], "typ": "delegation", "sub": ex["agent_id"], "passport_id": passport_id, "iat": crypto.now_ts(), "cnf": {"jwk": ex["jwk"]},
+    ex = execution_key(p)
+    payload = {"iss": p["agent"]["agent_id"], "typ": "delegation", "sub": ex["agent_id"], "passport_id": passport_id, "iat": crypto.now_ts(), "cnf": {"jwk": ex["jwk"]},
                "scope": {"beneficiaries": [beneficiary], "max_amount": float(max_amount), "currency": "GBP", "actions": ["pay_invoice"], "valid_until": valid_until, "purpose": "pay one supplier invoice"}}
-    return crypto.sign_jwt_pem(a["agent"]["private_pem"], payload, typ="delegation+jwt")
+    return crypto.sign_jwt_pem(p["agent"]["private_pem"], payload, typ="delegation+jwt")
 
 
 def chain_on(flag: bool | None) -> bool:
@@ -570,14 +619,13 @@ def rogue_key() -> dict:
 def agent_act(body: ActIn):
     """Simulated PayGPT 6.0: builds a payment instruction, signs it, presents it to the bank."""
     p = db.get_passport(body.passport_id) or _404()
-    a = db.get_application(p["application_id"])
     req = {"passport_id": body.passport_id, "action_type": body.action_type, "payee_account_ref": body.payee_account_ref, "supplier_name": body.supplier_name,
            "amount": body.amount, "currency": body.currency, "invoice_ref": body.invoice_ref, "nonce": crypto.new_nonce()}
     if chain_on(body.chain):
-        req["delegation"] = make_delegation(a, body.passport_id, body.delegate_account or body.payee_account_ref, body.delegate_amount or config.DELEGATION_MAX_GBP, p["expires_at"])
-        key = execution_key(a)["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
+        req["delegation"] = make_delegation(p, body.passport_id, body.delegate_account or body.payee_account_ref, body.delegate_amount or config.DELEGATION_MAX_GBP, p["expires_at"])
+        key = execution_key(p)["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
     else:
-        key = a["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
+        key = p["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
     req["agent_signature"] = crypto.sign_bytes(key, rules.request_signing_input(req))
     return verify(VerifyIn(passport_id=body.passport_id, instruction=req))
 
@@ -604,15 +652,14 @@ def agent_invoice(body: InvoiceIn):
     audit.record("agent", body.passport_id, {"event": "agent read an invoice into a payment instruction", "invoice": body.invoice_id, "mode": mode,
                                              "model": config.GEMINI_MODEL if mode == "gemini" else None, "payee_account_ref": account_ref, "amount": v("amount_gbp"),
                                              "bank_details_changed": v("bank_details_changed")})
-    a = db.get_application(p["application_id"])
     req = {"passport_id": body.passport_id, "action_type": "pay_invoice", "payee_account_ref": account_ref, "supplier_name": v("supplier_name"),
            "amount": float(v("amount_gbp") or 0), "currency": "GBP", "invoice_ref": v("invoice_ref"), "nonce": crypto.new_nonce()}
     if chain_on(body.chain):
         # the orchestrator read the invoice; it delegates exactly what it read to the execution agent
-        req["delegation"] = make_delegation(a, body.passport_id, account_ref, config.DELEGATION_MAX_GBP, p["expires_at"])
-        key = execution_key(a)["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
+        req["delegation"] = make_delegation(p, body.passport_id, account_ref, config.DELEGATION_MAX_GBP, p["expires_at"])
+        key = execution_key(p)["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
     else:
-        key = a["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
+        key = p["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
     req["agent_signature"] = crypto.sign_bytes(key, rules.request_signing_input(req))
     mandate = p.get("mandate") or p["mandate_proposed"]
     allow = mandate["authorization_details"][0]["supplier_allowlist"]
@@ -668,7 +715,7 @@ def verify(body: VerifyIn):
     r4 = next((t for t in res["trace"] if t["rule"] == "R.4"), None)
     agent_kid = None
     try:
-        ident_jwk = ((crypto.verify_jwt("openpay", env.get("agent_identity")) or {}).get("cnf") or {}).get("jwk")
+        ident_jwk = ((crypto.verify_jwt("northgate", env.get("agent_identity")) or {}).get("cnf") or {}).get("jwk")
         agent_kid = crypto.jwk_thumbprint(ident_jwk)[:16] if ident_jwk else None
     except Exception:  # noqa: BLE001
         agent_kid = None
@@ -689,7 +736,7 @@ def verify(body: VerifyIn):
         out["deny_count"] = n
         if n >= threshold:
             inc = audit.record("incident", body.passport_id, {"event": "escalated to supervisor", "reason": f"{n} refused instructions since the last incident", "denies": n,
-                                                              "last_rule": res["rule"], "last_code": res["code"], "provider": p["assurance"]["provider"]["legal_name"], "agent_id": p["assurance"]["agent_id"]})
+                                                              "last_rule": res["rule"], "last_code": res["code"], "model": p["assurance"]["model_ref"]["model_name"], "company": p["assurance"]["model_ref"]["company"], "agent_id": p["assurance"]["agent_id"]})
             out["incident"] = {"audit_id": inc["id"], "hash": inc["hash"], "denies": n}
     return out
 
@@ -738,16 +785,17 @@ def demo_seed(stage: str = "issued"):
         _400("stage must be submitted or issued")
     db.reset_all()
     audit.record("system", None, {"event": "demo baseline seeded", "stage": stage})
-    n = db.count_applications() + 107
-    a = db.create_application(f"AP-2026-{n:04d}", [])
-    audit.record("application", a["ref"], {"event": "registration started", "provider": config.OPERATOR})
+    n = db.count_applications() + 11
+    a = db.create_application(f"MR-2026-{n:04d}", [])
+    audit.record("application", a["ref"], {"event": "model registration started", "company": config.OPERATOR})
     a = db.update_application(a["id"], fields=extraction.fixture(), extraction_mode="prefill")
-    a = agent_key(a["id"]); a = sign_challenge(a["id"]); a = submit(a["id"])
+    a = submit(a["id"])
     r = run_review(a["id"], ReviewIn())
     out = {"ok": True, "stage": stage, "application": r["application"]["ref"], "recommendation": r["review"]["steps"][4]["data"]["verdict"]}
     if stage == "issued":
-        d = decide(a["id"], DecisionIn(decision="approve", note="Baseline: eight checks pass, sandbox 5 of 5, condition £5,000.", human_confirm_above=rules.pack()["policy"]["human_confirm_above_gbp"]))
-        pid = d["passport"]["passport_id"]
+        decide(a["id"], DecisionIn(decision="approve", note="Baseline: six checks pass, sandbox 5 of 5, condition £5,000.", human_confirm_above=rules.pack()["policy"]["human_confirm_above_gbp"]))
+        p = create_agent(AgentIn(application_id=a["id"]))
+        pid = p["passport_id"]
         p = sign_mandate(pid, MandateIn())
         out.update({"passport_id": pid, "status": p["status"], "mandate_signed": p["mandate_signed"], "vouch": {"voucher_id": p.get("vouch_voucher_id"), "mode": p.get("vouch_mode")}})
     out["audit_entries"] = len(db.list_audit())

@@ -96,6 +96,8 @@ CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
 _MIGRATIONS = [
     "ALTER TABLE passports ADD COLUMN investigation TEXT",          # null | investigating
     "ALTER TABLE applications ADD COLUMN review_json TEXT",          # Standards Review Assistant output
+    "ALTER TABLE applications ADD COLUMN model_status TEXT",         # null | active | suspended | revoked (approved-models registry)
+    "ALTER TABLE passports ADD COLUMN agent_json TEXT",              # the customer's agent: key pair (demo), kid, challenge, pop
 ]
 
 
@@ -149,6 +151,7 @@ def row_to_passport(r: sqlite3.Row) -> dict:
     d["mandate_proposed"] = j(d.pop("mandate_proposed_json"))
     d["mandate"] = j(d.pop("mandate_json"))
     d["history"] = j(d.pop("history_json")) or []
+    d["agent"] = j(d.pop("agent_json")) if "agent_json" in d else None
     return d
 
 
@@ -215,15 +218,31 @@ def update_application(app_id: int, **cols) -> dict:
 # ── passports ──────────────────────────────────────────────────────────────
 def create_passport(passport_id: str, application_id: int, assurance_jwt: str, assurance: dict,
                     agent_identity_jwt: str, agent_identity: dict, mandate_proposed: dict,
-                    expires_at: str, officer: str) -> dict:
-    hist = [{"ts": now_iso(), "from": None, "to": "active", "officer": officer, "reason": "Issued"}]
+                    expires_at: str, officer: str, agent: dict | None = None) -> dict:
+    hist = [{"ts": now_iso(), "from": None, "to": "active", "officer": officer, "reason": "Issued automatically from the model approval"}]
     with tx() as con:
         con.execute(
             "INSERT INTO passports(passport_id,application_id,assurance_jwt,assurance_json,agent_identity_jwt,agent_identity_json,"
-            "mandate_proposed_json,status,issued_at,expires_at,history_json) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+            "mandate_proposed_json,status,issued_at,expires_at,history_json,agent_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
             (passport_id, application_id, assurance_jwt, json.dumps(assurance), agent_identity_jwt, json.dumps(agent_identity),
-             json.dumps(mandate_proposed), "active", now_iso(), expires_at, json.dumps(hist)),
+             json.dumps(mandate_proposed), "active", now_iso(), expires_at, json.dumps(hist), json.dumps(agent) if agent else None),
         )
+        return get_passport(passport_id, con)
+
+
+def count_passports() -> int:
+    with tx() as con:
+        return con.execute("SELECT COUNT(*) FROM passports").fetchone()[0]
+
+
+def passports_for_application(application_id: int) -> list[dict]:
+    with tx() as con:
+        return [row_to_passport(r) for r in con.execute("SELECT * FROM passports WHERE application_id=? ORDER BY issued_at DESC", (application_id,))]
+
+
+def set_passport_agent(passport_id: str, agent: dict) -> dict:
+    with tx() as con:
+        con.execute("UPDATE passports SET agent_json=? WHERE passport_id=?", (json.dumps(agent), passport_id))
         return get_passport(passport_id, con)
 
 

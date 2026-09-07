@@ -4,13 +4,13 @@
 <div class="grid">
   <div class="col-main">
     <div class="alert" id="rg-alert" hidden role="alert"></div>
-    <h1 class="h1">Application <span id="rg-ref" class="mono">—</span> <span id="rg-status"></span></h1>
-    <p class="lede lede--tight"><strong>Regulatory Assurance</strong> (proposed PSR 2017 Agent Assurance function — design prototype) · case officer {{ officer }}, {{ issuer }}. This demonstrates what agent certification within the PSR 2017 framework would look like. <strong>Phase 2</strong> — the authority approves the model once and sets policy ceilings; it does not see or approve individual customer mandates. <span class="small">Layer A, agent assurance: the authority signature. Layer E, regulatory supervision: the anomaly and escalation feed below.</span></p>
+    <h1 class="h1">Model registration <span id="rg-ref" class="mono">—</span> <span id="rg-status"></span></h1>
+    <p class="lede lede--tight"><strong>Regulatory Assurance</strong> (proposed PSR 2017 Agent Assurance function — design prototype) · case officer {{ officer }}, {{ issuer }}. <strong>Phase 2</strong> — the authority approves the model once and sets the policy ceilings and the supervisor condition. It keeps two registries, approved models and live passports, and never sees a mandate or a transaction. <span class="small">Layer A, agent assurance: the authority signature. Layer E, regulatory supervision: the anomaly and escalation feed below.</span></p>
 
-    <div class="empty" id="rg-empty"><p>No application in the queue. Submit one from <a href="/provider">Apply</a>.</p></div>
+    <div class="empty" id="rg-empty"><p>No registration in the queue. Submit one from the <a href="/provider">Model Panel</a>.</p></div>
 
     <div id="rg-case" hidden>
-      <h2 class="h2">What was applied for</h2>
+      <h2 class="h2">What was registered</h2>
       <dl class="summary" id="rg-summary"></dl>
 
       <h2 class="h2">Automated checks <span class="h2__meta">rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
@@ -30,30 +30,47 @@
 
       <div id="rg-decide">
         <h2 class="h2">Decision</h2>
-        <p>The decision is yours and will be recorded against your name. A note is required. Approval signs the assurance and attaches your condition.</p>
+        <p>The decision is yours and will be recorded against your name. A note is required. Approval enters the model in the approved-models registry; every passport later created on it carries your ceilings and condition.</p>
         <p class="small">Policy ceilings this approval sets for every customer mandate: <span id="rg-ceilings" class="mono"></span></p>
         <label class="label" for="rg-condition">Condition: hold instructions above (£)</label>
         <div class="condition"><input class="input" id="rg-condition" type="number" min="0" step="100" value="5000"> <span class="small">The bank returns ESCALATE above this amount, even inside the customer's limits.</span></div>
         <label class="label" for="rg-officer-note">Officer note or reason</label>
         <textarea class="textarea" id="rg-officer-note" rows="3" placeholder="e.g. All eight checks pass. Assurance granted with the £5,000 confirmation condition; mandate to be signed by the customer."></textarea>
         <div class="actions">
-          <button class="btn" id="btn-approve">Approve with condition and sign assurance</button>
+          <button class="btn" id="btn-approve">Approve the model with this condition</button>
           <button class="btn btn--secondary" id="btn-info">Request more information</button>
           <button class="btn btn--warning" id="btn-reject">Reject</button>
         </div>
         <p class="error" id="decide-error" hidden></p>
       </div>
 
+      <div id="rg-model" hidden>
+        <h2 class="h2">Model approved <span id="md-status"></span></h2>
+        <dl class="summary" id="md-summary"></dl>
+        <h3 class="h3">Model lifecycle</h3>
+        <p class="hint">Suspending or revoking the model cascades to every passport created on it. Reinstating releases the passports the cascade froze.</p>
+        <label class="label" for="md-reason">Reason</label>
+        <input class="input" id="md-reason" placeholder="e.g. Model card found inaccurate">
+        <div class="actions">
+          <button class="btn btn--secondary" id="btn-md-suspend">Suspend model</button>
+          <button class="btn btn--secondary" id="btn-md-reinstate" hidden>Reinstate model</button>
+          <button class="btn btn--warning" id="btn-md-revoke">Revoke model</button>
+        </div>
+        <p class="error" id="md-error" hidden></p>
+        <h3 class="h3">Passports on this model</h3>
+        <ul class="applist" id="md-passports"></ul>
+      </div>
+
       <div id="rg-issued" hidden>
         <h2 class="h2">Passport <span class="mono" id="pp-id"></span> <span id="pp-status"></span></h2>
-        <p class="hint">Three claims, three signers, one envelope. Each panel shows who signed it and whether the signature verifies right now.</p>
+        <p class="hint">Three claims, one envelope: the authority's assurance (issued automatically from the model approval), the customer-signed agent identity, the customer-signed mandate. Each panel shows who signed it and whether the signature verifies right now.</p>
         <div class="envelope" id="envelope"></div>
         <p class="envelope__stamp" id="envelope-stamp"></p>
         <ul class="badges" aria-label="Standards used"><li>OAuth 2.0 RFC 9396</li><li>W3C VC JWT</li><li>RFC 7800 cnf</li><li>Ed25519 RFC 8037</li></ul>
         <p class="small">Credential format: W3C VC (JWT profile, RFC 7519). The three-signature envelope realises the Passport / Principal Mandate / Action Intent Manifest model.</p>
 
         <h3 class="h3">Lifecycle</h3>
-        <p class="hint">Suspend to freeze during review; reinstate when cleared; revoke permanently. Each change needs a reason and takes effect on the agent's next instruction, because the bank checks the registry in real time. Revocation also revokes the mirrored mandate on the vouch rail.</p>
+        <p class="hint">Passport-level: suspend to freeze during review; reinstate when cleared; revoke permanently. Each change needs a reason and takes effect on the agent's next instruction, because the bank checks the registry in real time. Revocation also revokes the mirrored mandate on the vouch rail.</p>
         <label class="label" for="rg-reason">Reason</label>
         <input class="input" id="rg-reason" placeholder="e.g. Provider reported a suspected key compromise">
         <div class="actions">
@@ -96,8 +113,8 @@
   <aside class="col-side">
     <h2 class="h3">Queue</h2>
     <ul class="applist" id="applist"></ul>
-    <h2 class="h3">Why three signatures</h2>
-    <p class="small">The authority can only vouch for the provider. The provider can only vouch for its agent's key. The customer alone can say which payees and how much. Each signs what it is entitled to say; the bank checks all three.</p>
+    <h2 class="h3">Who answers for what</h2>
+    <p class="small">The model company answers only for the accuracy of its documentation. The customer answers for the mandate it signed and its deployment. The bank answers if it executes without checking. The authority holds the registries that make any failure reconstructable.</p>
     <h2 class="h3">Why a human signs</h2>
     <p class="small">A decision that cannot be reproduced cannot be defended. The rules cite their source; the officer's name, condition and reason are on the record; the whole file replays line by line.</p>
   </aside>

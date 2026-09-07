@@ -32,8 +32,8 @@ All names, registers, accounts and documents are synthetic. This is a proposed a
 ### The path
 
 1. **Apply** (`/provider`). OpenPay's evidence pack (five synthetic documents) loads. "Read documents into facts" sends them to Gemini in JSON mode; every value comes back with its source document and a verbatim quote. Correct anything, generate the agent's key, have the agent sign the authority's challenge (proof of possession). On submission OpenPay signs the `agent_identity` claim with its own key and checks A.1–A.8 run.
-2. **Review & issue** (`/regulator`). Eight checks with rule id, source and CURRENT/PROTOTYPE label. Optional model-drafted file note. The officer sets the condition (hold above £5,000), writes a required note and approves, requests information or rejects. Approval signs the `assurance` with the authority key, enters the passport in the registry as ACTIVE and mirrors the mandate on the vouch rail. Lifecycle: suspend, reinstate, revoke, each with a reason. Incident feed.
-3. **Sign mandate** (`/customer`). Northgate's finance director sees the supplier allowlist, the limits and the expiry, and signs the `mandate` with the company key. Before that the envelope is incomplete and the bank refuses everything at R.5.
+2. **Regulator Panel** (`/regulator`). Six model checks with rule id, source and CURRENT/PROTOTYPE label, the Standards Review Assistant, an optional drafted file note. The officer sets the condition (hold above £5,000), writes a required note and approves the model once; policy ceilings apply to every mandate. Two registries: approved models (suspend or revoke a model, cascading to its passports) and live passports (suspend, investigate, revoke, reinstate). Incident feed.
+3. **Customer Panel** (`/customer`). Northgate picks an approved model and creates its agent: a key pair for this deployment, proof of possession by signed challenge, configuration hash, key custody; Northgate signs the `agent_identity`, and the authority's system issues the `assurance` automatically from the model approval and mirrors the mandate on the vouch rail. Then the finance director writes and signs the `mandate` within the ceilings. A model becomes an agent when a customer gives it a mandate. Until it is signed the bank refuses everything at R.5.
 4. **Act & check** (`/bank`). Eight proposed instructions. The simulated agent signs each; the bank runs R.1–R.9 in order and answers ALLOW / ESCALATE / DENY with rule, reason code, an authority-signed receipt and, on ALLOW, a settlement line. Per-account 30-day meters, and both rails (authority registry, vouch voucher) on every line, so after a revocation the console shows two rails refusing. Three refusals raise an incident.
 5. **Audit** (`/audit`). Hash chain over every event. Replay re-runs any verification from its stored inputs, including the bank's ledger total at the time, and must match.
 
@@ -59,8 +59,8 @@ Not one JWT. An envelope of three independently signed Ed25519 JWTs, each signed
 ```json
 {
   "passport_id": "AP-2026-0107",
-  "assurance":      "<JWT signed by the AUTHORITY>   provider, licence, KY-A status, condition, accountable person, validity, binds → agent_identity hash",
-  "agent_identity": "<JWT signed by PAYRAIL>         agent name, agent public key (cnf), software, config SHA-256",
+  "assurance":      "<JWT signed by the AUTHORITY>   approved model (registration, id, pinned version, company), policy ceilings, condition, attestation, validity, binds → agent_identity hash",
+  "agent_identity": "<JWT signed by NORTHGATE>       its deployment of the model: agent id, public key (cnf), model reference, config SHA-256, key custody, proof of possession",
   "mandate":        "<JWT signed by NORTHGATE>       supplier allowlist by account, per-payment limit, 30-day limit per account, expiry",
   "status_url": "/api/status/AP-2026-0107",
   "vouch_voucher_id": "VCH-… or the live voucher id",
@@ -72,13 +72,13 @@ Public keys for all three signers: `GET /api/signers`. Remove any one signature 
 
 ### Rules (rule pack `payments-2026.09`, data not code)
 
-Registration, authority side: A.1 licence resolves and active · A.2 Companies House resolves · A.3 accountable person with signed declaration · A.4 insurance evidenced · A.5 agent key proof-of-possession · A.6 model documentation declared · A.7 key management declared and requested authority within policy · A.8 software declared and config hash matches the deployed file. Ceiling containment runs when the customer signs its mandate.
+Model registration, authority side: M.1 company resolves at Companies House · M.2 a named person attests the documentation is accurate · M.3 documentation complete · M.4 foundation model version pinned · M.5 intended use within policy · M.6 not already on the register. Proof of possession and the configuration hash are checked when the customer creates its agent; ceiling containment when it signs its mandate.
 
 | Bank side, in order | Fails to |
 |---|---|
 | R.1 assurance signature (authority key) | DENY `ASSURANCE_SIGNATURE_INVALID` |
 | R.2 assurance active and unexpired (registry lookup) | DENY `ASSURANCE_NOT_ACTIVE` |
-| R.3 agent identity signature (provider key), bound to this assurance | DENY `AGENT_IDENTITY_SIGNATURE_INVALID` |
+| R.3 agent identity signature (customer key), bound to this assurance | DENY `AGENT_IDENTITY_SIGNATURE_INVALID` |
 | R.4 instruction signed by the agent key in `agent_identity.cnf` | DENY `AGENT_SIGNATURE_INVALID` |
 | R.5 mandate present, signed by the customer, unexpired | DENY `MANDATE_NOT_SIGNED` / `MANDATE_SIGNATURE_INVALID` / `MANDATE_EXPIRED` |
 | R.6 action permitted and payee account on the allowlist | DENY `OUT_OF_SCOPE` / `PAYEE_NOT_ON_MANDATE` |
@@ -88,6 +88,16 @@ Registration, authority side: A.1 licence resolves and active · A.2 Companies H
 | otherwise | ALLOW `WITHIN_MANDATE` |
 
 The limit lives in the mandate; the running total lives at the bank. `fixtures/pay/oracle.json` holds 18 deterministic cases; `tests/test_pay.py` runs them all offline.
+
+### The Action Terminal (`/bank`)
+
+The one view that leaves the GOV.UK service style: below the masthead and tabs the page is a black terminal, because it is a visualisation of the demo rather than a form. Five parts in order down the page, all presentation of what `POST /api/verify` already returns (no decision logic in the browser):
+
+1. **Standing state.** The passport as the bank holds it (model, agent, mandate summary, condition, three signature lights, live registry status with re-check) beside the bank's own running state (payments executed, refusals since the last incident, 30-day totals per payee account).
+2. **The actor.** PayGPT 6.0 reads a clean or poisoned invoice, one verbatim quote per field, and presents a signed instruction. The wrong account is highlighted before the bank ever sees it.
+3. **The judgment.** The gauntlet: R.1–R.9 resolve one by one (slowed for demonstration; the real check is sub-10ms), evaluation stops at the first failure and the remaining rules show "not evaluated · denied by default". The verdict is one word, the deciding rule, one reason, the authority-signed receipt hash. Two renderings of the same response: the inline verification view (or full-screen with the "full-screen verdict" toggle, for the video) and the expert console, the raw log. Reduced-motion users get the result without the reveal.
+4. **The script.** The eight proposed instructions below, each stating what it demonstrates and what the bank is expected to answer.
+5. **The exhaust.** Every verdict leaves the room: refusals link to the violation row on the Regulator Panel and the audit entry, incidents to the incident feed, executions to the audit.
 
 ### Demo beats (the `/bank` console, in order; doubles as the video storyboard)
 
@@ -146,10 +156,10 @@ Then set `PAYMENT_RAIL=vouch` with `VOUCH_PROGRAM_ID`, `VOUCH_PRIVY_USER_ID` (th
 POST /api/applications                        start an empty registration form
 POST /api/applications/{id}/prefill           demo: fill the registration form with the synthetic values
 PUT  /api/applications/{id}/fields            provider corrections
-POST /api/applications/{id}/agent-key         agent key pair + authority challenge
-POST /api/applications/{id}/sign-challenge    agent signs; authority verifies possession
-POST /api/applications/{id}/submit            provider signs agent_identity; runs A.*
-POST /api/applications/{id}/decision          {decision: approve|request_info|reject, note, human_confirm_above}
+POST /api/applications/{id}/submit            attests documentation accuracy; runs M.1–M.6
+POST /api/applications/{id}/decision          {decision: approve|request_info|reject, note, human_confirm_above}: approves the MODEL
+POST /api/models/{id}/status                  {status: suspended|active|revoked, reason}: cascades to every passport on the model
+POST /api/agents                              {application_id}: customer creates its agent on an approved model; passport issued
 POST /api/applications/{id}/file-note         model-drafted note (never a decision)
 POST /api/passports/{id}/mandate/sign         customer signs the mandate; envelope complete
 POST /api/passports/{id}/status               {status: suspended|active|revoked, reason}; revoke also revokes on the vouch rail

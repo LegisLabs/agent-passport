@@ -72,6 +72,13 @@ Each party signs only what it is entitled to say. The assurance is bound to the 
 
 The limit lives in the mandate; the running total lives at the bank, and the total at decision time is stored in the audit entry so replay is exact. Three DENYs on one passport write an "escalated to supervisor" incident row, visible in the bank terminal and the regulator's incident feed.
 
+## 5d. 7 Sept: model register (v5)
+
+- The registrant is the model company. Registration = model (company, attestation of documentation accuracy, model with pinned foundation version, benchmarks, training type, documentation, intended use). Checks M.1–M.6 replace A.1–A.8. No agent, key, insurance or customer data at registration.
+- The authority approves the model once (registry status `model_status`), sets ceilings and condition; `POST /api/models/{id}/status` suspends, reinstates or revokes a model and cascades to its passports.
+- The customer creates its agent on an approved model (`POST /api/agents`): key pair, proof of possession, config hash, key custody; the customer key signs `agent_identity`; the assurance is issued automatically from the model approval and binds the agent identity. Then the mandate as before. Agent keys live on the passport row (`agent_json`).
+- R.3 now verifies the agent identity against the customer key. Everything else at the bank is unchanged. 70 tests.
+
 ## 5c. 7 Sept: product-demo cut
 
 - Names: the provider is OpenPay Ltd, the agent PayGPT 6.0 (agent id `openpay-paygpt-6`, provider signer `openpay`). Earlier registrations OpenPay 5.5 and 5.6 appear on the Provider Panel as synthetic history.

@@ -23,7 +23,7 @@
 
 <nav class="tabs" aria-label="Dashboards">
   <div class="wrap tabs__row">
-    <a class="tabs__tab" href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}>Provider Panel</a>
+    <a class="tabs__tab" href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}>Model Panel</a>
     <a class="tabs__tab" href="/regulator" {% if view == 'regulator' %}aria-current="page"{% endif %}>Regulator Panel</a>
     <a class="tabs__tab" href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>Customer Panel</a>
     <a class="tabs__tab" href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>Action Terminal</a>
@@ -39,7 +39,7 @@
 <footer class="footer">
   <div class="wrap footer__row">
     <span>Legis Labs · Agent Passport · <em>delegation can only narrow authority, never expand it</em> · <span class="mono">rule pack {{ rule_pack }}</span> · extraction <span class="mono">{{ extraction_mode }}</span> · vouch <span class="mono">{{ vouch_mode }}</span> · rail <span class="mono">{{ payment_rail }}</span></span>
-    <span class="mono small">keys: authority {{ kids.authority }} · provider {{ kids.openpay }} · customer {{ kids.northgate }} · <button class="link" id="demo-reset" type="button">reset to demo baseline</button> · <a href="https://cdir.legislabs.uk">tax vertical</a></span>
+    <span class="mono small">keys: authority {{ kids.authority }} · customer {{ kids.northgate }} · <button class="link" id="demo-reset" type="button">reset to demo baseline</button> · <a href="https://cdir.legislabs.uk">tax vertical</a></span>
   </div>
 </footer>
 

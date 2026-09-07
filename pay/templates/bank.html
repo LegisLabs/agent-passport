@@ -1,58 +1,107 @@
 {% extends "base.html" %}
-{% block title %}Act and check{% endblock %}
+{% block title %}Action Terminal{% endblock %}
 {% block content %}
-<h1 class="h1">The bank checks every instruction</h1>
-<p class="lede lede--tight"><strong>Cryptographic Delegation Verifier</strong> — Zero Trust, deny by default (R.1–R.9). The bank verifies every payment (R.1–R.9, deny by default, sub-10ms). The regulator sees patterns and escalations, never individual payments. Delegation can only narrow authority, never expand it. <span class="small">Layer C, transaction intent: the instruction signed by the agent key. Layer D, runtime policy decision: the R.1–R.9 check.</span></p>
-<p class="lede">{{ agent_name }} signs each payment instruction and presents its passport. {{ bank }} runs nine checks in order and answers ALLOW, ESCALATE or DENY with the rule, a reason and an authority-signed receipt. A redirected invoice, an oversized payment, a structured run of payments, a copied passport or a revoked assurance all stop here.</p>
+<div class="tm" id="tm">
 
-<div class="strip strip--bank" id="strip">
-  <div><span class="strip__k">Passport</span><span class="strip__v mono" id="st-id">—</span></div>
-  <div><span class="strip__k">Assurance</span><span class="strip__v" id="st-assurance">—</span></div>
-  <div><span class="strip__k">Mandate</span><span class="strip__v" id="st-mandate">—</span></div>
-  <div><span class="strip__k">Payments executed</span><span class="strip__v" id="st-payments">0</span></div>
-  <div><span class="strip__k">Vouch rail</span><span class="strip__v" id="st-vouch">—</span></div>
-  <div class="strip__meters"><span class="strip__k">30-day totals per supplier account</span><div class="meters" id="st-meters"></div></div>
-</div>
+<header class="tm-title">
+  <h1 class="tm-title__h">ACTION TERMINAL <span class="tm-title__sub">the bank checks every instruction</span></h1>
+  <p class="tm-title__banner"><strong>Cryptographic Delegation Verifier</strong> · Zero Trust · deny by default · R.1–R.9 · every payment verified in sub-10ms · the regulator sees patterns and escalations, never individual payments · delegation can only narrow authority, never expand it</p>
+  <p class="tm-title__lede">{{ agent_name }} signs each payment instruction and presents its passport. {{ bank }} runs nine checks in order and answers ALLOW, ESCALATE or DENY with the rule, a reason and an authority-signed receipt. Nothing here is decided by a model. <span class="tm-dim">Layer C, transaction intent: the instruction signed by the agent key. Layer D, runtime policy decision: the R.1–R.9 check.</span></p>
+</header>
 
-<section class="invoice" id="invoice-demo">
-  <h2 class="h3">PayGPT 6.0 reads an invoice</h2>
-  <p class="hint">The model reads the invoice into a payment instruction, verbatim quote per field. Then the bank checks the instruction against the customer-signed mandate. Read the clean invoice first, then the poisoned one.</p>
-  <label class="chain-toggle"><input type="checkbox" id="chain-toggle"> Run with the delegation chain: <strong>AP Orchestrator Agent</strong> reads and delegates a narrowed scope, <strong>Payment Execution Agent</strong> signs and pays. Invariant S<sub>action</sub> ⊆ S<sub>1</sub> ⊆ S<sub>0</sub>.</label>
-  <div class="actions" id="invoice-buttons"></div>
-  <ol class="invoice__steps" id="invoice-steps" hidden>
-    <li class="invoice__step" data-step="a"><h3 class="h4">a · What the agent read</h3><pre class="code code--wrap invoice__text" id="inv-text"></pre><dl class="kv invoice__facts" id="inv-facts"></dl></li>
-    <li class="invoice__step" data-step="b"><h3 class="h4">b · The instruction the agent generated and signed</h3><dl class="kv" id="inv-instruction"></dl><div class="chain" id="inv-chain" hidden></div></li>
-    <li class="invoice__step" data-step="c"><h3 class="h4">c · The bank's decision</h3><div class="invoice__verdict" id="inv-verdict"></div></li>
-    <li class="invoice__step" data-step="d"><p class="invoice__caption" id="inv-caption"></p></li>
-  </ol>
+<!-- 1 · standing state -->
+<section class="tm-part" id="standing" aria-labelledby="h-standing">
+  <h2 class="tm-h" id="h-standing"><span class="tm-h__n">01</span>STANDING STATE<span class="tm-h__sub">what the bank knows before any instruction arrives</span></h2>
+  <div class="tm-cols tm-cols--state">
+    <div class="tm-pane">
+      <div class="tm-pane__bar"><span>passport · as presented to the bank</span><span class="tm-dim">permission and keys, not personal data</span></div>
+      <dl class="tm-kv" id="rp-passport"><div><dt>Passport</dt><dd>none issued yet</dd></div></dl>
+    </div>
+    <div class="tm-pane" id="strip">
+      <div class="tm-pane__bar"><span>running state · the bank's own ledger</span><span class="tm-dim">read live from the registry and the ledger</span></div>
+      <dl class="tm-stats">
+        <div><dt>Passport</dt><dd class="mono" id="st-id">—</dd></div>
+        <div><dt>Assurance</dt><dd id="st-assurance">—</dd></div>
+        <div><dt>Mandate</dt><dd id="st-mandate">—</dd></div>
+        <div><dt>Payments executed</dt><dd id="st-payments">0</dd></div>
+        <div><dt>Vouch rail</dt><dd id="st-vouch">—</dd></div>
+        <div><dt>Refusals since last incident</dt><dd><span class="denies" id="denies" aria-label="refusals since last incident"><i></i><i></i><i></i></span> <span class="tm-dim small">three raise an incident</span></dd></div>
+      </dl>
+      <div class="tm-meters-wrap">
+        <span class="tm-k">30-day totals per supplier account · limit in the mandate, total at the bank</span>
+        <div class="meters" id="st-meters"></div>
+      </div>
+    </div>
+  </div>
 </section>
 
-<div class="grid grid--wide">
-  <div class="col-main">
-    <h2 class="h3">What the bank sees on the passport</h2>
-    <p class="hint">Permission and keys, not personal data. Three signatures, checked against three published keys. Status is read from the authority's registry at the moment of the instruction.</p>
-    <dl class="kv kv--passport" id="rp-passport"><div><dt>Passport</dt><dd>none issued yet</dd></div></dl>
+<div class="tm-cols tm-cols--body">
+<div class="tm-main">
 
-    <h2 class="h3">Proposed instructions</h2>
-    <p class="hint">Run them in order for the demo. Repeated ones keep going until the bank refuses.</p>
+<!-- 2 · the actor -->
+<section class="tm-part" id="actor" aria-labelledby="h-actor">
+  <h2 class="tm-h" id="h-actor"><span class="tm-h__n">02</span>THE ACTOR<span class="tm-h__sub">who is asking · the only place AI appears, and it appears as a supplicant</span></h2>
+  <div class="invoice" id="invoice-demo">
+    <p class="tm-hint">{{ agent_name }} reads an invoice into a payment instruction, one verbatim quote per field, and signs it. The model reads; it never decides. Read the clean invoice first, then the poisoned one.</p>
+    <div class="actions" id="invoice-buttons"></div>
+    <label class="chain-toggle"><input type="checkbox" id="chain-toggle"> Run with the delegation chain: <strong>AP Orchestrator Agent</strong> reads and delegates a narrowed scope, <strong>Payment Execution Agent</strong> signs and pays. Invariant S<sub>action</sub> ⊆ S<sub>1</sub> ⊆ S<sub>0</sub>.</label>
+    <ol class="invoice__steps" id="invoice-steps" hidden>
+      <li class="invoice__step" data-step="a"><h3 class="tm-h4">a · What the agent read</h3><pre class="code code--wrap invoice__text" id="inv-text"></pre><dl class="kv invoice__facts" id="inv-facts"></dl></li>
+      <li class="invoice__step" data-step="b"><h3 class="tm-h4">b · The instruction the agent generated and signed → presented to the bank</h3><dl class="kv" id="inv-instruction"></dl><div class="chain" id="inv-chain" hidden></div></li>
+      <li class="invoice__step" data-step="c"><h3 class="tm-h4">c · The bank's decision</h3><div class="invoice__verdict" id="inv-verdict"></div></li>
+      <li class="invoice__step" data-step="d"><p class="invoice__caption" id="inv-caption"></p></li>
+    </ol>
+  </div>
+</section>
+
+<!-- 3 · the judgment -->
+<section class="tm-part judgment" id="judgment" aria-labelledby="h-judgment">
+  <h2 class="tm-h" id="h-judgment"><span class="tm-h__n">03</span>THE JUDGMENT<span class="tm-h__sub">nine rules, in order, deny by default</span></h2>
+  <div class="g" id="gauntlet-wrap">
+    <div class="g__bar">
+      <span class="g__subject" id="g-subject"><span class="tm-dim">Waiting for an instruction. Every instruction walks the same gauntlet; evaluation stops at the first failure.</span></span>
+      <span class="g__meta"><span id="g-count"></span><span class="g__slow">slowed for demonstration · real evaluation sub-10ms</span><label class="g__full"><input type="checkbox" id="tm-full"> full-screen verdict</label></span>
+    </div>
+    <ol class="g__cells" id="gauntlet" aria-label="Ordered rule evaluation"></ol>
+    <div class="g__verdict" id="g-verdict"><span class="tm-dim">no verdict yet</span></div>
+    <p class="g__close tm-dim" id="g-close" hidden>click anywhere or press Esc to return to the terminal</p>
+  </div>
+
+  <div class="terminal" id="terminal" role="log" aria-live="polite" aria-label="Bank gateway decision log">
+    <div class="terminal__bar"><span>expert console · gateway · POST /api/verify · the same response, raw</span><span class="mono">{{ rule_pack }}</span></div>
+    <ol class="terminal__lines" id="term-lines"><li class="terminal__hint">Waiting for an instruction.</li></ol>
+  </div>
+  <details class="jwt tm-rules">
+    <summary>Rule pack · ordered rule evaluation (deny by default)</summary>
+    <ol class="rules" id="rules"></ol>
+  </details>
+</section>
+
+<!-- 5 · the exhaust -->
+<section class="tm-part" id="exhaust-part" aria-labelledby="h-exhaust">
+  <h2 class="tm-h" id="h-exhaust"><span class="tm-h__n">05</span>THE EXHAUST<span class="tm-h__sub">consequences leave the room</span></h2>
+  <p class="tm-hint">The terminal does not hoard its history. Every refusal becomes a violation row on the supervisor's exception panel and a hash-chained audit entry; three refusals raise an incident. That is how one manipulation attempt turns into detection, escalation and revocation.</p>
+  <ol class="exhaust" id="exhaust"><li class="tm-dim">Nothing has left the room yet.</li></ol>
+</section>
+
+</div>
+
+<!-- 4 · the script -->
+<aside class="tm-side" id="script" aria-labelledby="h-script">
+  <section class="tm-part">
+    <h2 class="tm-h" id="h-script"><span class="tm-h__n">04</span>THE SCRIPT<span class="tm-h__sub">eight proposed instructions · every rule, top to bottom</span></h2>
+    <p class="tm-hint">Run them in order for the demo. Each states what it demonstrates and what the bank is expected to answer. Repeated ones keep going until the bank refuses.</p>
     <ol class="beats" id="beats"></ol>
     <div id="chain-beats-wrap" hidden>
-      <h2 class="h3">Boundary tests with the delegation chain</h2>
-      <p class="hint">Delegation can only narrow authority, never expand it. Three checks, shown step by step: C.a root scope valid, C.b delegation ⊆ root, C.c action ⊆ delegation.</p>
+      <h3 class="tm-h4">Boundary tests with the delegation chain</h3>
+      <p class="tm-hint">Delegation can only narrow authority, never expand it. C.a root scope valid, C.b delegation ⊆ root, C.c action ⊆ delegation.</p>
       <ol class="beats" id="chain-beats"></ol>
     </div>
-    <p class="hint">Lifecycle beat: in <a href="/regulator">Review &amp; issue</a>, suspend the passport and rerun instruction 8 (DENY R.2), reinstate (ALLOW), revoke (DENY R.2, and the vouch rail refuses too).</p>
-  </div>
-  <div class="col-side col-side--terminal">
-    <div class="terminal" id="terminal" role="log" aria-live="polite" aria-label="Bank gateway decision log">
-      <div class="terminal__bar"><span>gateway · POST /api/verify</span><span class="mono">refusals <span class="denies" id="denies" aria-label="refusals since last incident"><i></i><i></i><i></i></span> · {{ rule_pack }}</span></div>
-      <ol class="terminal__lines" id="term-lines"><li class="terminal__hint">Waiting for an instruction.</li></ol>
-    </div>
-    <details class="jwt">
-      <summary>Ordered rule evaluation (deny by default)</summary>
-      <ol class="rules" id="rules"></ol>
-    </details>
-  </div>
+    <p class="tm-hint">Lifecycle beat: in the <a href="/regulator">Regulator Panel</a>, suspend the passport and rerun instruction 8 (DENY R.2), reinstate (ALLOW), revoke (DENY R.2, and the vouch rail refuses too).</p>
+  </section>
+</aside>
+</div>
+
 </div>
 {% endblock %}
 {% block scripts %}<script>AP.bank();</script>{% endblock %}

@@ -9,14 +9,15 @@ def check(c, m):
 def low(page, sel): return page.locator(sel).inner_text().lower()
 def issue(page, sign=True):
     page.goto(BASE + "/provider"); page.click("#btn-new"); page.wait_for_selector("#btn-prefill:not([hidden])"); page.click("#btn-prefill")
-    page.wait_for_function("document.querySelector('#facts input[data-key=legal_name]') && document.querySelector('#facts input[data-key=legal_name]').value.length > 0"); page.click("#btn-key"); page.wait_for_selector("#btn-sign:not([hidden])"); page.click("#btn-sign")
+    page.wait_for_function("document.querySelector('#facts input[data-key=legal_name]') && document.querySelector('#facts input[data-key=legal_name]').value.length > 0")
     page.wait_for_selector("#btn-submit:not([hidden])"); page.click("#btn-submit"); page.wait_for_selector("#confirm:not([hidden])")
     page.goto(BASE + "/regulator"); page.wait_for_selector("#rg-case:not([hidden])")
     page.wait_for_selector("#review:not([hidden]) > li", timeout=60000)
-    page.fill("#rg-officer-note", "Assistant recommends approve with conditions; I decide."); page.click("#btn-approve"); page.wait_for_selector("#rg-issued:not([hidden])")
-    pid = page.locator("#pp-id").inner_text()
+    page.fill("#rg-officer-note", "Assistant recommends approve with conditions; I decide."); page.click("#btn-approve"); page.wait_for_selector("#rg-model:not([hidden])")
+    page.goto(BASE + "/customer"); page.wait_for_selector("#btn-create-agent"); page.click("#btn-create-agent"); page.wait_for_selector("#cu-mandate:not([hidden])")
+    pid = page.locator("#cu-id").inner_text()
     if sign:
-        page.goto(BASE + "/customer"); page.wait_for_selector("#btn-sign-mandate:not([disabled])"); page.click("#btn-sign-mandate"); page.wait_for_selector("#cu-sig:not([hidden])")
+        page.wait_for_selector("#btn-sign-mandate:not([disabled])"); page.click("#btn-sign-mandate"); page.wait_for_selector("#cu-sig:not([hidden])")
     return pid
 def invoice(page, which):
     page.goto(BASE + "/bank"); page.wait_for_selector("#invoice-buttons button")
