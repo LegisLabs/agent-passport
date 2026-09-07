@@ -71,7 +71,9 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
 .sheet__totals td:last-child { text-align: right; font-variant-numeric: tabular-nums; color: var(--ink); padding-left: 28px; }
 .sheet__total td { font-weight: 700; color: var(--ink) !important; font-size: 15px; border-top: 1.5px solid var(--ink); padding-top: 7px !important; }
 .sheet__pay { margin-top: auto; border-top: 1px solid var(--line); padding-top: 14px; }
-.sheet__notice { margin: 0 0 12px; padding: 10px 12px; background: var(--amber-soft); color: var(--amber-ink); font-size: 12.5px; }
+.sheet__notice { margin: 0 0 12px; padding: 10px 12px; background: var(--amber-soft); color: var(--amber-ink); font-size: 12.5px; position: relative; transform-origin: left center; transition: transform .6s cubic-bezier(.16, 1, .3, 1), box-shadow .6s; }
+.sheet__notice.is-spot { transform: scale(1.32); z-index: 2; box-shadow: 0 14px 30px -10px rgba(11,12,12,.45), 0 0 0 2px var(--amber); background: #fff3e6; }
+.sc-page[data-stage="path"] .sheet__notice { transition: none; }
 .sheet__notice b { color: var(--ink); }
 .sheet__pay table td:first-child { color: var(--ink-2); padding-right: 18px; }
 .sheet__pay table td:last-child { font-variant-numeric: tabular-nums; }
@@ -88,7 +90,7 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
 .sc-page[data-stage="doc"] .sc { grid-template-columns: minmax(0, 1fr); }
 .sc-page[data-stage="doc"] .sc-col--doc .sc-h { display: none; }
 .sc-page[data-stage="doc"] .sc-col:not(.sc-col--doc) { display: none; }
-.sc-page[data-stage="doc"] .inv { transform: none !important; }
+.sc-page[data-stage="doc"] .inv { transform: none !important; overflow: visible; }
 .sc-page[data-stage="doc"] .sc-title { }
 .sc-page[data-stage="path"] .inv.is-zoom { transition: transform .8s cubic-bezier(.16, 1, .3, 1); }
 
@@ -177,6 +179,7 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
   .stamp, .verdict__word { font-size: 34px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .inv, .agent, .agent__facts > div, .agent__line, .bank, .pay__cop, .pay__done, .stamp, .close, .pp, .chk, .verdict, .conseq li, .flag, .bank__ask, .sheet__hidden, .chk li { transition: none; }
+  .inv, .agent, .agent__facts > div, .agent__line, .bank, .pay__cop, .pay__done, .stamp, .close, .pp, .chk, .verdict, .conseq li, .flag, .bank__ask, .sheet__hidden, .sheet__notice, .chk li { transition: none; }
+  .sheet__notice.is-spot { transform: none; }
   .inv__scan.is-scan, .pay__btn.is-go { animation: none; }
 }

@@ -34,7 +34,7 @@ const AT = (() => {
   function reset(t) {
     const root = $('sc-' + t);
     $('sc-page').dataset.stage = 'doc'; const inv = $(t + '-inv'); inv.style.transform = ''; inv.classList.remove('is-zoom'); $(t + '-wrap').style.height = '';
-    root.querySelectorAll('.is-on, .is-scan, .is-type, .is-go').forEach(x => x.classList.remove('is-on', 'is-scan', 'is-type', 'is-go'));
+    root.querySelectorAll('.is-on, .is-scan, .is-type, .is-spot').forEach(x => x.classList.remove('is-on', 'is-scan', 'is-type', 'is-spot'));
     root.querySelectorAll('input').forEach(i => { i.value = ''; });
     root.querySelectorAll('.chk li').forEach(li => { li.dataset.state = ''; const e = li.querySelector('em'); if (e) e.textContent = ''; });
     const st = $(t + '-agent-state'); if (st) st.textContent = 'waiting';
@@ -49,9 +49,13 @@ const AT = (() => {
 
   // shared opening: the invoice, its tells, the scan, what the agent read
   async function opening(t, my) {
-    on($(t + '-inv')); await wait(300); if (my !== token) return;
+    on($(t + '-inv')); await wait(500); if (my !== token) return;
+    // a beat for the person: the changed bank details step forward, readable, before the agent gets the document
+    const notice = $(t + '-inv').querySelector('.sheet__notice'), flag = notice.querySelector('[data-flag="details"]');
+    notice.classList.add('is-spot'); await wait(900); if (my !== token) return;
+    on(flag); await wait(2600); if (my !== token) return;
+    notice.classList.remove('is-spot'); await wait(500); if (my !== token) return;
     await toPath(t, my); if (my !== token) return; await wait(200);
-    for (const f of ['details']) { on($(t + '-inv').querySelector(`[data-flag="${f}"]`)); await wait(600); if (my !== token) return; }
     if (t === 'after') { on($('after-intent')); await wait(1100); if (my !== token) return; }
     $(t + '-agent-state').textContent = 'reading'; on($(t + '-agent'));
     $(t + '-scan').classList.add('is-scan'); await wait(1500); if (my !== token) return;
