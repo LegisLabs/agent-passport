@@ -44,10 +44,10 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
 .mail__row b { font-weight: 400; color: var(--ink); overflow-wrap: anywhere; }
 .mail__row:first-child b { font-weight: 700; }
 .mail__att { display: inline-block; margin-top: 8px; padding: 3px 8px; border: 1px solid var(--line); background: #fff; font-size: 12.5px; color: var(--ink-2); }
-.sheet { background: #fff; border: 1px solid var(--line); box-shadow: 0 10px 28px -10px rgba(11,12,12,.28); padding: 26px 28px 18px; font-size: 13px; line-height: 1.4; color: var(--ink); }
+.sheet { background: #fff; box-shadow: 0 12px 28px -12px rgba(11,12,12,.32), 0 1px 2px rgba(11,12,12,.12); padding: 26px 28px 18px; font-size: 13px; line-height: 1.4; color: var(--ink); }
 .sheet table { border-collapse: collapse; }
 .sheet td, .sheet th { padding: 3px 0; vertical-align: top; }
-.sheet__head { display: flex; justify-content: space-between; gap: 16px; align-items: flex-start; margin-bottom: 20px; }
+.sheet__head { display: flex; justify-content: space-between; gap: 16px 24px; align-items: flex-start; flex-wrap: wrap; margin-bottom: 20px; }
 .sheet__brand { display: flex; gap: 12px; align-items: flex-start; }
 .sheet__mark { width: 34px; height: 34px; flex: 0 0 auto; background: #2e4a2e; clip-path: polygon(50% 0, 100% 38%, 82% 38%, 82% 100%, 18% 100%, 18% 38%, 0 38%); margin-top: 2px; }
 .sheet__co { font-size: 18px; font-weight: 700; letter-spacing: -.01em; }
@@ -55,6 +55,7 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
 .sheet__inv { text-align: right; }
 .sheet__title { font-size: 26px; font-weight: 700; letter-spacing: -.02em; line-height: 1; margin-bottom: 8px; color: #2e4a2e; }
 .sheet__inv table { margin-left: auto; font-size: 12.5px; }
+.sheet__inv td { white-space: nowrap; }
 .sheet__inv td:first-child { color: var(--ink-2); padding-right: 14px; text-align: left; }
 .sheet__inv td:last-child { font-variant-numeric: tabular-nums; text-align: right; }
 .sheet__to { margin-bottom: 18px; font-size: 13px; }
@@ -72,9 +73,9 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
 .sheet__notice b { color: var(--ink); }
 .sheet__pay table td:first-child { color: var(--ink-2); padding-right: 16px; }
 .sheet__pay table td:last-child { font-variant-numeric: tabular-nums; }
-.sheet__hidden { margin: 12px 0 0; padding: 6px 8px; font-size: 11.5px; color: #fff; background: #fff; opacity: 1; transform: none; transition: background .6s, color .6s; }
+.sheet__hidden { margin: 12px 0 0; padding: 6px 8px; font-size: 12.5px; color: #fff; background: #fff; opacity: 1; transform: none; transition: background .6s, color .6s; }
 .sheet__hidden.is-on { color: var(--ink); background: var(--panel); }
-.sheet__foot { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--line-soft); font-size: 10.5px; color: var(--ink-2); }
+.sheet__foot { margin-top: 14px; padding-top: 8px; border-top: 1px solid var(--line-soft); font-size: 12px; color: var(--ink-2); }
 .flag { display: block; margin-top: 5px; font-size: 13px; font-weight: 700; color: var(--red); }
 .flag--hidden { color: var(--ink); }
 .inv__scan { position: absolute; left: 0; right: 0; top: -8px; height: 8px; background: linear-gradient(90deg, transparent, var(--blue) 30%, var(--blue) 70%, transparent); filter: blur(1px); box-shadow: 0 4px 22px 2px rgba(29,112,184,.35); opacity: 0; pointer-events: none; }
@@ -106,7 +107,7 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
 .pay__btn.is-go { animation: nudge 1s cubic-bezier(.16, 1, .3, 1) infinite; }
 @keyframes nudge { 0%, 100% { transform: none; } 50% { transform: scale(1.06); } }
 .pay__done { margin: 14px 0 0; font-size: 16px; }
-.stamp { margin: 14px 0 0; font-size: 44px; line-height: 1; font-weight: 700; letter-spacing: -.02em; color: var(--red); transform: translateY(6px) scale(1.12); }
+.stamp { display: block; margin: 14px 0 0; padding: 0; border: 0; text-transform: none; font-size: 44px; line-height: 1; font-weight: 700; letter-spacing: -.02em; color: var(--red); transform: translateY(6px) scale(1.12); }
 .stamp.is-on { transition: opacity .3s, transform .45s cubic-bezier(.16, 1, .3, 1); }
 .close { margin: 18px 0 0; font-size: 24px; line-height: 1.2; font-weight: 700; text-wrap: balance; }
 .close--after { color: var(--green-dark); }
