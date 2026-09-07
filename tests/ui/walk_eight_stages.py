@@ -34,6 +34,7 @@ with sync_playwright() as pw:
     page.fill("#cu-per", "12000"); page.wait_for_function("document.querySelector('#cu-containment').innerText.toLowerCase().includes('outside')")
     check(page.locator("#btn-sign-mandate").is_disabled(), "over-ceiling mandate cannot be signed")
     page.fill("#cu-per", "10000"); page.wait_for_selector("#btn-sign-mandate:not([disabled])"); page.click("#btn-sign-mandate"); page.wait_for_selector("#cu-sig:not([hidden])")
+    pid = page.locator("#cu-id").inner_text(); check(pid.startswith("AP-2026-"), f"passport issued at signing: {pid}")
     page.goto(BASE + f"/regulator?passport={pid}"); page.wait_for_selector("#envelope section"); page.wait_for_function("document.querySelector('#envelope-stamp').innerText.includes('ALL THREE VERIFY')")
     check(True, "ALL THREE VERIFY stamp"); page.screenshot(path=f"{SHOTS}/s2-issuance.png", full_page=True)
     print("== Stage 3 · Happy path (clean invoice)")

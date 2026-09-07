@@ -38,11 +38,11 @@ def issue_one(client, sign_mandate=True):
     r = client.post(f"/api/applications/{a['id']}/decision", json={"decision": "approve", "note": "All six checks pass. Ceilings per policy; condition £5,000."}).json()
     assert r["model"]["model_status"] == "active" and "passport" not in r
     p = client.post("/api/agents", json={"application_id": a["id"]}).json()
-    assert p["passport_id"].startswith("AP-2026-") and p["agent"]["pop_verified"] is True and "private_pem" not in p["agent"]
-    assert p["status"] == "pending" and p["envelope"]["assurance"] is None and p["vouch_voucher_id"] is None   # no passport, no voucher before the mandate
+    assert p["passport_id"].startswith("AG-2026-") and p["agent"]["pop_verified"] is True and "private_pem" not in p["agent"]
+    assert p["status"] == "pending" and p["envelope"]["assurance"] is None and p["vouch_voucher_id"] is None   # an agent record: no passport, no voucher before the mandate
     if sign_mandate:
         p = client.post(f"/api/passports/{p['passport_id']}/mandate/sign").json()
-        assert p["status"] == "active" and p["envelope"]["assurance"] and p["vouch_voucher_id"]                # signing issues the passport and mints the voucher
+        assert p["passport_id"].startswith("AP-2026-") and p["status"] == "active" and p["envelope"]["assurance"] and p["vouch_voucher_id"]   # signing issues the passport and mints the voucher
     return p, a
 
 
@@ -140,8 +140,8 @@ def test_customer_signature_completes_envelope(client):
     assert p["mandate_signed"] is False and client.get(f"/api/passports/{pid}").json()["verification"]["failure"] == "assurance"
     fen = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 3200}
     r = act(client, pid, fen); assert r["rule"] == "R.1" and r["code"] == "PASSPORT_NOT_ISSUED"
-    client.post(f"/api/passports/{pid}/mandate/sign")
-    assert client.get(f"/api/passports/{pid}").json()["verification"]["ok"] is True
+    pid = client.post(f"/api/passports/{pid}/mandate/sign").json()["passport_id"]
+    assert pid.startswith("AP-2026-") and client.get(f"/api/passports/{pid}").json()["verification"]["ok"] is True
     assert act(client, pid, fen)["decision"] == "ALLOW"
     assert client.post(f"/api/passports/{pid}/mandate/sign").status_code == 400
 
@@ -520,6 +520,7 @@ def test_customer_mandate_is_gated_only_by_ceiling_containment(client):
     # the customer tightens its own mandate below the ceilings, adds a payee, and signs: live at once
     mine = {**draft, "per_payment_limit": 7500, "monthly_limit_per_account": 15000, "supplier_allowlist": draft["supplier_allowlist"] + [{"name": "Delta Fixings Ltd", "account_ref": "40-40-40 12121212"}]}
     p = client.post(f"/api/passports/{pid}/mandate/sign", json=mine).json()
+    pid = p["passport_id"]
     assert p["mandate_signed"] is True and p["mandate"]["within_ceilings"] is True and p["mandate"]["written_by"] == "customer"
     ad = p["mandate"]["authorization_details"][0]
     assert ad["per_payment_limit"]["amount"] == 7500 and len(ad["supplier_allowlist"]) == 4 and ad["supplier_allowlist"][3]["supplier_id"] == "SUP-004"
@@ -556,7 +557,7 @@ def test_demo_seed_twice_gives_identical_baselines(client):
 def test_model_revoke_cascades_to_passports_and_passport_revoke_is_unchanged(client):
     p1, a = issue_one(client)
     p2 = client.post("/api/agents", json={"application_id": a["id"]}).json()
-    client.post(f"/api/passports/{p2['passport_id']}/mandate/sign")
+    p2 = client.post(f"/api/passports/{p2['passport_id']}/mandate/sign").json()
     ok = {"action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455", "amount": 900}
     assert act(client, p1["passport_id"], ok)["decision"] == "ALLOW" and act(client, p2["passport_id"], ok)["decision"] == "ALLOW"
     r = client.post(f"/api/models/{a['id']}/status", json={"status": "suspended", "reason": "model card inaccurate"}).json()

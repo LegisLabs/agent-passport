@@ -240,6 +240,14 @@ def passports_for_application(application_id: int) -> list[dict]:
         return [row_to_passport(r) for r in con.execute("SELECT * FROM passports WHERE application_id=? ORDER BY issued_at DESC", (application_id,))]
 
 
+def rename_passport(old_id: str, new_id: str) -> None:
+    """The agent record becomes the passport when the customer signs: the row keeps its history under the new id."""
+    with tx() as con:
+        con.execute("UPDATE passports SET passport_id=? WHERE passport_id=?", (new_id, old_id))
+        for t in ("payments", "violations"):
+            con.execute(f"UPDATE {t} SET passport_id=? WHERE passport_id=?", (new_id, old_id))
+
+
 def set_passport_agent(passport_id: str, agent: dict) -> dict:
     with tx() as con:
         con.execute("UPDATE passports SET agent_json=? WHERE passport_id=?", (json.dumps(agent), passport_id))

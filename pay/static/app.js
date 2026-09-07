@@ -143,7 +143,7 @@ const AP = (() => {
       $('btn-md-suspend').hidden = ms !== 'active'; $('btn-md-reinstate').hidden = ms !== 'suspended'; $('btn-md-revoke').hidden = ms === 'revoked';
       const ul = $('md-passports'); ul.innerHTML = '';
       const mine = state.passports.filter(x => x.application_id === a.id);
-      mine.forEach(x => ul.append(el('li', null, `<a href="/regulator?ref=${a.ref}&passport=${x.passport_id}" class="mono">${esc(x.passport_id)}</a> ${tag(x.status)} <span class="small">${x.mandate_signed ? 'mandate signed' : 'mandate not signed'}</span>`)));
+      mine.forEach(x => ul.append(el('li', null, `<a href="/regulator?ref=${a.ref}&passport=${x.passport_id}" class="mono">${esc(x.passport_id)}</a> ${tag(x.status)} <span class="small">${x.status === 'pending' ? 'agent registered, no passport until the customer signs' : 'mandate signed'}</span>`)));
       if (!mine.length) ul.append(el('li', 'small', 'None yet: customers register agents on this model in the Customer Panel.'));
     }
     async function modelLife(status) {
@@ -308,7 +308,7 @@ const AP = (() => {
 
     function render() {
       const ul = $('cu-list'); ul.innerHTML = state.passports.length ? '' : '<li class="small">None yet.</li>';
-      state.passports.forEach(x => ul.append(el('li', null, `<a href="/customer?ref=${x.passport_id}" class="mono">${esc(x.passport_id)}</a> ${tag(x.mandate_signed ? 'signed' : 'unsigned', x.mandate_signed ? 'signed' : 'awaiting signature')}`)));
+      state.passports.forEach(x => ul.append(el('li', null, `<a href="/customer?ref=${x.passport_id}" class="mono">${esc(x.passport_id)}</a> ${x.status === 'pending' ? tag('unsigned', 'agent registered · no passport yet') : tag(x.status, 'passport ' + x.status)}`)));
       const models = (state.models || []).filter(m => m.model_status === 'active');
       $('cu-empty').hidden = !!(models.length || p);
       $('cu-create').hidden = !models.length;
@@ -318,7 +318,7 @@ const AP = (() => {
       $('cu-mandate').hidden = !p;
       if (!p) return;
       const mp = p.mandate_proposed, ad = mp.authorization_details[0], signed = p.mandate_signed, ag = p.agent || {};
-      $('cu-agent-kv').innerHTML = [['Agent', `<strong>${esc(p.agent_identity.agent.name)}</strong> · <span class="mono">${esc(mp.agent_id)}</span> · on ${esc(p.agent_identity.agent.model_name)} (${esc(p.agent_identity.agent.model_provider)} <span class="mono">${esc(p.agent_identity.agent.model_version)}</span>)`], ['Agent key', `<span class="mono">kid ${esc(mp.agent_kid)}</span> · ${ag.pop_verified ? '<span class="tag tag--green">possession proven</span>' : '<span class="tag tag--amber">possession pending</span>'} · config <span class="mono small">${esc((ag.config_sha256 || '').slice(0, 12))}…</span>`], ['Passport', `<span class="mono">${esc(p.passport_id)}</span> ${tag(p.status)} · ${p.status === 'pending' ? 'issued when you sign the mandate' : 'issued from the model approval when the mandate was signed'}`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
+      $('cu-agent-kv').innerHTML = [['Agent', `<strong>${esc(p.agent_identity.agent.name)}</strong> · <span class="mono">${esc(mp.agent_id)}</span> · on ${esc(p.agent_identity.agent.model_name)} (${esc(p.agent_identity.agent.model_provider)} <span class="mono">${esc(p.agent_identity.agent.model_version)}</span>)`], ['Agent key', `<span class="mono">kid ${esc(mp.agent_kid)}</span> · ${ag.pop_verified ? '<span class="tag tag--green">possession proven</span>' : '<span class="tag tag--amber">possession pending</span>'} · config <span class="mono small">${esc((ag.config_sha256 || '').slice(0, 12))}…</span>`], [p.status === 'pending' ? 'Agent record' : 'Passport', `<span class="mono">${esc(p.passport_id)}</span> ${tag(p.status)} · ${p.status === 'pending' ? 'passport issued when you sign the mandate' : 'issued from the model approval when the mandate was signed'}`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       $('cu-id').textContent = p.passport_id;
       $('cu-state').innerHTML = signed ? tag('signed', 'signed') : tag('unsigned', 'awaiting signature');
       $('cu-card').classList.toggle('mandate--signed', signed);
@@ -377,7 +377,7 @@ const AP = (() => {
     $('cu-add').onclick = () => { collect(); draft.supplier_allowlist.push({ supplier_id: `SUP-${String(draft.supplier_allowlist.length + 1).padStart(3, '0')}`, name: '', account_ref: '' }); renderForm(); scheduleCheck(); };
     $('btn-sign-mandate').onclick = async () => {
       const b = $('btn-sign-mandate'); b.disabled = true; $('cu-error').hidden = true;
-      try { await api('POST', `/api/passports/${p.passport_id}/mandate/sign`, collect()); state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === p.passport_id); render(); }
+      try { const np = await api('POST', `/api/passports/${p.passport_id}/mandate/sign`, collect()); state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${np.passport_id}`); render(); }
       catch (e) { $('cu-error').textContent = typeof e.message === 'string' ? e.message : JSON.stringify(e.message); $('cu-error').hidden = false; b.disabled = false; }
     };
   }
@@ -389,7 +389,8 @@ const AP = (() => {
   async function bank() {
     const state = await api('GET', '/api/state');
     const ref = new URLSearchParams(location.search).get('ref');
-    const p = state.passports.find(x => x.passport_id === ref) || state.passports[0] || null;
+    const issued = state.passports.filter(x => x.status !== 'pending');
+    const p = issued.find(x => x.passport_id === ref) || issued[0] || null;
     const rules = (await api('GET', '/api/rulepack')).runtime_rules;
     const rl = $('rules'); rules.forEach(r => rl.append(el('li', null, `<code>${esc(r.id)}</code> ${esc(r.title)} → <code>${esc(r.on_fail)}</code>`)));
     const lines = $('term-lines');

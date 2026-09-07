@@ -15,10 +15,9 @@ def issue(page, sign=True):
     page.wait_for_selector("#review:not([hidden]) > li", timeout=60000)
     page.fill("#rg-officer-note", "Assistant recommends approve with conditions; I decide."); page.click("#btn-approve"); page.wait_for_selector("#rg-model:not([hidden])")
     page.goto(BASE + "/customer"); page.wait_for_selector("#btn-create-agent"); page.click("#btn-create-agent"); page.wait_for_selector("#cu-mandate:not([hidden])")
-    pid = page.locator("#cu-id").inner_text()
     if sign:
         page.wait_for_selector("#btn-sign-mandate:not([disabled])"); page.click("#btn-sign-mandate"); page.wait_for_selector("#cu-sig:not([hidden])")
-    return pid
+    return page.locator("#cu-id").inner_text()
 def invoice(page, which):
     page.goto(BASE + "/bank"); page.wait_for_selector("#invoice-buttons button")
     page.locator("#invoice-buttons button").nth(which).click()

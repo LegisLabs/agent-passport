@@ -279,7 +279,7 @@ def create_agent_on_model(a: dict, deployment: dict) -> dict:
     f = a["fields"]
     pol = rules.pack()["policy"]
     n = db.count_passports() + 107
-    pid = f"AP-2026-{n:04d}"
+    pid = f"AG-2026-{n:04d}"   # the agent record; it becomes passport AP-2026-{n} when the customer signs its mandate
     priv, pub = crypto.generate_keypair()
     jwk = crypto.public_jwk(pub)
     agent_id = f"northgate-{rules._v(f, 'model', 'model_id')}-{n - 106:02d}"
@@ -288,7 +288,7 @@ def create_agent_on_model(a: dict, deployment: dict) -> dict:
     pop = crypto.verify_bytes(pub, challenge.encode(), sig)
     ag = {"agent_id": agent_id, "public_pem": pub, "private_pem": priv, "jwk": jwk, "kid": crypto.jwk_thumbprint(jwk)[:16], "challenge": challenge, "challenge_sig": sig, "pop_verified": pop,
           "config_sha256": rules.agent_config_hash(), "key_storage": deployment.get("key_storage"), "key_rotation": deployment.get("key_rotation")}
-    ident_payload = {"iss": "northgate-joinery-ltd", "typ": "agent_identity", "sub": agent_id, "iat": crypto.now_ts(), "passport_id": pid,
+    ident_payload = {"iss": "northgate-joinery-ltd", "typ": "agent_identity", "sub": agent_id, "iat": crypto.now_ts(), "agent_record": pid,
                      "agent": {"name": deployment.get("agent_name") or f"{rules._v(f, 'model', 'model_name')} · customer deployment", "agent_id": agent_id,
                                "model_id": rules._v(f, "model", "model_id"), "model_name": rules._v(f, "model", "model_name"), "model_provider": rules._v(f, "model", "model_provider"),
                                "model_version": rules._v(f, "model", "model_version"), "registration": a["ref"], "config_sha256": ag["config_sha256"]},
@@ -299,7 +299,7 @@ def create_agent_on_model(a: dict, deployment: dict) -> dict:
     exp = int(datetime.fromisoformat(valid_until + "T23:59:59+00:00").timestamp())
     checks = a.get("checks") or []
     assurance = {
-        "iss": config.ISSUER, "typ": "assurance", "jti": pid, "iat": crypto.now_ts(), "nbf": crypto.now_ts(), "exp": exp, "valid_until": valid_until, "rule_pack_version": rules.pack()["id"],
+        "iss": config.ISSUER, "typ": "assurance", "jti": pid.replace("AG-", "AP-"), "iat": crypto.now_ts(), "nbf": crypto.now_ts(), "exp": exp, "valid_until": valid_until, "rule_pack_version": rules.pack()["id"],
         "model_ref": {"registration": a["ref"], "model_id": rules._v(f, "model", "model_id"), "model_name": rules._v(f, "model", "model_name"), "model_version": rules._v(f, "model", "model_version"),
                       "company": rules._v(f, "company", "legal_name"), "approved_by": a.get("officer") or config.OFFICER, "approved_at": a.get("decided_at")},
         "agent_id": agent_id,
@@ -309,10 +309,10 @@ def create_agent_on_model(a: dict, deployment: dict) -> dict:
         "policy_ceilings": policy_ceilings(),
         "attestation": {"name": rules._v(f, "attestation", "name"), "role": rules._v(f, "attestation", "role"), "declaration_ref": rules._v(f, "attestation", "declaration_ref"), "covers": "documentation accuracy only"},
         "binds": {"agent_identity_sha256": crypto.sha256_hex(ident_jwt), "agent_kid": ag["kid"]},
-        "status": {"registry": f"/api/status/{pid}"}, "issued_by": "authority system, from the model approval",
+        "status": {"registry": f"/api/status/{pid.replace('AG-', 'AP-')}"}, "issued_by": "authority system, from the model approval",
     }
     mandate_proposed = {
-        "typ": "mandate", "passport_id": pid, "valid_until": valid_until, "exp": exp, "customer": None, "authorising_officer": None,
+        "typ": "mandate", "passport_id": pid.replace("AG-", "AP-"), "valid_until": valid_until, "exp": exp, "customer": None, "authorising_officer": None,
         "provider": rules._v(f, "company", "legal_name"), "agent_id": agent_id, "agent_kid": ag["kid"], "written_by": "customer",
         "authorization_details": [{"type": "payment_initiation", "actions": list(pol["action_types"]), "currency": pol["currency"], "supplier_allowlist": [],
                                    "per_payment_limit": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
@@ -320,7 +320,7 @@ def create_agent_on_model(a: dict, deployment: dict) -> dict:
         "ceilings": policy_ceilings(),
     }
     p = db.create_passport(pid, a["id"], "", assurance, ident_jwt, ident_payload, mandate_proposed, valid_until, config.OFFICER, agent=ag, status="pending")
-    audit.record("agent", pid, {"event": "customer registered its agent on an approved model: key generated, possession proven, agent_identity signed by the customer; passport pending the customer's mandate",
+    audit.record("agent", pid, {"event": "customer registered its agent on an approved model: key generated, possession proven, agent_identity signed by the customer; no passport until the customer signs its mandate",
                                 "model": a["ref"], "agent_id": agent_id, "agent_kid": ag["kid"], "pop_verified": pop, "config_sha256": ag["config_sha256"]})
     return p
 
@@ -514,8 +514,9 @@ def sign_mandate(passport_id: str, body: MandateIn | None = None):
         raise HTTPException(422, {"message": "mandate outside the policy ceilings", "problems": problems})
     pol = rules.pack()["policy"]
     mp = p["mandate_proposed"]
+    new_id = passport_id.replace("AG-", "AP-")
     payload = {
-        "iss": "northgate-joinery-ltd", "typ": "mandate", "passport_id": passport_id, "iat": crypto.now_ts(), "valid_until": m["valid_until"],
+        "iss": "northgate-joinery-ltd", "typ": "mandate", "passport_id": new_id, "iat": crypto.now_ts(), "valid_until": m["valid_until"],
         "exp": int(datetime.fromisoformat(m["valid_until"] + "T23:59:59+00:00").timestamp()),
         "customer": m["customer"], "authorising_officer": m["authorising_officer"], "signed_by": m["authorising_officer"],
         "provider": mp["provider"], "agent_id": mp["agent_id"], "agent_kid": mp["agent_kid"], "written_by": "customer",
@@ -533,13 +534,15 @@ def sign_mandate(passport_id: str, body: MandateIn | None = None):
     # the customer's signature gives the agent life: the authority's system now issues the passport from the model approval
     p = db.get_passport(passport_id)
     if not p.get("assurance_jwt"):
-        assurance = {**p["assurance"], "iat": crypto.now_ts(), "nbf": crypto.now_ts()}
+        assurance = {**p["assurance"], "jti": new_id, "iat": crypto.now_ts(), "nbf": crypto.now_ts()}
         atoken = crypto.sign_jwt("authority", assurance, typ="assurance+jwt")
         with db.tx() as con:
             con.execute("UPDATE passports SET assurance_jwt=?, assurance_json=?, issued_at=? WHERE passport_id=?", (atoken, __import__("json").dumps(assurance), db.now_iso(), passport_id))
-        p = db.set_passport_status(passport_id, "active", "authority system", "Issued: the customer signed the mandate; assurance signed from the model approval")
-        audit.record("issue", passport_id, {"event": "passport issued: assurance signed automatically from the model approval; registry ACTIVE; envelope complete; live at once",
-                                            "authority_kid": crypto.signer("authority")["kid"], "agent_kid": p["agent"]["kid"], "model": p["assurance"]["model_ref"]["registration"]})
+        if new_id != passport_id:
+            db.rename_passport(passport_id, new_id)
+        p = db.set_passport_status(new_id, "active", "authority system", f"Issued as {new_id}: the customer signed the mandate; assurance signed from the model approval")
+        audit.record("issue", new_id, {"event": "passport issued: assurance signed automatically from the model approval; registry ACTIVE; envelope complete; live at once",
+                                       "agent_record": passport_id, "authority_kid": crypto.signer("authority")["kid"], "agent_kid": p["agent"]["kid"], "model": p["assurance"]["model_ref"]["registration"]})
         p = mirror_on_vouch(p)
     return public_passport(p)
 
@@ -805,8 +808,8 @@ def demo_seed(stage: str = "issued"):
     if stage == "issued":
         decide(a["id"], DecisionIn(decision="approve", note="Baseline: six checks pass, sandbox 5 of 5, condition £5,000.", human_confirm_above=rules.pack()["policy"]["human_confirm_above_gbp"]))
         p = create_agent(AgentIn(application_id=a["id"]))
+        p = sign_mandate(p["passport_id"], MandateIn())
         pid = p["passport_id"]
-        p = sign_mandate(pid, MandateIn())
         out.update({"passport_id": pid, "status": p["status"], "mandate_signed": p["mandate_signed"], "vouch": {"voucher_id": p.get("vouch_voucher_id"), "mode": p.get("vouch_mode")}})
     out["audit_entries"] = len(db.list_audit())
     return out
