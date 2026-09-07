@@ -1181,3 +1181,13 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .prop__cap { font-size: 13px; fill: var(--ink-2); }
 .prop__side rect { fill: var(--panel); stroke: var(--line); }
 @media (max-width: 720px) { .proposal__flow { min-width: 760px; } .home { overflow-x: hidden; } .proposal-wrap { overflow-x: auto; } }
+
+/* standard text smaller; problem diagram only */
+.standard-block .home__lede { font-size: 19px; line-height: 1.4; margin-bottom: 16px; }
+.standard-list { font-size: 16px; }
+.problem__arrow--down { stroke-dasharray: 4 4; }
+.problem__instr rect { fill: var(--panel); stroke: var(--line); stroke-width: 1; }
+.problem__q rect { fill: #fff; stroke: var(--red); stroke-width: 1.5; }
+.problem__ql { font-size: 14px; font-weight: 700; fill: var(--ink); }
+.problem__qa { font-size: 12.5px; fill: var(--red-dark); }
+.problem__t { font-size: 18px; }

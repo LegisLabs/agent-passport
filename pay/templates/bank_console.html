@@ -1,0 +1,43 @@
+<div class="tm" id="tm">
+
+<!-- the arena -->
+<section class="judgment" id="judgment" aria-label="The bank's judgment">
+  <div class="g" id="gauntlet-wrap">
+    <div class="g__bar">
+      <span class="g__subject" id="g-subject"><span class="tm-dim">waiting for an instruction</span></span>
+      <span class="g__meta"><span id="g-count"></span><label class="g__full"><input type="checkbox" id="tm-full"> full-screen</label></span>
+    </div>
+    <ol class="invoice__steps" id="invoice-steps" hidden>
+      <li class="invoice__step" data-step="a"><h3 class="tm-h4">what {{ agent_name }} read</h3><pre class="code code--wrap invoice__text" id="inv-text"></pre><dl class="kv invoice__facts" id="inv-facts"></dl></li>
+      <li class="invoice__step" data-step="b"><h3 class="tm-h4">the instruction it signed</h3><dl class="kv" id="inv-instruction"></dl><div class="chain" id="inv-chain" hidden></div></li>
+    </ol>
+    <ol class="g__cells" id="gauntlet" aria-label="Ordered rule evaluation"></ol>
+    <div class="g__verdict" id="g-verdict"><span class="tm-dim">no verdict yet</span></div>
+    <div class="invoice__outcome" id="invoice-outcome" hidden>
+      <div class="invoice__verdict" data-step="c" id="inv-verdict"></div>
+      <p class="invoice__caption" data-step="d" id="inv-caption"></p>
+      <p class="invoice__contrast" id="inv-contrast" hidden></p>
+    </div>
+    <p class="g__close tm-dim" id="g-close" hidden>click anywhere or press Esc to return</p>
+  </div>
+</section>
+
+<!-- the actions -->
+<section class="acts" id="script" aria-label="Instructions">
+  <div class="acts__top">
+    <div class="acts__btns" id="invoice-buttons"></div>
+    <label class="chain-toggle"><input type="checkbox" id="chain-toggle"> delegation chain</label>
+  </div>
+  <ol class="beats" id="beats"></ol>
+  <div id="chain-beats-wrap" hidden><ol class="beats" id="chain-beats"></ol></div>
+</section>
+
+<!-- the raw response, kept for the record and the tests; not shown -->
+<div hidden>
+  <div class="terminal" id="terminal" role="log" aria-label="Bank gateway decision log"><ol class="terminal__lines" id="term-lines"></ol></div>
+  <ol id="exhaust"></ol>
+  <span id="denies"><i></i><i></i><i></i></span>
+  <ol id="rules"></ol>
+</div>
+
+</div>
