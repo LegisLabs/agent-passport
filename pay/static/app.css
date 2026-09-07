@@ -1228,3 +1228,6 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .standard-row .standard-page { flex: 0 0 340px; max-width: 340px; }
 .standard-row .standard-links { margin: 0; }
 @media (max-width: 720px) { .standard-row { flex-direction: column; align-items: flex-start; } .standard-row .standard-page { flex-basis: auto; } }
+
+.plain-steps { margin: 0; padding: 0 0 0 1.4em; font-size: 19px; line-height: 1.4; }
+.plain-steps li { margin: 0 0 14px; padding-left: .3em; }
