@@ -9,7 +9,6 @@
 <link rel="icon" href="data:,">
 </head>
 <body data-view="{{ view }}">
-<script>try { const s = localStorage.getItem('ap.menu'); if (s === 'hidden' || (s === null && innerWidth < 800)) document.body.classList.add('menu-hidden'); } catch (e) {}</script>
 <a href="#main" class="skip">Skip to main content</a>
 
 <header class="masthead" role="banner">
@@ -18,7 +17,6 @@
       <svg class="masthead__crown" viewBox="0 0 512 512" aria-hidden="true" focusable="false"><g fill="#fff"><circle cx="256" cy="100" r="28"/><circle cx="28" cy="184" r="28"/><circle cx="484" cy="184" r="28"/><path d="M256 122 L342 285 L470 200 L410 385 L256 356 L102 385 L42 200 L170 285 Z"/><path d="M106 405 L256 375 L406 405 L396 436 L256 408 L116 436 Z"/></g></svg>
       <span class="masthead__logotype">GOV<span class="masthead__dot" aria-hidden="true"></span>DEMO</span>
     </a>
-    <button class="masthead__menu" id="menu-toggle" type="button" aria-expanded="true" aria-controls="sidenav">Hide menu</button>
     <span class="masthead__tag">Prototype v{{ version }}</span>
   </div>
 </header>

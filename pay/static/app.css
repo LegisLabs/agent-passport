@@ -861,12 +861,7 @@ body[data-view="bank"] .main { padding-top: 0; }
 body[data-view="bank"] .shell { padding-top: 24px; }
 body[data-view="bank"] .sidenav a { color: #9aa0a3; }
 body[data-view="bank"] .sidenav a[aria-current="page"] { color: var(--term-fg); border-left-color: var(--term-fg); }
-body.menu-hidden .sidenav { display: none; }
-.masthead__menu { margin-left: auto; margin-right: 1.5rem; background: none; border: 0; padding: 0 0 0 1.1rem; position: relative; color: #fff; font: inherit; font-weight: 700; font-size: 1rem; cursor: pointer; }
-.masthead__menu::before { content: ""; position: absolute; left: 0; top: .42em; width: .5em; height: .5em; border: solid #fff; border-width: 0 0 2px 2px; transform: rotate(-45deg); }
-body.menu-hidden .masthead__menu::before { transform: rotate(135deg); top: .3em; }
-.masthead__menu:focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
-@media (max-width: 800px) { .shell { display: block; padding-top: 24px; } .sidenav { margin-bottom: 24px; } .masthead__menu { margin-right: 0; } }
+@media (max-width: 800px) { .shell { display: block; padding-top: 24px; } .sidenav { margin-bottom: 24px; } }
 /* the masthead is the same on every page, including the terminal */
 body[data-view="bank"] .masthead { font-family: var(--font); color: #fff; }
-body[data-view="bank"] .masthead__logotype, body[data-view="bank"] .masthead__menu, body[data-view="bank"] .masthead__tag { color: #fff; font-family: var(--font); }
+body[data-view="bank"] .masthead__logotype, body[data-view="bank"] .masthead__tag { color: #fff; font-family: var(--font); }
