@@ -3,15 +3,15 @@
 {% block content %}
 <div class="grid">
   <div class="col-main">
-    <h1 class="h1">{{ customer }} creates its agent</h1>
-    <p class="lede"><strong>Phase 3</strong> — A model becomes an agent when a customer gives it a mandate. The customer picks an approved model, its agent gets its own key (proof of possession, configuration hash, key custody), and the finance director writes and signs the mandate within the policy ceilings. Live immediately; no authority review. <span class="small">Layer B, principal mandate.</span></p>
+    <h1 class="h1">Register your agent</h1>
+    <p class="lede"><strong>Phase 3</strong> — A model becomes an agent when a customer gives it a mandate. {{ customer }} picks an approved model and registers its agent on it: the agent gets its own key (proof of possession, configuration hash, key custody), and the finance director writes and signs the mandate within the policy ceilings. Live immediately; no authority review. <span class="small">Layer B, principal mandate.</span></p>
 
     <div class="empty" id="cu-empty"><p>No approved model yet. The authority approves models in the <a href="/regulator">Regulator Panel</a>.</p></div>
 
     <div id="cu-create" hidden>
-      <h2 class="h2">1 · Create the agent on an approved model</h2>
+      <h2 class="h2">1 · Register the agent on an approved model</h2>
       <dl class="kv" id="cu-model-kv"></dl>
-      <div class="actions"><select class="input" id="cu-model" aria-label="Approved model"></select><button class="btn" id="btn-create-agent">Create agent</button><span class="actions__note" id="cu-create-note"></span></div>
+      <div class="actions"><select class="input" id="cu-model" aria-label="Approved model"></select><button class="btn" id="btn-create-agent">Register agent</button><span class="actions__note" id="cu-create-note"></span></div>
       <p class="error" id="cu-create-error" hidden></p>
     </div>
 

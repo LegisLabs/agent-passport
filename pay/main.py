@@ -271,7 +271,7 @@ def policy_ceilings() -> dict:
 
 
 def create_agent_on_model(a: dict, deployment: dict) -> dict:
-    """Phase 3, step one: the customer turns an approved model into its agent. Deployment-specific material lives here:
+    """Phase 3, step one: the customer registers its agent on an approved model. Deployment-specific material lives here:
     the agent key pair (demo: kept with the passport), proof of possession by signed challenge, configuration hash, key custody.
     The customer signs agent_identity; the authority's system issues the assurance automatically from the model approval."""
     if a["status"] != "approved" or (a.get("model_status") or "active") != "active":
@@ -321,7 +321,7 @@ def create_agent_on_model(a: dict, deployment: dict) -> dict:
     }
     token = crypto.sign_jwt("authority", assurance, typ="assurance+jwt")
     p = db.create_passport(pid, a["id"], token, assurance, ident_jwt, ident_payload, mandate_proposed, valid_until, config.OFFICER, agent=ag)
-    audit.record("issue", pid, {"event": "customer created its agent on an approved model: key generated, possession proven, agent_identity signed by the customer; assurance issued automatically from the model approval",
+    audit.record("issue", pid, {"event": "customer registered its agent on an approved model: key generated, possession proven, agent_identity signed by the customer; assurance issued automatically from the model approval",
                                 "model": a["ref"], "agent_id": agent_id, "agent_kid": ag["kid"], "pop_verified": pop, "config_sha256": ag["config_sha256"], "authority_kid": crypto.signer("authority")["kid"]})
     return p
 

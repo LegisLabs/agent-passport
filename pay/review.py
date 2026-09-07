@@ -38,7 +38,7 @@ def step_evidence(a: dict) -> dict:
                               "benchmarks": _v(f, "model", "benchmarks_url"), "training_details": _v(f, "model", "training_details_url"), "documentation": _v(f, "model", "documentation_url"),
                               "attested_by": f"{_v(f, 'attestation', 'name')}, {_v(f, 'attestation', 'role')} ({_v(f, 'attestation', 'declaration_ref')}): documentation accuracy only",
                               "intended_use": f"{_v(f, 'intended_use', 'action_type')}: {_v(f, 'intended_use', 'description')}"},
-        "customers_will": {"note": "No customer, no agent, no key at registration. A model becomes an agent when a customer gives it a mandate: the customer creates the agent (own key, proof of possession, configuration hash) and writes and signs its mandate within the policy ceilings."},
+        "customers_will": {"note": "No customer, no agent, no key at registration. A model becomes an agent when a customer gives it a mandate: the customer registers its agent on the model (own key, proof of possession, configuration hash) and writes and signs its mandate within the policy ceilings."},
         "authority_asked_to_certify": {"model_approval": "company identity, attestation, documentation completeness, pinned version, intended use and register uniqueness verified against records",
                                        "policy_ceilings": f"per payment ≤ £{pol['per_payment_ceiling_gbp']:,.0f}; per account in 30 days ≤ £{pol['monthly_per_account_ceiling_gbp']:,.0f}; expiry ≤ {pol['max_validity']}; actions {', '.join(pol['action_types'])}",
                                        "condition_default": float(pol["human_confirm_above_gbp"])},
