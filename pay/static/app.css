@@ -1050,3 +1050,10 @@ body[data-view="bank"] .footer__h, body[data-view="bank"] .footer__list a, body[
 .logos__h { text-align: center; font-size: 27px; font-weight: 700; margin: 8px 0 14px; }
 .logos .marquee__label { text-align: center; font-size: 16px; font-weight: 400; color: var(--ink-2); margin: 0 0 10px; }
 @media (max-width: 720px) { .hero__big { font-size: 26px; } .register__grid { grid-template-columns: minmax(0, 1fr); gap: 24px; } .register__h { font-size: 30px; } .register__claim { font-size: 22px; } }
+
+/* equal slots for every logo */
+.marquee__track { gap: 0; padding-right: 0; }
+.marquee__track img, .marquee__track .marquee__word { width: 220px; flex: 0 0 220px; height: 56px; object-fit: contain; object-position: center; margin: 0 14px; display: flex; align-items: center; justify-content: center; text-align: center; white-space: normal; line-height: 1.1; }
+@media (max-width: 640px) { .marquee__track img, .marquee__track .marquee__word { width: 160px; flex-basis: 160px; height: 44px; margin: 0 10px; } }
+
+.hero__lede a { color: #fff; font-weight: 700; }
