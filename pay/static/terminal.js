@@ -36,8 +36,7 @@ const AT = (() => {
     $('sc-page').dataset.stage = 'doc'; const inv = $(t + '-inv'); inv.style.transform = ''; inv.classList.remove('is-zoom'); $(t + '-wrap').style.height = '';
     root.querySelectorAll('.is-on, .is-scan, .is-type, .is-go').forEach(x => x.classList.remove('is-on', 'is-scan', 'is-type', 'is-go'));
     root.querySelectorAll('input').forEach(i => { i.value = ''; });
-    root.querySelectorAll('.chk li').forEach(li => { li.dataset.state = ''; li.querySelector('em').textContent = ''; });
-    const pay = $('bf-pay'); if (pay) { pay.disabled = true; pay.textContent = 'Confirm payment'; }
+    root.querySelectorAll('.chk li').forEach(li => { li.dataset.state = ''; const e = li.querySelector('em'); if (e) e.textContent = ''; });
     const st = $(t + '-agent-state'); if (st) st.textContent = 'waiting';
     $('sc-page').dataset.state = 'idle';
     on(inv);
@@ -64,25 +63,27 @@ const AT = (() => {
   async function before(my) {
     await opening('before', my); if (my !== token) return;
     on($('before-open')); await wait(600); if (my !== token) return;
-    on($('before-win')); await wait(400); if (my !== token) return;
+    on($('before-win')); on($('bf-in')); await wait(500); if (my !== token) return;
+    on($('bf-form'));
     for (const [id, v] of [['bf-name', 'Fenwick Timber Ltd'], ['bf-sort', '60-11-22'], ['bf-acct', '99887766'], ['bf-amt', '2,500.00'], ['bf-ref', 'INV-9001']]) { await type($(id), v, my); if (my !== token) return; }
-    await wait(300); on($('bf-cop')); await wait(800); if (my !== token) return;
-    const pay = $('bf-pay'); pay.disabled = false; pay.classList.add('is-go'); await wait(900); if (my !== token) return;
-    pay.classList.remove('is-go'); pay.textContent = 'Sent'; on($('bf-done')); await wait(900); if (my !== token) return;
+    await wait(400); on($('bf-chk'));
+    for (const li of $('bf-chk').children) { li.dataset.state = 'checking'; await wait(420); if (my !== token) return; li.dataset.state = 'pass'; await wait(200); }
+    await wait(400); on($('bf-done')); await wait(900); if (my !== token) return;
     on($('bf-stamp')); $('sc-page').dataset.state = 'lost'; await wait(1000); if (my !== token) return;
     on($('before-after'));
   }
 
   async function after(my) {
     const r = live || SEED;
-    $('after-pid').textContent = r.passport_id; $('pp-id').textContent = r.passport_id;
+    $('after-pid').textContent = r.passport_id; $('after-pid2').textContent = r.passport_id; $('pp-id').textContent = r.passport_id;
     $('after-audit').textContent = `#${r.audit_id} ${(r.audit_hash || '').slice(0, 10)}`;
-    $('after-src').textContent = live ? '· live verifier' : '· seeded';
+    $('after-src').textContent = live ? '· live' : '· seeded';
     await opening('after', my); if (my !== token) return;
     on($('after-sign')); await wait(800); if (my !== token) return;
-    on($('after-win')); on($('after-ask')); await wait(900); if (my !== token) return;
-    on($('after-pp')); await wait(1600); if (my !== token) return;
-    on($('after-chk'));
+    on($('after-win')); on($('af-in')); await wait(900); if (my !== token) return;
+    on($('af-call')); await wait(1000); if (my !== token) return;
+    on($('af-back')); on($('after-pp')); await wait(1700); if (my !== token) return;
+    on($('af-run')); on($('after-chk')); await wait(400);
     const byRule = Object.fromEntries(r.trace.map(t => [t[0], t]));
     let stopped = false;
     for (const li of $('after-chk').children) {

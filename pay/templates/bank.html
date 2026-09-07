@@ -8,7 +8,7 @@
 <div class="sc-page" id="sc-page" data-tab="before" data-stage="doc">
 
 <header class="sc-top">
-  <h1 class="sc-title">One invoice. Two worlds.</h1>
+  <h1 class="sc-title">You are the bank.</h1>
   <div class="sc-switch" role="tablist" aria-label="World">
     <button class="sc-switch__b" role="tab" id="tab-before" aria-selected="true" aria-controls="sc-before" type="button">Before the standard</button>
     <button class="sc-switch__b" role="tab" id="tab-after" aria-selected="false" aria-controls="sc-after" type="button">After the standard</button>
@@ -76,29 +76,36 @@
 
   <!-- the bank -->
   <div class="sc-col sc-col--bank">
-    <h2 class="sc-h">The bank</h2>
+    <h2 class="sc-h">At the bank</h2>
     {% if tab == 'before' %}
     <div class="bank" id="before-win">
-      <form class="pay" onsubmit="return false">
+      <p class="bank__in" id="bf-in"><b>Incoming</b> payment instruction · online banking session of Northgate Joinery Ltd</p>
+      <div class="pay" id="bf-form">
         <label>Payee<input id="bf-name" readonly></label>
         <div class="pay__row"><label>Sort code<input id="bf-sort" readonly class="num"></label><label>Account<input id="bf-acct" readonly class="num"></label></div>
         <div class="pay__row"><label>Amount<input id="bf-amt" readonly class="num"></label><label>Reference<input id="bf-ref" readonly class="num"></label></div>
-        <p class="pay__cop" id="bf-cop">Confirmation of Payee: name matches.</p>
-        <button class="pay__btn" id="bf-pay" type="button" disabled>Confirm payment</button>
-      </form>
-      <p class="pay__done" id="bf-done">£2,500 sent to <span class="num">60-11-22 99887766</span>. Irrevocable.</p>
+      </div>
+      <ol class="chk chk--bank" id="bf-chk">
+        <li data-c="auth"><b>1</b><span>Customer session authenticated</span></li>
+        <li data-c="funds"><b>2</b><span>Funds available</span></li>
+        <li data-c="cop"><b>3</b><span>Confirmation of Payee: the name matches the account</span></li>
+      </ol>
+      <p class="pay__done" id="bf-done"><b>Executed.</b> £2,500 to <span class="num">60-11-22 99887766</span>. Faster Payments, irrevocable.</p>
       <p class="stamp" id="bf-stamp">Money gone</p>
     </div>
-    <p class="close" id="before-after">Nobody can say what the agent was allowed to do.</p>
+    <p class="close" id="before-after">The bank could not tell an agent had typed it, or what it was allowed to do.</p>
     {% else %}
     <div class="bank bank--after" id="after-win">
-      <p class="bank__ask" id="after-ask">Asks Agent Passport about <span class="num" id="pp-id">AP-2026-0107</span> <span class="bank__src" id="after-src"></span></p>
+      <p class="bank__in" id="af-in"><b>Incoming</b> signed payment instruction · passport <span class="num" id="after-pid2">AP-2026-0107</span></p>
+      <p class="bank__call" id="af-call"><b>Bank calls the registry</b> <span class="num">GET /api/status/<span id="pp-id">AP-2026-0107</span></span> <span class="bank__src" id="after-src"></span></p>
+      <p class="bank__back" id="af-back"><b>Registry answers</b> active · the passport:</p>
       <dl class="pp" id="after-pp">
         <div><dt>Model</dt><dd id="pp-model">PayGPT 6.0, approved once by the authority</dd></div>
         <div><dt>Mandate</dt><dd id="pp-mandate">Signed by Helen Marsh, Finance Director</dd></div>
         <div><dt>May pay</dt><dd>Fenwick Timber Ltd <span class="num">60-11-22 10101010</span> · Ashby Ironmongery · Coastline Glass</dd></div>
         <div><dt>Limits</dt><dd id="pp-scope">£10,000 a payment · £20,000 an account a month</dd></div>
       </dl>
+      <p class="bank__back" id="af-run"><b>Bank checks the instruction against it</b></p>
       <ol class="chk" id="after-chk">
         <li data-c="R.1"><b>R.1</b><span>Authority signature</span><em></em></li>
         <li data-c="R.2"><b>R.2</b><span>Registry status</span><em></em></li>
