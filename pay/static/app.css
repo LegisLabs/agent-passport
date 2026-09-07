@@ -1140,3 +1140,44 @@ body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8)
 .standard-page:hover { border-color: var(--ink); }
 .hero__lede a { border-bottom: 0; }
 @media (max-width: 720px) { .standard-grid { grid-template-columns: minmax(0, 1fr); } .standard-page { max-width: 320px; } }
+
+/* the problem, visualised */
+.problem { margin: 8px 0 24px; }
+.problem__flow { width: 100%; height: auto; display: block; font-family: var(--font); }
+.problem__node rect { fill: #fff; stroke: var(--ink); stroke-width: 2; }
+.problem__node--agent rect { fill: var(--blue); stroke: var(--blue); }
+.problem__node--agent .problem__t, .problem__node--agent .problem__s { fill: #fff; }
+.problem__node--out rect { fill: var(--red-soft); stroke: var(--red); }
+.problem__t { font-size: 20px; font-weight: 700; fill: var(--ink); }
+.problem__s { font-size: 14px; fill: var(--ink-2); }
+.problem__arrow { stroke: var(--ink); stroke-width: 2; }
+.problem__cap { font-size: 15px; fill: var(--ink-2); }
+.problem__qs { list-style: none; margin: 24px 0 0; padding: 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 24px 40px; counter-reset: q; }
+.problem__qs li { border-top: 2px solid var(--ink); padding-top: 12px; counter-increment: q; }
+.problem__qs li::before { content: counter(q); display: block; font-size: 14px; color: var(--ink-2); margin-bottom: 6px; }
+.problem__qs span { display: block; font-size: 24px; font-weight: 700; line-height: 1.15; margin-bottom: 8px; }
+.problem__qs small { display: block; font-size: 16px; color: var(--ink-2); line-height: 1.4; }
+@media (max-width: 720px) { .problem__qs { grid-template-columns: minmax(0, 1fr); } .problem__flow { min-width: 640px; } .problem { overflow-x: auto; } }
+
+.standard-links { margin-top: 16px; }
+.vouch__h { display: flex; align-items: center; gap: 12px; }
+.vouch__logo { display: inline-flex; align-items: center; gap: 8px; color: var(--ink); text-decoration: none; }
+.vouch__logo img { width: 40px; height: 35px; }
+.vouch__logo span { font-weight: 700; }
+
+/* our proposal, visualised */
+.proposal__flow { width: 100%; height: auto; display: block; font-family: var(--font); margin: 8px 0 24px; }
+.prop__step rect { fill: #fff; stroke: var(--ink); stroke-width: 2; }
+.prop__step--bank rect { fill: var(--blue); stroke: var(--blue); }
+.prop__step--bank .prop__t, .prop__step--bank .prop__s { fill: #fff; }
+.prop__n { font-size: 14px; fill: var(--ink-2); }
+.prop__t { font-size: 19px; font-weight: 700; fill: var(--ink); }
+.prop__s { font-size: 13.5px; fill: var(--ink-2); }
+.prop__arrow { stroke: var(--ink); stroke-width: 2; }
+.prop__out text { font-size: 15px; font-weight: 700; letter-spacing: .04em; }
+.prop__out--allow rect { fill: var(--green-soft); } .prop__out--allow text { fill: var(--green-dark); }
+.prop__out--esc rect { fill: var(--amber-soft); } .prop__out--esc text { fill: var(--amber-ink); }
+.prop__out--deny rect { fill: var(--red-soft); } .prop__out--deny text { fill: var(--red-dark); }
+.prop__cap { font-size: 13px; fill: var(--ink-2); }
+.prop__side rect { fill: var(--panel); stroke: var(--line); }
+@media (max-width: 720px) { .proposal__flow { min-width: 760px; } .home { overflow-x: hidden; } .proposal-wrap { overflow-x: auto; } }
