@@ -1,29 +1,38 @@
 {% extends "base.html" %}
 {% block title %}Agent Passport{% endblock %}
 {% block hero %}
-<section class="hero hero--split">
-  <div class="wrap hero__grid">
-    <div>
-      <h1 class="h1 hero__h1">Know the agent before it pays.</h1>
-      <p class="hero__lede">Every payment an AI agent makes should be one a person already approved. The authority approves the model once. The customer signs the mandate. The bank checks every payment against it.</p>
-      <p class="hero__actions"><a class="btn btn--inverse btn--start" href="/customer">Register your agent <span class="btn__arrow" aria-hidden="true"></span></a><a class="hero__link" href="/about">How it works</a></p>
-    </div>
-    <figure class="hero__photo"><img src="/static/photos/boe.jpg" alt="The Bank of England and the City of London" width="1920" height="1291"><figcaption>Photo: It's No Game, CC BY 2.0</figcaption></figure>
+<section class="hero hero--big">
+  <div class="wrap">
+    <p class="hero__big"><span class="hero__k">The problem.</span> Businesses now hand their invoices to software that reads, decides and pays. The oldest fraud in payments, an authorised payment to the wrong account, has found a machine that never hesitates. And when it goes wrong, nobody can prove what the agent was allowed to do.</p>
+    <p class="hero__big"><span class="hero__k">The standard.</span> An authority approves the model once. The customer signs the mandate. The bank checks both before a single payment leaves. Every decision is signed. Every decision can be replayed. We call it APS 1001.</p>
   </div>
 </section>
-<section class="logos" aria-label="Hackathon organisers, partners and supporters">
+<section class="register" aria-labelledby="register-h">
+  <div class="wrap register__grid">
+    <div>
+      <h2 class="h2 register__h" id="register-h">Register an agent</h2>
+      <p class="register__lede">Money has always moved on trust: between people, between institutions, between a signature and the bank that honours it. AI agents are about to move money too, and they deserve nothing less. Agent Passport gives every agent an authority that approved its model, a mandate its customer signed, and a bank that checks both before a single payment leaves.</p>
+      <p class="register__claim">We are not building a product. We are proposing a standard.</p>
+      <p class="hero__actions register__actions"><a class="btn btn--start" href="/provider">Register an agent <span class="btn__arrow" aria-hidden="true"></span></a><a class="register__link" href="/static/APS_1001.pdf">Read APS 1001 (PDF)</a><a class="register__link" href="/about">How it works</a></p>
+    </div>
+    <figure class="hero__photo register__photo"><img src="/static/photos/boe.jpg" alt="The Bank of England and the City of London" width="1920" height="1291"><figcaption>Photo: It's No Game, CC BY 2.0</figcaption></figure>
+  </div>
+</section>
+<section class="logos" aria-labelledby="logos-h">
+  <div class="wrap">
+  <h2 class="logos__h" id="logos-h">Hackathon partners</h2>
   {% for row in logo_rows %}
   <div class="marquee" style="--dur: {{ row.speed }}s">
-    <div class="marquee__track">{% for _ in range(2) %}{% for it in row.logos %}{% if it.img %}<img src="{{ it.img }}" alt="{{ it.alt }}" height="{{ it.h or 48 }}">{% else %}<span class="marquee__word">{{ it.text }}</span>{% endif %}{% endfor %}{% endfor %}</div>
+    <h3 class="marquee__label">{{ row.label }}</h3>
+    <div class="marquee__clip"><div class="marquee__track">{% for _ in range(2) %}{% for it in row.logos %}{% if it.img %}<img src="{{ it.img }}" alt="{{ it.alt }}" height="{{ it.h or 56 }}">{% else %}<span class="marquee__word">{{ it.text }}</span>{% endif %}{% endfor %}{% endfor %}</div></div>
   </div>
   {% endfor %}
-  <p class="wrap small logos__note">Finalist, C:\&gt;DIR Global 'Agentic Regulator' Hackathon, Know Your Agent track. Organisers, partners and supporters of the hackathon; not an endorsement.</p>
+  </div>
 </section>
 {% endblock %}
 {% block content %}
 <div class="home">
-  <h2 class="h2">The problem</h2>
-  <p class="home__lede">Businesses are handing their invoices to AI agents. The agents read, decide and pay. The oldest fraud in payments, an authorised payment to the wrong account, now has a machine to exploit.</p>
+  <h2 class="h2">The numbers</h2>
   <div class="charts">
     <div><svg class="chart" viewBox="0 0 440 230" role="img" aria-label="Authorised push payment fraud, UK: 2021 £583m, 2022 £485m, 2023 £460m, 2024 £451m, 2025 £576m">
 <text x="0" y="14" class="chart__title">Authorised push payment fraud, UK</text>
@@ -84,7 +93,7 @@
   </div>
   <dl class="facts">
     <div><dt>4 of 26</dt><dd>AI models tricked by hidden text into paying. <a href="https://www.securityweek.com/prompt-injection-attacks-trick-ai-agents-into-making-crypto-payments/">SecurityWeek</a></dd></div>
-    <div><dt>$15tn</dt><dd>of B2B purchases via AI agents by 2028. <a href="https://www.digitalcommerce360.com/2025/11/28/gartner-ai-agents-15-trillion-in-b2b-purchases-by-2028/">Gartner</a></dd></div>
+    <div><dt>$250,000</dt><dd>moved by prompt-injected transfers in one financial case before detection. <a href="https://www.forbes.com/sites/bernardmarr/2026/01/28/when-ai-agents-turn-against-you-the-prompt-injection-threat-every-business-leader-must-understand/">Forbes</a></dd></div>
     <div><dt>86%</dt><dd>of BEC losses left by wire, gone before a check. <a href="https://www.ic3.gov/AnnualReport/Reports/2025_IC3Report.pdf">FBI IC3</a></dd></div>
     <div><dt>Rec. 10</dt><dd>HM Treasury, July 2026: a Know Your Agent standard, high priority. <a href="https://www.gov.uk/government/consultations/modernising-payment-services-regulation/modernising-payment-services-regulation-consultation">GOV.UK</a></dd></div>
   </dl>
@@ -96,6 +105,26 @@
     <li><a href="https://www.ukfinance.org.uk/news-and-insight/press-release/fraud-report-2026-press-release">Criminals steal almost £1.3 billion</a><span>UK Finance · June 2026 · APP losses up 19%</span></li>
   </ul>
 
+</div>
+{% endblock %}
+{% block after %}
+<section class="vouch" aria-labelledby="vouch-h">
+  <div class="wrap vouch__grid">
+    <div class="vouch__brand"><img src="/static/logos/vouch.svg" alt="" width="46" height="40"><span>vouch.finance</span></div>
+    <div>
+      <h2 class="h2" id="vouch-h">Built on vouch.finance</h2>
+      <p class="vouch__lede">A passport is a promise. vouch.finance is where the promise becomes money that can only be spent the way it was promised. Every mandate a customer signs is minted as an AI Voucher on the vouch rail: purpose-bound value that carries the agent's limits, its payees and its passport identifier.</p>
+      <ul class="vouch__list">
+        <li><strong>Minted at signing.</strong> The voucher is created the moment the passport is issued, with the customer's limits as its policy.</li>
+        <li><strong>Two rails, one answer.</strong> The bank runs the nine checks; the vouch policy engine authorises the settlement. A refusal on one is a refusal on both.</li>
+        <li><strong>Revoked in seconds.</strong> Suspend or revoke a passport and the voucher is revoked with it. The next instruction fails on every rail.</li>
+        <li><strong>Replayed against the kits.</strong> The kya-licence and agent-mandate kits replay through the same engine, with every decline a cited rule.</li>
+      </ul>
+      <p class="vouch__links"><a href="/regulator">See the rail on a live passport</a> · <a href="https://vouch.finance">vouch.finance</a></p>
+    </div>
+  </div>
+</section>
+<div class="wrap home">
   <p class="live" id="live" hidden></p>
   <p class="small">A design prototype of a proposed assurance framework. Not a current legal requirement. <a href="/about">How it works</a></p>
 </div>
