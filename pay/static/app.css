@@ -1132,3 +1132,11 @@ body[data-view="bank"] .powered-badge { background: #fff; color: var(--ink); fon
 body[data-view="bank"] .powered-badge { background: transparent; color: #9aa0a3; }
 body[data-view="bank"] .powered-badge span, body[data-view="bank"] .powered-badge strong { color: #9aa0a3; }
 body[data-view="bank"] .powered-badge img { filter: grayscale(1) brightness(1.8); }
+
+/* the standard: text left, first page right */
+.standard-grid { display: grid; grid-template-columns: minmax(0, 1.25fr) minmax(0, .75fr); gap: 40px; align-items: start; }
+.standard-page { display: block; border: 1px solid var(--line); box-shadow: 0 2px 8px rgba(0,0,0,.12); background: #fff; }
+.standard-page img { display: block; width: 100%; height: auto; }
+.standard-page:hover { border-color: var(--ink); }
+.hero__lede a { border-bottom: 0; }
+@media (max-width: 720px) { .standard-grid { grid-template-columns: minmax(0, 1fr); } .standard-page { max-width: 320px; } }
