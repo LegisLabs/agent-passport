@@ -51,9 +51,8 @@ const AT = (() => {
   async function opening(t, my) {
     on($(t + '-inv')); await wait(500); if (my !== token) return;
     // a beat for the person: the changed bank details step forward, readable, before the agent gets the document
-    const notice = $(t + '-inv').querySelector('.sheet__notice'), flag = notice.querySelector('[data-flag="details"]');
-    notice.classList.add('is-spot'); await wait(900); if (my !== token) return;
-    on(flag); await wait(2600); if (my !== token) return;
+    const notice = $(t + '-inv').querySelector('.sheet__notice');
+    notice.classList.add('is-spot'); await wait(3000); if (my !== token) return;
     notice.classList.remove('is-spot'); await wait(500); if (my !== token) return;
     await toPath(t, my); if (my !== token) return; await wait(200);
     if (t === 'after') { on($('after-intent')); await wait(1100); if (my !== token) return; }
