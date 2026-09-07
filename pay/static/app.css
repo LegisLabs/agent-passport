@@ -668,3 +668,19 @@ abbr[title] { text-decoration: underline dotted; cursor: help; }
 .shell { display: block; } .sidebar { display: none; }
 .main { padding-top: 1.5rem; }
 @media (max-width: 800px) { .masthead__row { padding: 15px 15px 16px; } .wrap { margin: 0; padding: 0 15px; } }
+
+/* align with gov.uk/personal-tax-account: 960px container, header 61px, main 40px below, h1 48/50 */
+.wrap { max-width: 960px; padding: 0; margin: 0 auto; }
+.masthead__row { max-width: 960px; padding: 15px 0 16px; margin: 0 auto; }
+@media (max-width: 1020px) { .wrap, .masthead__row { margin: 0 30px; padding-left: 0; padding-right: 0; } }
+@media (max-width: 640px) { .wrap, .masthead__row { margin: 0 15px; } }
+@media (max-width: 800px) { .masthead__row { padding: 15px 0 16px; } .wrap { padding: 0; } }
+.tabs__tab { padding: 14px 0 12px; margin-right: 1.6rem; font-size: 19px; background: transparent; }
+.tabs__tab:hover { background: transparent; border-bottom-color: var(--line); }
+.tabs__tab[aria-current="page"] { background: transparent; color: var(--blue); border-bottom-color: var(--blue); }
+.tabs__tab--about { margin-right: 0; }
+.main { padding-top: 40px; }
+.h1 { font-size: 48px; line-height: 50px; font-weight: 700; margin: 0 0 30px; letter-spacing: 0; }
+@media (max-width: 640px) { .h1 { font-size: 32px; line-height: 35px; margin-bottom: 20px; } }
+.grid--wide { grid-template-columns: minmax(0, 1fr) 360px; }
+@media (max-width: 900px) { .grid--wide { grid-template-columns: minmax(0, 1fr); } }
