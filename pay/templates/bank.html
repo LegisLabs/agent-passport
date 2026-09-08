@@ -26,10 +26,10 @@
 
   <div id="bd-trail-page">
     <section class="bd-panel bd-trail" id="bd-trail" aria-labelledby="bd-trail-h">
-      <h2 class="ws-h" id="bd-trail-h">Activity <span class="ws-h__meta">every event today, in order and hash-chained; open an instruction for the full record</span></h2>
-      <p class="au-summary" id="au-summary"></p>
-      <div class="actions"><button class="btn btn--secondary btn--small" id="btn-replay-all" type="button">Replay every verification</button><span class="actions__note" id="replay-note"></span><span class="actions__note" id="au-evidence"></span></div>
-      <div class="dash-wrap bd-trail__wrap"><table class="checks audit" id="au-table"><thead><tr><th>Time</th><th>What happened</th><th>Customer · AI agent</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
+      <h2 class="ws-h" id="bd-trail-h">Activity <span class="ws-h__meta">every payment instruction today and why it was processed, held or refused; open a row for the checks</span></h2>
+      <p class="au-summary" id="au-summary" hidden></p>
+      <div class="actions" hidden><button class="btn btn--secondary btn--small" id="btn-replay-all" type="button">Replay every verification</button><span class="actions__note" id="replay-note"></span><span class="actions__note" id="au-evidence"></span></div>
+      <div class="dash-wrap bd-trail__wrap"><table class="checks audit bk-act" id="au-table"><thead><tr><th>Time</th><th>Customer · AI agent</th><th>Payee</th><th class="num">Amount</th><th>Status</th><th>Why</th></tr></thead><tbody></tbody></table></div>
     </section>
   </div>
   <div id="bk-page-overview">

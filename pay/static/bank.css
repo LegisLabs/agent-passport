@@ -525,3 +525,12 @@ body:not([data-bkpage="add-product"]) #bk-page-add-product { display: none; }
 body[data-bkpage="add-product"] #bk-page-overview, body[data-bkpage="add-product"] #bk-page-products, body[data-bkpage="add-product"] #bd-trail-page, body[data-bkpage="add-product"] #bk-page-agents { display: none; }
 .bk-form-page { max-width: 34rem; }
 .fx .ws-h__meta .btn { vertical-align: middle; }
+/* activity: past transactions with a plain reason */
+.fx .bk-act th:nth-child(3), .fx .bk-act td:nth-child(3) { white-space: normal; }
+.fx .bk-act td { vertical-align: top; }
+.fx .bk-act .bk-why { max-width: 34rem; line-height: 1.45; color: var(--fx-ink-2); }
+.fx .bk-act .bk-why b { color: var(--fx-ink); }
+.fx .bk-act td:nth-child(2), .fx .bk-act td:nth-child(3) { white-space: nowrap; }
+.fx .bk-act td.num { white-space: nowrap; font-weight: 700; }
+.fx .bk-act td:last-child { white-space: normal; }
+body[data-bkpage="activity"] #au-table tbody tr:nth-child(n+11) { display: table-row; }

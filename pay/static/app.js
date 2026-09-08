@@ -375,19 +375,51 @@ const AP = (() => {
     // the evidence trail: every chain entry, verifications replayable from their recorded inputs
     let trailRun = 0, trailSame = 0, trailBound = false; const trailState = {};
     async function replayOne(id) { const rp = await api('POST', `/api/audit/${id}/replay`); trailRun++; if (rp.identical) trailSame++; trailState[id] = rp.identical ? 'same' : 'differs'; }
+    // the reason in plain words: what the bank checked and where it stopped
+    function whyPlain(r) {
+      const e = r.entry || {}, i = e.instruction || {}; const amt = gbp(i.amount), sup = esc(i.supplier_name || 'the payee'), acct = esc(i.payee_account_ref || '');
+      const m = (() => { const x = issued().find(y => y.passport_id === r.subject); const ad = x ? (((x.mandate || x.mandate_proposed || {}).authorization_details) || [{}])[0] : {}; return { per: (ad.per_payment_limit || {}).amount, monthly: (ad.monthly_limit_per_account || {}).amount, cur: ad.currency || 'GBP', perDay: ad.max_payments_per_day }; })();
+      const hold = (() => { const x = issued().find(y => y.passport_id === r.subject); return x ? (((x.admission || {}).condition || {}).hold_above || {}).amount : null; })();
+      const dd = decisionFor(r.id);
+      const later = dd ? (dd.entry.outcome === 'RELEASED' ? ` <b>Then released by ${esc((dd.entry.approver || {}).name || dd.entry.officer || 'a person')}</b> and paid.` : ` <b>Then refused by ${esc((dd.entry.approver || {}).name || dd.entry.officer || 'a person')}</b>; nothing moved.`) : '';
+      if (e.decision === 'ALLOW') return `<b>Processed.</b> All nine checks passed: the passport is active, the instruction is signed by this agent's own key, ${sup} is on the customer's mandate, and ${amt} is within the ${gbp(m.per)} per-payment limit and the ${gbp(m.monthly)} 30-day limit for that account.`;
+      if (e.decision === 'ESCALATE') {
+        if (e.code === FIRST) return `<b>Held for the customer.</b> Everything checked out, but this is the first payment under the customer's current mandate, so the customer confirms it once in its banking app before it goes.${later}`;
+        return `<b>Held for a person.</b> Everything checked out, but ${amt} is above the bank's ${gbp(hold)} hold condition for this product, so a named person decides.${later}`;
+      }
+      const stop = `<b>Refused at ${esc(e.rule)}.</b> `;
+      switch (e.code) {
+        case 'PAYEE_NOT_ON_MANDATE': return stop + `The account ${acct} is not on the customer's mandate. The name ${sup} matched a supplier the customer uses, but the money would have gone to an account the customer never signed for. Nothing moved; a fraud indicator for the risk team.`;
+        case 'REPLAY_DETECTED': return stop + `This exact signed instruction had already been accepted once. Presenting it again is a replay, so it was not paid twice. Nothing moved.`;
+        case 'AGENT_SIGNATURE_INVALID': return stop + `The instruction was not signed by this agent's own key. A copied passport without the key cannot pay. Nothing moved.`;
+        case 'CURRENCY_NOT_PERMITTED': return stop + `The mandate allows ${esc(m.cur)} only; this instruction was in ${esc(i.currency || '')}. Nothing moved; the agent's own error, not fraud.`;
+        case 'OUT_OF_SCOPE': return stop + `The mandate allows paying invoices only; "${esc(i.action_type || '')}" is not an action the customer granted. Nothing moved.`;
+        case 'PER_PAYMENT_LIMIT_EXCEEDED': return stop + `${amt} is above the ${gbp(m.per)} per-payment limit the customer set. Nothing moved; the agent's own error, not fraud.`;
+        case 'MONTHLY_LIMIT_EXCEEDED': return stop + `With ${amt}, the 30-day total to ${sup} would pass the ${gbp(m.monthly)} limit the customer set for that account. Nothing moved.`;
+        case 'DAILY_COUNT_EXCEEDED': return stop + `The mandate allows ${esc(String(m.perDay || ''))} payments a day and this would be one more. Nothing moved.`;
+        case 'MANDATE_REVOKED': return stop + `The customer revoked this agent's mandate; it can no longer pay. Nothing moved.`;
+        case 'MANDATE_EXPIRED': return stop + `The mandate has expired. Nothing moved.`;
+        case 'MANDATE_NOT_SIGNED': return stop + `The customer has not signed a mandate for this agent yet. Nothing moved.`;
+        case 'PASSPORT_NOT_ACTIVE': return stop + `The passport is not active on the bank's list (suspended or revoked). Nothing moved.`;
+        default: return stop + esc(e.reason || '') + '. Nothing moved.';
+      }
+    }
     function renderTrail(data) {
       const tb = $('au-table').querySelector('tbody'); tb.innerHTML = '';
       $('au-summary').innerHTML = `<b>${data.rows.length}</b> entries · chain ${data.chain.ok ? '<b class="ok">intact</b>' : `<b class="bad">broken at #${data.chain.broken_at}</b>`} · head <span class="mono">${esc((data.chain.head || '').slice(0, 12))}</span>${trailRun ? ` · <b class="${trailSame === trailRun ? 'ok' : 'bad'}">${trailSame} of ${trailRun}</b> replayed identically` : ''}`;
       const subjects = [...new Set(data.rows.filter(r => r.subject && r.subject.startsWith('AP-')).map(r => r.subject))];
       $('au-evidence').innerHTML = subjects.map(s => `<a href="/api/evidence/passports/${esc(s)}" target="_blank" rel="noopener">Export the evidence bundle for ${esc(s)}</a>`).join(' · ');
       const vById = {}; (state.violations || []).forEach(x => { if (x.audit_id) vById[x.audit_id] = x; });
-      data.rows.slice(0, 300).forEach(r => {
-        const who = r.subject && (r.subject.startsWith('AP-') || r.subject.startsWith('AG-')) ? `<span class="bd-log__cust">${esc(customerName(r.subject.replace('AG-', 'AP-')))}</span><span class="small bd-log__agent">${esc(agentName(r.subject.replace('AG-', 'AP-')))}</span>` : `<span class="small">${esc(r.subject || '')}</span>`;
-        const tr = el('tr', r.kind === 'verify' ? 'bd-log__row' : null, `<td class="mono small">${t(r.ts)}</td><td>${plainEvent(r)}</td><td>${who}</td><td class="small" id="au-r-${r.id}"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}${r.kind === 'verify' && !r.synthetic ? (trailState[r.id] ? ` · <span class="${trailState[r.id] === 'same' ? 'ok' : 'bad'}">${trailState[r.id] === 'same' ? 'replayed identically' : 'REPLAY DIFFERS'}</span>` : ` · <button class="link" data-replay="${r.id}" type="button">replay</button>`) : ''}</td>`);
-        if (r.kind === 'verify') { tr.tabIndex = 0; tr.setAttribute('role', 'button'); tr.setAttribute('aria-expanded', String(expandedTrail === r.id)); const open = () => { expandedTrail = expandedTrail === r.id ? null : r.id; renderTrail(data); }; tr.onclick = (ev) => { if (ev.target.closest('a, button')) return; open(); }; tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } }; }
+      const rowsV = data.rows.filter(r => r.kind === 'verify').slice(0, 300);
+      rowsV.forEach(r => {
+        const e = r.entry || {}, i = e.instruction || {};
+        const who = `<span class="bd-log__cust">${esc(customerName(r.subject))}</span><span class="small bd-log__agent">${esc(agentName(r.subject))}</span>`;
+        const tr = el('tr', 'bd-log__row', `<td class="mono small">${t(r.ts)}</td><td>${who}</td><td>${esc(i.supplier_name || '')}<br><span class="mono small">${esc(i.payee_account_ref || '')}</span></td><td class="num mono">${gbp(i.amount)}</td><td>${statusCell(r)}</td><td class="bk-why">${whyPlain(r)}</td>`);
+        tr.tabIndex = 0; tr.setAttribute('role', 'button'); tr.setAttribute('aria-expanded', String(expandedTrail === r.id)); const open = () => { expandedTrail = expandedTrail === r.id ? null : r.id; renderTrail(data); }; tr.onclick = (ev) => { if (ev.target.closest('a, button')) return; open(); }; tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } };
         tb.append(tr);
-        if (r.kind === 'verify' && expandedTrail === r.id) tb.append(el('tr', 'bd-detail', `<td colspan="4">${detailHtml(r, vById[r.id])}</td>`));
+        if (expandedTrail === r.id) tb.append(el('tr', 'bd-detail', `<td colspan="6">${detailHtml(r, vById[r.id])}</td>`));
       });
+      if (!rowsV.length) tb.append(el('tr', null, '<td colspan="6" class="empty-row">No payment instruction yet today.</td>'));
       if (!trailBound) {
         trailBound = true;
         tb.addEventListener('click', async (e) => { const b = e.target.closest('[data-replay]'); if (b) { await replayOne(+b.dataset.replay); renderTrail({ rows: auditRows, chain: data.chain }); } });
