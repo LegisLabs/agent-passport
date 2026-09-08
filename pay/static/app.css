@@ -1751,3 +1751,4 @@ p.rec__foot { display: block; margin: 0; padding-top: 12px; font-size: .9rem; co
 .bd-trail__wrap { max-height: 60vh; overflow: auto; }
 .bd-trail .au-summary { margin: 0 0 .4rem; }
 .bd-trail .actions { margin: .4rem 0 .8rem; }
+.bd-att .bd-detail td, .bd-log .bd-detail td { white-space: normal; }

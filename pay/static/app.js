@@ -379,7 +379,7 @@ const AP = (() => {
       await refresh();
     }
     document.addEventListener('click', (ev) => {
-      const arm = ev.target.closest('[data-decide]'); if (arm) { ev.stopPropagation(); pendingDecide = { audit: +arm.dataset.audit, decision: arm.dataset.decide }; expandedAtt = +arm.dataset.audit; renderDash().then(() => { const c = document.querySelector('.bd-confirm'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); return; }
+      const arm = ev.target.closest('[data-decide]'); if (arm) { ev.stopPropagation(); pendingDecide = { audit: +arm.dataset.audit, decision: arm.dataset.decide }; expandedAtt = +arm.dataset.audit; renderDash().then(() => { const c = document.querySelector('.bd-confirm'); if (c) { const rc = c.getBoundingClientRect(); window.scrollBy({ top: rc.top - window.innerHeight / 2 + rc.height / 2, behavior: 'smooth' }); } }); return; }
       const go = ev.target.closest('[data-confirm]'); if (go && !go.disabled) { ev.stopPropagation(); go.disabled = true; decideHeld(+go.dataset.audit, go.dataset.confirm); return; }
       const cancel = ev.target.closest('[data-cancel-decide]'); if (cancel) { ev.stopPropagation(); pendingDecide = null; renderDash(); return; }
       const all = ev.target.closest('[data-log-all]'); if (all) { ev.stopPropagation(); logAll = true; renderLog(auditRows.filter(r => r.kind === 'verify'), state.violations || []); }
