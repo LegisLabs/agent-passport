@@ -385,3 +385,31 @@ body[data-view="customer"] ::-webkit-scrollbar-track, body[data-view="bank"] ::-
   .fx .bd-att tr.bd-att__row td:nth-child(6) .btn { flex: 1 1 auto; justify-content: center; }
 }
 @media (prefers-reduced-motion: reduce) { .fx .btn, .fx-nav a, .fx-nav button, .fx .acct__tab { transition: none; } }
+
+/* ── simplified: the app card runs the full page, columns stretch, each component keeps only what a person needs ── */
+.fx { min-height: calc(100vh - 3.5rem - 58px); display: flex; flex-direction: column; }
+.fx > .fx-grid, .fx > #ac-live { flex: 1 0 auto; }
+.fx #ac-live { display: flex; flex-direction: column; } .fx #ac-live > .fx-grid { flex: 1 0 auto; }
+.fx-grid, .fx .fx-grid.bd-cols, .fx .fx-grid.cu-split { align-items: stretch; }
+.fx-col { display: flex; flex-direction: column; }
+.fx-col > * { flex: 0 0 auto; }
+.fx-col > .glass, .fx-col > .pane, .fx-col > .cu-notify, .fx-col > .bd-attention, .fx-col > .bd-stats, .fx-col > .bd-col--log { flex: 1 1 auto; }
+.fx .glass, .fx .pane, .fx .bd-panel, .fx .cu-notify { display: flex; flex-direction: column; }
+.fx .glass > *, .fx .pane > *, .fx .bd-panel > *, .fx .cu-notify > * { flex: 0 0 auto; }
+.fx .cu-trail-wrap, .fx .bd-col--log .dash-wrap, .fx .bd-trail__wrap, .fx #cu-agents, .fx #bk-agents, .fx .cu-notes { flex: 1 1 auto; }
+.fx .cu-trail-wrap { max-height: none; } .fx #bd-recent:not(.bd-col--full) .dash-wrap { max-height: none; }
+/* customer */
+.fx #cu-trail-hint, .fx .cu-note__sub, .fx #fx-cu-stats li:nth-child(2), .fx #fx-cu-stats li:nth-child(4) { display: none; }
+.fx #ac-audit th:nth-child(3), .fx #ac-audit td:nth-child(3) { display: none; }
+.fx #cu-legend { order: 9; margin: 12px 0 0; font-size: .75rem; color: var(--fx-ink-3); }
+.fx-hello small { display: none; }
+/* bank */
+.fx #bd-seam, .fx #bk-stats li:nth-child(5), .fx #bk-stats li:nth-child(6), .fx #bd-stats-totals li:nth-child(2), .fx #bd-stats-totals li:nth-child(4), .fx #bd-stats-totals li:nth-child(6), .fx .bd-stats__note, .fx #bd-log-hint, .fx #bd-legend { display: none; }
+.fx .bd-log thead th:nth-child(6), .fx .bd-log tr.bd-log__row > td:nth-child(6) { display: none; }
+.fx .bd-log tr.bd-log__row > td:nth-child(3) br, .fx .bd-log tr.bd-log__row > td:nth-child(3) .mono.small:last-child { display: none; }
+.fx #au-table th:nth-child(3), .fx #au-table td:nth-child(3) { display: none; }
+.fx .bd-stats .chartbox { height: 190px; }
+.fx .bd-stats__agents { display: none; }
+.fx #bk-supervisory > p { display: none; }
+.fx .fx-channel .bd-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+@media (max-width: 899px) { .fx { min-height: 0; } .fx-col { display: grid; } }
