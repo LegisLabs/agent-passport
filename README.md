@@ -213,10 +213,10 @@ Docker Compose on a single host; Caddy terminates TLS. The publish script rsyncs
 | Caddy 2, Docker | Reverse proxy and containers (deployment only) | Apache-2.0 |
 | vouch.finance hackathon sandbox | Voucher rail (optional) | Hackathon sandbox terms |
 | Companies House Public Data API | Payee and provider register check (optional) | Companies House API terms; data under the Open Government Licence v3 |
-| Photo `pay/static/photos/cambridge-kings.jpg` | Landing hero (King's College Chapel, Cambridge) | Supplied by the team; licence to be confirmed before publication |
+| Photo `pay/static/photos/cambridge-kings.jpg` | Landing hero (King's College Chapel, Cambridge) | Team photograph, used with the photographer's permission; not covered by the MIT licence |
 | Partner logos in `pay/static/logos/` | Hackathon partners strip | Trademarks of their owners, shown as hackathon partners; no endorsement implied |
 
-Everything else in this repository was written by the team during the hackathon. Legis Labs Ltd retains the intellectual property; the organisers hold the licence set out in the participant guide to review, publish and showcase the submission. No open-source licence has been attached yet.
+Everything else in this repository was written by the team during the hackathon and is released under the MIT licence (see [LICENSE](LICENSE)); the fixtures, the standard and the partner logos are excluded as noted. Legis Labs Ltd retains the intellectual property; the organisers hold the licence set out in the participant guide to review, publish and showcase the submission.
 
 ## Data
 
