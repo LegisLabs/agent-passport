@@ -26,24 +26,29 @@
 {% block content %}
 <div class="home">
   <section class="home__section">
-    <h2 class="h2">The shift</h2>
-    <p class="home__lede">AI agents are already buying. Last holiday season AI and agents stood behind a fifth of everything sold online, and the businesses behind those shoppers are handing over their invoices next. The question is no longer whether AI agents will pay, but whether anyone can see on whose authority.</p>
+    <div class="home__intro"><h2 class="h2">The shift</h2>
+    <p class="home__lede">AI agents are already buying. Last holiday season AI and agents stood behind a fifth of everything sold online, and the businesses behind those shoppers are handing over their invoices next. The question is no longer whether AI agents will pay, but whether anyone can see on whose authority.</p></div>
+    <div class="home__body">
     <div class="chartbox"><h3 class="chart__title">Agentic commerce, global, $ billion: actual to 2025, forecast to 2030</h3><div class="chartbox__canvas"><canvas id="chart-shift" aria-label="2024 $229bn, 2025 $262bn, 2030 $1.5tn forecast" role="img"></canvas></div></div>
     <p class="chart__src">2024 and 2025: online holiday sales influenced by AI and agents, <a href="https://www.salesforce.com/news/press-releases/2025/01/06/2024-holiday-shopping-data/">Salesforce 2024</a>, <a href="https://www.salesforce.com/news/stories/2025-holiday-shopping-data/">Salesforce 2025</a>. 2030: agentic commerce spend, <a href="https://www.juniperresearch.com/press/agentic-commerce-set-to-generate-15-trillion-globally-by-2030-as-payments-infrastructure-leaders-revealed/">Juniper Research forecast</a>; McKinsey puts the same year at <a href="https://www.digitalcommerce360.com/2025/10/20/mckinsey-forecast-5-trillion-agentic-commerce-sales-2030/">$3 to 5 trillion</a>.</p>
+    </div>
   </section>
 
   <section class="home__section">
-    <h2 class="h2">The cost of not knowing</h2>
-    <p class="home__lede">This is what happens when the person paying cannot see who is really behind a request. Of the £1.28 billion taken from UK customers last year, £576 million was authorised push payment fraud, up 19% in a year: payments the victims made themselves, in good faith, to someone they could not see. An AI agent sees even less than they did, and since 2024 the sending bank carries the loss.</p>
+    <div class="home__intro"><h2 class="h2">The cost of not knowing</h2>
+    <p class="home__lede">This is what happens when the person paying cannot see who is really behind a request. Of the £1.28 billion taken from UK customers last year, £576 million was authorised push payment fraud, up 19% in a year: payments the victims made themselves, in good faith, to someone they could not see. An AI agent sees even less than they did, and since 2024 the sending bank carries the loss.</p></div>
+    <div class="home__body">
     <div class="chartbox"><h3 class="chart__title">Authorised push payment fraud, UK, £ million</h3><div class="chartbox__canvas"><canvas id="chart-app" aria-label="2021 £583m, 2022 £485m, 2023 £460m, 2024 £451m, 2025 £576m" role="img"></canvas></div></div>
     <p class="chart__src">Source: <a href="https://www.ukfinance.org.uk/news-and-insight/press-release/fraud-report-2026-press-release">UK Finance, Annual Fraud Report 2026</a>. Losses reported to UK Finance.</p>
+    </div>
   </section>
 
   <section class="home__section">
-    <h2 class="h2">The problem</h2>
-    <p class="home__lede">Today an AI agent's payment looks exactly like a person's. Nothing on it says which agent acted, what it was allowed to do, or who stands behind it. The bank sees an instruction and nothing else.</p>
+    <div class="home__intro"><h2 class="h2">The problem</h2>
+    <p class="home__lede">Today an AI agent's payment looks exactly like a person's. Nothing on it says which agent acted, what it was allowed to do, or who stands behind it. The bank sees an instruction and nothing else.</p></div>
+    <div class="home__body">
     <div class="diagram"><pre class="mermaid">
-flowchart LR
+flowchart TB
   I["<b>Invoice</b><br/>from anyone"] --> A["<b>AI agent</b><br/>reads, decides, pays"]
   A --> B["<b>Bank</b><br/>sees only an instruction"]
   B --> M["<b>Money moves</b><br/>with no record of who acted"]
@@ -54,7 +59,8 @@ flowchart LR
   class M out
   class Q1,Q2,Q3 q
 </pre></div>
-    <p class="home__lede">Identity alone does not fix this. Knowing who an AI agent is tells you nothing about what it may do, and nothing about who answers when it goes wrong.</p>
+    <p class="home__note">Identity alone does not fix this. Knowing who an AI agent is tells you nothing about what it may do, and nothing about who answers when it goes wrong.</p>
+    </div>
   </section>
 
   <section class="home__section">
@@ -77,14 +83,37 @@ flowchart LR
     </div>
   </section>
 
-  <section class="home__section">
+  <section class="home__section home__section--peak">
     <h2 class="h2">The result</h2>
-    <p class="home__lede">What happens when the same invoice arrives at a bank that runs Agent Passport.</p>
-    <dl class="result">
-      <div><dt>The fraud fails.</dt><dd>Invoice redirection and prompt injection stop at the payee check, whatever the invoice says. The mandate names accounts, not names, so a document cannot move the destination.</dd></div>
-      <div><dt>The bank can prove what it did.</dt><dd>Every decision is signed, hash-chained and replayable from its recorded inputs. When a payment is disputed, the bank shows what the AI agent was permitted to do, what it tried, and which rule stopped it.</dd></div>
-      <div><dt>Everyone knows who answers.</dt><dd>The provider answers for its filing, the customer for its mandate, the bank for the check. A supervisor gets the evidence on request without operating any of it. Nobody loses except the attacker.</dd></div>
-    </dl>
+    <p class="home__lede">What lands on a supervisor's desk when it asks about the invoice above: one record, produced by the bank, verifiable with published keys.</p>
+    <div class="evd-split">
+      <article class="evd" aria-label="Evidence record for refusal 1 on passport AP-2026-0107">
+        <header class="evd__head">
+          <div><span class="evd__k">Evidence record</span><b>Refusal #1 · passport AP-2026-0107</b></div>
+          <div><span class="evd__k">Produced by</span><b>Meridian Bank (demo), Payments Risk</b></div>
+          <div><span class="evd__k">Exported for</span><b>Supervisory access · 8 Sept 2026 13:28:49</b></div>
+          <span class="evd__stamp">Denied</span>
+        </header>
+        <table class="evd__t">
+          <tr><th>Instruction</th><td>pay_invoice · Fenwick Timber Ltd · <span class="num">60-11-22 99887766</span> · £2,500.00 · invoice INV-9001</td></tr>
+          <tr><th>Signed by</th><td>AI agent key <span class="num">X7NHSkmTpTTLm9XC</span> · PayGPT 6.0, OpenPay Ltd · signature verified (Ed25519)</td></tr>
+          <tr><th>Declared before reading</th><td>pay INV-9001 from Fenwick Timber Ltd to <span class="num">60-11-22 10101010</span>, the account the customer signed for</td></tr>
+          <tr><th>Attempted after reading</th><td><span class="num evd__bad">60-11-22 99887766</span> · the document changed the destination, not the AI agent</td></tr>
+          <tr><th>Mandate</th><td>signed by Helen Marsh, Finance Director, Northgate Joinery Ltd · 3 payee accounts · £10,000 a payment · £20,000 an account in 30 days · to 31 Mar 2027</td></tr>
+          <tr><th>Admission</th><td>PayGPT 6.0 admitted by A. Ferreira on 8 Sept 2026 · ceilings £10,000 / £50,000 · hold above £5,000</td></tr>
+          <tr><th>Register entry</th><td>REG-2026-0014 · OpenPay Ltd, Companies House 10987654 · accountable principal Daniel Okoye · insurance PI-4471-2026 · Independent Assurance Evidence IAE-2026-0412 · receipt signed by the register</td></tr>
+          <tr><th>Checks</th><td><span class="evd__chk"><i class="ok">R.1</i><i class="ok">R.2</i><i class="ok">R.3</i><i class="ok">R.4</i><i class="ok">R.5</i><i class="bad">R.6</i><i class="skip">R.7</i><i class="skip">R.8</i><i class="skip">R.9</i></span> R.6 PAYEE_NOT_ON_MANDATE: 60-11-22 99887766 is not on the customer-signed allowlist. R.7 to R.9 not evaluated, denied by default.</td></tr>
+          <tr><th>Receipt</th><td>signed by the bank · kid <span class="num">c9Qw3eVh2mKpT7Lx</span> · instruction sha256 <span class="num">4b1e…9a30</span></td></tr>
+          <tr><th>Chain</th><td>entry #17 <span class="num">9c1e4b7d2a60</span> ← #16 <span class="num">e2f0a97c11d4</span> · chain intact · replay identical</td></tr>
+        </table>
+        <footer class="evd__foot">Synthetic record. The live version of this bundle is one call on the deployment: <a href="/api/evidence/passports/AP-2026-0107">/api/evidence/passports/AP-2026-0107</a>.</footer>
+      </article>
+      <ul class="evd__points">
+        <li><b>The fraud fails.</b> The payee check stops invoice redirection and prompt injection whatever the invoice says. The mandate names accounts, not names.</li>
+        <li><b>The bank can prove what it did.</b> Every line above is signed or hashed and replays from its recorded inputs. A disputed payment has a record, not a story.</li>
+        <li><b>Everyone knows who answers.</b> The provider for its filing, the customer for its mandate, the bank for the check. The supervisor reads the record without operating any of it.</li>
+      </ul>
+    </div>
   </section>
 
   <section class="home__section">
