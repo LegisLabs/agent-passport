@@ -168,3 +168,5 @@ body[data-cusigned="0"] #btn-cancel-amend { margin-top: 8px; }
 .fx .apv__result { margin: 0; font-size: 1rem; font-weight: 600; }
 .fx .apv--done .apv__actions { margin-top: auto; padding-top: 28px; }
 .fx .apv__actions a.apv__link { text-align: center; text-decoration: none; }
+.fx .cu-payee__acct { color: var(--fx-ink); }
+.fx .cu-payee__add { font-size: .8125rem; justify-self: start; }
