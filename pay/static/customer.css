@@ -33,3 +33,22 @@ body[data-cupage="overview"] .fx .fx-grid.cu-split { grid-template-columns: minm
 body[data-cupage="overview"] .cu-notes { display: grid; gap: 8px; align-content: start; }
 body[data-cupage="overview"] .fx .cu-notify { justify-content: flex-start; }
 body[data-cupage="overview"] .fx .cu-notify > .cu-notes { flex: 0 0 auto; }
+
+/* the agent page as a passport: three signed parts side by side; the long mandate record and the form stay for amending */
+body[data-cusigned="1"] .cu-agent-grid, body[data-cusigned="1"] #cu-card, body[data-cusigned="1"] #cu-after, body[data-cusigned="1"] #cu-jwt-wrap, body[data-cusigned="1"] #cu-versions, body[data-cusigned="1"] #cu-actions, body[data-cusigned="1"] #cu-manage .actions__note { display: none; }
+.pp { border: 1.5px solid var(--fx-ink); border-radius: var(--fx-radius); overflow: hidden; margin: 0 0 16px; background: #fff; }
+.pp__strip { display: flex; align-items: center; gap: 12px; padding: 12px 20px; background: var(--fx-tint); border-bottom: 1px solid var(--fx-line); font-size: .8125rem; }
+.pp__name { font-weight: 800; font-size: .8125rem; }
+.pp__verify { margin-left: auto; color: var(--fx-ink-2); }
+.pp__cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.pp__part { padding: 16px 20px 18px; border-left: 1px solid var(--fx-line); min-width: 0; }
+.pp__part:first-child { border-left: 0; }
+.pp__by { display: block; font-size: .75rem; font-weight: 600; color: var(--fx-ink-2); }
+.pp__h { margin: 4px 0 8px; font-size: 1.0625rem; font-weight: 800; letter-spacing: -.01em; }
+.pp__h .small { font-weight: 500; color: var(--fx-ink-2); }
+.pp .kv div { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: 0 10px; padding: 6px 0; border-bottom: 1px solid var(--fx-line); font-size: .8125rem; }
+.pp .kv div:last-child { border-bottom: 0; }
+.pp .kv dt { color: var(--fx-ink-2); } .pp .kv dd { margin: 0; overflow-wrap: anywhere; }
+.pp__payees { display: grid; gap: 3px; }
+.pp__payee .mono { color: var(--fx-ink-3); font-size: .75rem; }
+@media (max-width: 899px) { .pp__cols { grid-template-columns: minmax(0, 1fr); } .pp__part { border-left: 0; border-top: 1px solid var(--fx-line); } .pp__part:first-child { border-top: 0; } }

@@ -801,6 +801,19 @@ const AP = (() => {
       state = await api('GET', '/api/state'); if (p) p = state.passports.find(x => x.passport_id === p.passport_id) || p; amending = false; render(); renderAccount();
     }
     $('cu-agents').addEventListener('click', (e) => { const b = e.target.closest('[data-revoke]'); if (b) revokeMandate(b.dataset.revoke); });
+    // the passport: three signed parts, side by side, each with only what a person needs to see
+    function renderPassport(p, show) {
+      const box = $('cu-passport'); box.hidden = !show; if (!show) return;
+      const a = p.admission || {}, pr = a.product_ref || {}, ag = (p.agent_identity || {}).agent || {}, key = p.agent || {}, m = p.mandate || {}, ad = (m.authorization_details || [{}])[0];
+      const kv = (pairs) => `<dl class="kv">${pairs.filter(x => x[1] != null && x[1] !== '').map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('')}</dl>`;
+      const payees = (ad.supplier_allowlist || []).map(sp => `<span class="pp__payee">${esc(sp.name)} <span class="mono">${esc(sp.account_ref)}</span></span>`).join('');
+      box.innerHTML = `<div class="pp__strip"><span class="pp__name">Agent Passport</span><span class="mono">${esc(p.passport_id)}</span>${tag(p.status)}<span class="pp__verify">${p.first_payment_confirmed ? 'first payment confirmed' : 'first payment awaits your confirmation'}</span></div>
+        <div class="pp__cols">
+          <section class="pp__part"><span class="pp__by">Signed by ${esc(state.cast ? state.cast.bank : 'the bank')}</span><h3 class="pp__h">Admission</h3>${kv([['Product', `${esc(pr.product_name || '')} <span class="small">by ${esc(pr.provider || '')}</span>`], ['Assurance', (LEVELS[(a.assurance_evidence || {}).level] || ['not declared'])[0]], ['Holds above', gbp(((a.condition || {}).hold_above || {}).amount)], ['Valid to', d(a.valid_until)]])}</section>
+          <section class="pp__part"><span class="pp__by">Signed by you</span><h3 class="pp__h">Agent identity</h3>${kv([['Agent', esc(ag.name || '')], ['Model', `${esc(ag.model_provider || '')} <span class="mono">${esc(ag.model_version || '')}</span>`], ['Key', `<span class="mono">${esc(key.kid || '')}</span> · ${key.pop_verified ? 'possession proven' : 'possession pending'}`]])}</section>
+          <section class="pp__part"><span class="pp__by">Signed by ${esc((m.signed_by || {}).name || 'you')}</span><h3 class="pp__h">Mandate <span class="small">version ${esc(String(m.version || 1))}</span></h3>${kv([['Per payment', gbp((ad.per_payment_limit || {}).amount)], ['Per supplier, 30 days', gbp((ad.monthly_limit_per_account || {}).amount)], ['Per day', `${esc(String(ad.max_payments_per_day || ''))} payments`], ['May pay', `<span class="pp__payees">${payees}</span>`], ['Expires', d(m.valid_until)]])}</section>
+        </div>`;
+    }
     function render() {
       const products = (state.products || []).filter(m => m.admission_status === 'admitted');
       renderCards();
@@ -817,6 +830,7 @@ const AP = (() => {
       if (!p) return;
       const mp = p.mandate_proposed, ad = mp.authorization_details[0], signed = p.mandate_signed, ag = p.agent || {}; const revokedM = !!p.mandate_revoked_at;
       if (amending && (!signed || revokedM)) amending = false;
+      const asPassport = signed && !amending && !revokedM; document.body.dataset.cusigned = asPassport ? '1' : '0'; renderPassport(p, asPassport);
       const tot0 = Object.values(p.ledger || {}).reduce((s0, y) => s0 + y.total, 0), vio0 = (state.violations || []).filter(y => y.passport_id === p.passport_id), fr0 = vio0.filter(y => y.failure_class === 'fraud').length;
       const held0 = acRows.filter(r => r.kind === 'verify' && r.subject === p.passport_id && r.entry.decision === 'ESCALATE' && !decisionFor(r.id)).length;
       const kvg = (pairs) => pairs.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
