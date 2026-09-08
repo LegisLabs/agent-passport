@@ -1,11 +1,11 @@
-"""The model at the edges, payments vertical.
+"""The model at the edges.
 
 Registration is a form the provider fills in by hand (a Prefill button exists for the demo); there is no
-document extraction on the regulatory side. The model is used in two places only:
-extract_invoice()   the AP agent reads an invoice into a payment instruction (verbatim-quote schema,
+document extraction on the register. The model is used in two places only:
+extract_invoice()   the AI agent reads an invoice into a payment instruction (verbatim-quote schema,
                     JSON mode, temperature 0; fixture stand-in when offline or on failure).
-draft_file_note()   Gemini phrases the structured check results as a short officer file note.
-                    Draft only; never a decision.
+draft_file_note()   Gemini phrases the structured check results as a short note for the bank's
+                    payments risk officer. Draft only; never a decision.
 """
 from __future__ import annotations
 
@@ -15,11 +15,11 @@ import time
 
 from . import config
 
-SECTIONS = ("company", "attestation", "model", "intended_use")
+SECTIONS = ("company", "principal", "insurance", "product", "assurance_evidence", "intended_use")
 
 
 def fixture() -> dict:
-    d = json.loads((config.FIXTURES_DIR / "extraction_fixture.json").read_text())
+    d = json.loads((config.FIXTURES_DIR / "registration_fixture.json").read_text())
     d.pop("_comment", None)
     return d
 
@@ -87,14 +87,6 @@ def _iso_date(v):
     return s
 
 
-def _account(v):
-    """Normalise '60-11-22 10101010' / '601122 10101010' / '60-11-22, 10101010' -> '60-11-22 10101010'."""
-    digits = re.sub(r"\D", "", str(v or ""))
-    if len(digits) == 14:
-        return f"{digits[0:2]}-{digits[2:4]}-{digits[4:6]} {digits[6:]}"
-    return str(v or "").strip()
-
-
 def blank_fields() -> dict:
     """The registration form, empty. Same shape as the prefill fixture with every value null."""
     fx = fixture()
@@ -102,28 +94,29 @@ def blank_fields() -> dict:
 
 
 def draft_file_note(ref: str, fields: dict, checks: list[dict]) -> tuple[str, str]:
-    """Officer's plain-English file note. Returns (text, mode)."""
+    """A plain-English note for the bank's payments risk officer. Returns (text, mode)."""
     flagged = [c for c in checks if c["result"] != "pass"]
     if config.EXTRACTION_MODE != "gemini" or not config.GEMINI_API_KEY:
         return _fixture_note(ref, fields, checks, flagged), "fixture"
     summary = {
         "reference": ref,
-        "company": fields["company"]["legal_name"]["value"],
-        "model": f"{fields['model']['model_name']['value']} ({fields['model']['model_provider']['value']} {fields['model']['model_version']['value']})",
+        "provider": fields["company"]["legal_name"]["value"],
+        "product": f"{fields['product']['product_name']['value']} ({fields['product']['model_provider']['value']} {fields['product']['model_version']['value']})",
+        "assurance_evidence": {k: v["value"] for k, v in fields["assurance_evidence"].items()},
         "intended_use": {k: v["value"] for k, v in fields["intended_use"].items()},
         "checks": [{"id": c["id"], "title": c["title"], "result": c["result"], "detail": c["detail"]} for c in checks],
     }
     prompt = (
-        "Write a file note for a payments-supervisor case officer reviewing a MODEL registration in plain English, British spelling, sentence case, "
-        "at most 120 words, no bullet points, no headings. State what was applied for, which automated checks passed, "
-        "and name each flagged item and what it means. Do NOT recommend approval or rejection and do NOT use the words "
-        "'approve', 'reject', 'recommend', 'should'. The decision belongs to the officer. Return JSON {\"note\": \"...\"}.\n\n"
+        "Write a file note for a bank's payments risk officer who is deciding whether to admit a registered AI product to the bank's list, in plain English, British spelling, sentence case, "
+        "at most 120 words, no bullet points, no headings. State what was filed on the register, which filing checks passed, what the Independent Assurance Evidence covers, "
+        "and name each flagged item and what it means. Do NOT recommend admitting or declining and do NOT use the words "
+        "'approve', 'admit', 'decline', 'reject', 'recommend', 'should'. The decision belongs to the officer. Return JSON {\"note\": \"...\"}.\n\n"
         f"{json.dumps(summary, indent=1)}"
     )
     try:
         out = _generate_json(prompt)
         note = str(out.get("note", "")).strip()
-        for banned in ("approve", "reject", "recommend"):
+        for banned in ("approve", "reject", "recommend", "admit", "decline"):
             if banned in note.lower():
                 raise ValueError("verdict vocabulary in draft")
         return note, "gemini"
@@ -133,21 +126,22 @@ def draft_file_note(ref: str, fields: dict, checks: list[dict]) -> tuple[str, st
 
 def _fixture_note(ref, fields, checks, flagged) -> str:
     passed = sum(1 for c in checks if c["result"] == "pass")
-    s = (f"Registration {ref} from {fields['company']['legal_name']['value']} registers model "
-         f"{fields['model']['model_name']['value']} ({fields['model']['model_provider']['value']}, {fields['model']['model_version']['value']}) for {fields['intended_use']['action_type']['value']}. "
-         f"The company attests the documentation is accurate; customers create agents and write mandates within the policy ceilings. "
-         f"{passed} of {len(checks)} automated checks passed.")
+    ae = fields.get("assurance_evidence", {})
+    s = (f"Registration {ref} from {fields['company']['legal_name']['value']} files {fields['product']['product_name']['value']} "
+         f"({fields['product']['model_provider']['value']}, {fields['product']['model_version']['value']}) for {fields['intended_use']['action_type']['value']}. "
+         f"Independent Assurance Evidence from {ae.get('issuer', {}).get('value')} ({ae.get('reference', {}).get('value')}, {ae.get('date', {}).get('value')}) is attached for the same use case. "
+         f"{passed} of {len(checks)} filing checks passed.")
     if flagged:
         s += " Flagged: " + "; ".join(f"{c['id']} {c['detail']}" for c in flagged) + "."
     return s
 
 
-# ── Invoice reading by the agent (Task 1: the visible AI-manipulation moment) ──
+# ── Invoice reading by the AI agent (the visible manipulation moment) ──
 INVOICE_FIELDS = ("supplier_name", "invoice_ref", "amount_gbp", "sort_code", "account_number", "due_date", "bank_details_changed")
 
 
 def invoices() -> dict:
-    """{invoice_id: text} for the synthetic invoices the agent can read."""
+    """{invoice_id: text} for the synthetic invoices the AI agent can read."""
     return {p.stem: p.read_text() for p in sorted((config.FIXTURES_DIR / "invoices").glob("*.txt"))}
 
 
@@ -173,7 +167,7 @@ def _validate_invoice(out: dict, invoice_id: str) -> dict:
 
 
 def extract_invoice(invoice_id: str, text: str) -> tuple[dict, str]:
-    """The AP agent reads one invoice into a payment instruction's facts. Returns (facts, mode)."""
+    """The AI agent reads one invoice into a payment instruction's facts. Returns (facts, mode)."""
     if config.EXTRACTION_MODE != "gemini" or not config.GEMINI_API_KEY:
         return invoice_fixture(invoice_id), "fixture"
     prompt = (

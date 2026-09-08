@@ -6,7 +6,7 @@ Not part of the app runtime. For each kit (kya-licence, agent-mandate) this scri
   2. builds a synthetic world in Agent Passport terms: every allowlisted merchant becomes a payee
      account on a customer-signed mandate, the kit's per-transaction cap becomes per_payment_limit,
      each actor's quota becomes monthly_limit_per_account, and each actor gets its own agent key,
-     signed agent_identity, assurance and mandate (real Ed25519 signatures with this repo's keys),
+     signed agent_identity, admission and mandate (real Ed25519 signatures with this repo's keys),
   3. expands the kit's scenario templates (count × template, amount = unitPrice × qty, no jitter),
   4. runs every payment instruction through pay.rules.verify_action with a running per-account ledger,
      and applies mandate ops (revoke flips the registry status; delegation is out of scope for v1),
@@ -42,7 +42,7 @@ GAP_NOTE = {
     "out_of_hours": "no time-window constraint in v1",
     "split_payment_structuring": "count velocity is not a v1 mandate field; R.8 catches cumulative amount only",
     "delegation_chain_abuse": "no sub-agent delegation in v1 (mandate op)",
-    "revoked_mandate_reuse": "mandate op: R.2 refuses a revoked assurance",
+    "revoked_mandate_reuse": "mandate op: R.2 refuses a revoked admission",
 }
 
 
@@ -72,7 +72,7 @@ def account_for(ref: str) -> str:
     return f"90-00-{n:02d} {10000000 + n:08d}"
 
 
-def build_world(m: dict, human_confirm_above: float) -> dict:
+def build_world(m: dict, hold_above: float) -> dict:
     refs, cap = allowlist_and_cap(m)
     merchants = {x["ref"]: {**x, "account_ref": account_for(x["ref"])} for x in m["merchants"]}
     allow = [{"supplier_id": r, "name": merchants[r]["name"], "account_ref": merchants[r]["account_ref"]} for r in refs if r in merchants]
@@ -85,17 +85,17 @@ def build_world(m: dict, human_confirm_above: float) -> dict:
                          "agent": {"name": a["label"], "agent_id": f"{m['kitId']}:{a['ref']}", "software": "kit", "software_version": "0"}, "cnf": {"jwk": jwk}}
         ident = crypto.sign_jwt("openpay", ident_payload, typ="agent-identity+jwt")
         pid = f"KIT-{m['kitId']}-{a['ref']}"
-        assurance = crypto.sign_jwt("authority", {"iss": "payments-authority-demo", "typ": "assurance", "jti": pid, "iat": crypto.now_ts(), "valid_until": "2099-12-31",
+        admission = crypto.sign_jwt("bank", {"iss": "payments-authority-demo", "typ": "admission", "jti": pid, "iat": crypto.now_ts(), "valid_until": "2099-12-31",
                                                   "provider": {"legal_name": "Kit operator", "licence_ref": "KIT"}, "agent_id": a["ref"],
-                                                  "condition": {"human_confirm_above": {"amount": human_confirm_above, "currency": m["program"]["currency"]}},
-                                                  "binds": {"agent_identity_sha256": crypto.sha256_hex(ident)}}, typ="assurance+jwt")
+                                                  "condition": {"hold_above": {"amount": hold_above, "currency": m["program"]["currency"]}},
+                                                  "binds": {"agent_identity_sha256": crypto.sha256_hex(ident)}}, typ="admission+jwt")
         mandate = crypto.sign_jwt("northgate", {"iss": "kit-customer", "typ": "mandate", "passport_id": pid, "valid_until": "2099-12-31", "iat": crypto.now_ts(),
                                                 "authorization_details": [{"type": "payment_initiation", "actions": ["pay_invoice"], "currency": m["program"]["currency"],
                                                                            "supplier_allowlist": allow,
                                                                            "per_payment_limit": {"amount": cap if cap is not None else quota, "currency": m["program"]["currency"]},
                                                                            "monthly_limit_per_account": {"amount": quota, "currency": m["program"]["currency"], "window": "P30D"}}]}, typ="mandate+jwt")
         actors[a["ref"]] = {"ref": a["ref"], "quota": quota, "private_pem": priv, "status": "active", "passport_id": pid,
-                            "envelope": {"passport_id": pid, "assurance": assurance, "agent_identity": ident, "mandate": mandate}}
+                            "envelope": {"passport_id": pid, "admission": admission, "agent_identity": ident, "mandate": mandate}}
     return {"merchants": merchants, "allowlist": refs, "cap": cap, "actors": actors}
 
 
@@ -107,8 +107,8 @@ def expand(m: dict) -> list[dict]:
     return out
 
 
-def run_kit(m: dict, human_confirm_above: float, labels: dict | None) -> dict:
-    world = build_world(m, human_confirm_above)
+def run_kit(m: dict, hold_above: float, labels: dict | None) -> dict:
+    world = build_world(m, hold_above)
     ledger: dict[tuple[str, str], float] = defaultdict(float)
     rows, scored = [], []
     for inst in expand(m):
@@ -128,7 +128,7 @@ def run_kit(m: dict, human_confirm_above: float, labels: dict | None) -> dict:
                 dec, rule, code = "OK", "—", "re-verification read (no decision)"
             elif op in ("issue_child", "delegate_grandchild"):
                 if actor["status"] != "active":
-                    dec, rule, code = "DENY", "R.2", "ASSURANCE_NOT_ACTIVE"
+                    dec, rule, code = "DENY", "R.2", "PASSPORT_NOT_ACTIVE"
                 else:
                     dec, rule, code = "OUT_OF_SCOPE_V1", "—", "no sub-agent delegation in v1"
             else:
@@ -197,7 +197,7 @@ def main() -> int:
         lp = Path(args.labels) if args.labels else Path(args.labels_dir) / f"{m['kitId']}.labels.jsonl"
         labels = read_labels(lp) if lp.exists() else None
         used.append(f"{m['kitId']}: {lp if labels is not None else 'manifest (no labels file)'}")
-        r = run_kit(m, args.human_confirm_above, labels)
+        r = run_kit(m, args.hold_above, labels)
         r["labels_source"] = str(lp) if labels is not None else "manifest"
         r["labelled_instances"] = sum(len(v) for v in labels.values()) if labels else 0
         report.append(r)

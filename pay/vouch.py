@@ -1,5 +1,8 @@
 """vouch.finance adapter: mirror the passport's mandate on the vouch rail.
 
+The bank mints the voucher when the customer signs its mandate and revokes it with the passport, so one
+action by the bank is refused on two rails.
+
 Two switches, both safe by default:
   VOUCH_MODE    fixture | live      fixture = canned responses, never touches the network
   PAYMENT_RAIL  local | vouch       vouch = also settle each ALLOW on the vouch rail
@@ -83,13 +86,13 @@ def mint_mandate(passport: dict) -> dict:
     ad = (proposed.get("authorization_details") or [{}])[0]
     monthly = float((ad.get("monthly_limit_per_account") or {}).get("amount") or 0)
     per = float((ad.get("per_payment_limit") or {}).get("amount") or 0)
-    label = f"Agent Passport {passport['passport_id']} · {passport['agent_identity']['agent']['name']} for {(proposed.get('customer') or {}).get('legal_name') or 'customer mandates within policy ceilings'}"
+    label = f"Agent Passport {passport['passport_id']} · {passport['agent_identity']['agent']['name']} for {(proposed.get('customer') or {}).get('legal_name') or 'customer mandates within the admission ceilings'}"
     body = {
         "label": label[:120],
         "policy": {"quota": {"totalCostUsd": monthly}},
         "metadata": {
             "passport_id": passport["passport_id"],
-            "issuer": config.ISSUER,
+            "issuer": config.BANK_ID,
             "agent_id": passport["agent_identity"]["agent"]["agent_id"],
             "customer": (proposed.get("customer") or {}).get("legal_name"),
             "per_payment_limit": per, "monthly_limit_per_account": monthly, "currency": ad.get("currency"),

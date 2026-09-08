@@ -27,22 +27,22 @@ def client():
 
 
 def issue_one(client, sign_mandate=True):
-    """Drive the whole path: model registration → prefill → submit → approve (model) → customer creates the agent (→ signs the mandate)."""
-    a = client.post("/api/applications").json()
-    assert a["ref"].startswith("MR-2026-") and a["extraction_mode"] == "form"
-    a = client.post(f"/api/applications/{a['id']}/prefill").json()
-    assert a["extraction_mode"] == "prefill"
-    a = client.post(f"/api/applications/{a['id']}/submit").json()
+    """Drive the whole path: the provider files an AI product → the bank admits it → the customer registers its AI agent (→ signs the mandate)."""
+    a = client.post("/api/registrations").json()
+    assert a["ref"].startswith("REG-2026-") and a["entry_mode"] == "form"
+    a = client.post(f"/api/registrations/{a['id']}/prefill").json()
+    assert a["entry_mode"] == "prefill"
+    a = client.post(f"/api/registrations/{a['id']}/submit").json()
     flagged = {c["id"] for c in a["checks"] if c["result"] != "pass"}
     assert flagged == set(), flagged
-    r = client.post(f"/api/applications/{a['id']}/decision", json={"decision": "approve", "note": "All six checks pass. Ceilings per policy; condition £5,000."}).json()
-    assert r["model"]["model_status"] == "active" and "passport" not in r
-    p = client.post("/api/agents", json={"application_id": a["id"]}).json()
+    r = client.post(f"/api/registrations/{a['id']}/admission", json={"decision": "admit", "note": "All six checks pass. Ceilings per policy; condition £5,000."}).json()
+    assert r["product"]["admission_status"] == "admitted" and "passport" not in r
+    p = client.post("/api/agents", json={"registration_id": a["id"]}).json()
     assert p["passport_id"].startswith("AG-2026-") and p["agent"]["pop_verified"] is True and "private_pem" not in p["agent"]
-    assert p["status"] == "pending" and p["envelope"]["assurance"] is None and p["vouch_voucher_id"] is None   # an agent record: no passport, no voucher before the mandate
+    assert p["status"] == "pending" and p["envelope"]["admission"] is None and p["vouch_voucher_id"] is None   # an agent record: no passport, no voucher before the mandate
     if sign_mandate:
         p = client.post(f"/api/passports/{p['passport_id']}/mandate/sign").json()
-        assert p["passport_id"].startswith("AP-2026-") and p["status"] == "active" and p["envelope"]["assurance"] and p["vouch_voucher_id"]   # signing issues the passport and mints the voucher
+        assert p["passport_id"].startswith("AP-2026-") and p["status"] == "active" and p["envelope"]["admission"] and p["vouch_voucher_id"]   # signing issues the passport and mints the voucher
     return p, a
 
 
@@ -62,17 +62,17 @@ def test_envelope_three_signers_and_minimal(client, issued):
     env = p["envelope"]
     ver = crypto.verify_envelope(env)
     assert ver["ok"] and ver["failure"] is None
-    assert crypto.verify_jwt("authority", env["assurance"])["jti"] == p["passport_id"]
+    assert crypto.verify_jwt("bank", env["admission"])["jti"] == p["passport_id"]
     assert crypto.verify_jwt("northgate", env["agent_identity"])["cnf"]["jwk"]["kty"] == "OKP"
     assert crypto.verify_jwt("northgate", env["mandate"])["passport_id"] == p["passport_id"]
     # each JWT only verifies against its own signer
-    assert crypto.verify_jwt("northgate", env["assurance"]) is None
-    assert crypto.verify_jwt("authority", env["mandate"]) is None
-    assert crypto.verify_jwt("authority", env["assurance"])["model_ref"]["model_id"] == "openpay-paygpt-6"
+    assert crypto.verify_jwt("northgate", env["admission"]) is None
+    assert crypto.verify_jwt("bank", env["mandate"]) is None
+    assert crypto.verify_jwt("bank", env["admission"])["product_ref"]["product_id"] == "openpay-paygpt-6"
     # assurance binds the exact agent_identity it was issued for
-    assert crypto.verify_jwt("authority", env["assurance"])["binds"]["agent_identity_sha256"] == crypto.sha256_hex(env["agent_identity"])
+    assert crypto.verify_jwt("bank", env["admission"])["binds"]["agent_identity_sha256"] == crypto.sha256_hex(env["agent_identity"])
     # no bank details of the customer, no email, no personal contact data in any JWT
-    blob = json.dumps([crypto.decode_unverified(env[k])[1] for k in ("assurance", "agent_identity", "mandate")])
+    blob = json.dumps([crypto.decode_unverified(env[k])[1] for k in ("admission", "agent_identity", "mandate")])
     assert "@" not in blob and "email" not in blob
     assert env["cnf"] is None and env["vouch_voucher_id"]
 
@@ -130,14 +130,14 @@ def test_three_denies_escalate_to_supervisor(client):
     r1, r2, r3 = (act(client, pid, bad) for _ in range(3))
     assert r1["incident"] is None and r2["incident"] is None and r3["incident"]["denies"] == 3
     incidents = client.get("/api/state").json()["incidents"]
-    assert any(i["subject"] == pid and i["entry"]["event"] == "escalated to supervisor" for i in incidents)
+    assert any(i["subject"] == pid and i["entry"]["event"] == "incident raised to the bank's payments risk team" for i in incidents)
     assert act(client, pid, bad)["incident"] is None  # counter restarts after the incident
 
 
 def test_customer_signature_completes_envelope(client):
     p, _ = issue_one(client, sign_mandate=False)
     pid = p["passport_id"]
-    assert p["mandate_signed"] is False and client.get(f"/api/passports/{pid}").json()["verification"]["failure"] == "assurance"
+    assert p["mandate_signed"] is False and client.get(f"/api/passports/{pid}").json()["verification"]["failure"] == "admission"
     fen = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 3200}
     r = act(client, pid, fen); assert r["rule"] == "R.1" and r["code"] == "PASSPORT_NOT_ISSUED"
     pid = client.post(f"/api/passports/{pid}/mandate/sign").json()["passport_id"]
@@ -168,10 +168,10 @@ def test_audit_chain_and_replay(client):
 
 def test_rule_pack_labels_and_codes():
     pack = rules.pack()
-    for r in pack["application_rules"] + pack["runtime_rules"]:
+    for r in pack["registration_rules"] + pack["runtime_rules"]:
         assert r["status"] in ("CURRENT", "PROTOTYPE", "FUTURE") and r["source"]
     assert [r["id"] for r in pack["runtime_rules"]] == [f"R.{i}" for i in range(1, 10)]
-    assert [r["id"] for r in pack["application_rules"]] == [f"M.{i}" for i in range(1, 7)]
+    assert [r["id"] for r in pack["registration_rules"]] == [f"F.{i}" for i in range(1, 7)]
 
 
 def test_vouch_fixture_adapter_never_touches_network():
@@ -187,20 +187,20 @@ def test_vouch_fixture_adapter_never_touches_network():
 def test_no_verdict_vocabulary_in_fixture_note():
     from pay import extraction
     facts = extraction.fixture()
-    checks = rules.run_application_checks(facts)
-    note, _ = extraction.draft_file_note("MR-TEST", facts, checks)
-    for banned in ("approve", "reject", "recommend"):
+    checks = rules.run_registration_checks(facts)
+    note, _ = extraction.draft_file_note("REG-TEST", facts, checks)
+    for banned in ("approve", "reject", "recommend", "admit", "decline"):
         assert banned not in note.lower()
 
 
-def test_duplicate_model_id_flags_m6():
+def test_duplicate_product_id_flags_f6():
     from pay import extraction
     facts = extraction.fixture()
-    facts["model"]["model_id"]["value"] = "openpay-5-6"   # already on the register, active
-    checks = rules.run_application_checks(facts)
-    assert next(c for c in checks if c["id"] == "M.6")["result"] == "flag"
-    facts["model"]["model_id"]["value"] = "openpay-5-5"   # expired registration does not block
-    assert next(c for c in rules.run_application_checks(facts) if c["id"] == "M.6")["result"] == "pass"
+    facts["product"]["product_id"]["value"] = "openpay-5-6"   # already on the register, active
+    checks = rules.run_registration_checks(facts)
+    assert next(c for c in checks if c["id"] == "F.6")["result"] == "flag"
+    facts["product"]["product_id"]["value"] = "openpay-5-5"   # lapsed registration does not block
+    assert next(c for c in rules.run_registration_checks(facts) if c["id"] == "F.6")["result"] == "pass"
 def test_verify_accepts_flat_contract_and_aliases(client):
     """The brief's POST /api/verify shape: flat instruction fields + agent_signature → decision, rule_id, reason, audit_ref, receipt."""
     p, _ = issue_one(client)
@@ -210,7 +210,7 @@ def test_verify_accepts_flat_contract_and_aliases(client):
     flat["agent_signature"] = crypto.sign_bytes(pa["private_pem"], rules.request_signing_input(flat))
     r = client.post("/api/verify", json=flat).json()
     assert r["decision"] == "ALLOW" and r["rule_id"] == r["rule"] == "R.9" and r["audit_ref"] == r["audit_hash"] and r["receipt"]
-    assert r["rails"]["authority_registry"] == "active" and r["rails"]["vouch"]["status"] == "ACTIVE"
+    assert r["rails"]["passport_list"] == "active" and r["rails"]["vouch"]["status"] == "ACTIVE"
     # tampering with a flat field after signing fails R.4
     flat["amount"] = 1
     assert client.post("/api/verify", json=flat).json()["rule"] == "R.4"
@@ -275,39 +275,39 @@ def test_every_bank_deny_writes_a_violation_row(client):
 
 # ── Iteration 2, Task 2: Standards Review Assistant ─────────────────────────
 def test_review_six_steps_sandbox_uses_real_engine_and_never_decides(client):
-    a = client.post("/api/applications").json()
-    assert client.post(f"/api/applications/{a['id']}/review").status_code == 400  # not submitted yet
-    a = client.post(f"/api/applications/{a['id']}/prefill").json()
-    a = client.post(f"/api/applications/{a['id']}/submit").json()
-    r = client.post(f"/api/applications/{a['id']}/review").json()
+    a = client.post("/api/registrations").json()
+    assert client.post(f"/api/registrations/{a['id']}/review").status_code == 400  # not submitted yet
+    a = client.post(f"/api/registrations/{a['id']}/prefill").json()
+    a = client.post(f"/api/registrations/{a['id']}/submit").json()
+    r = client.post(f"/api/registrations/{a['id']}/review").json()
     rv = r["review"]
-    assert [s["id"] for s in rv["steps"]] == ["evidence", "rule_map", "tests", "sandbox", "recommendation", "signoff"]
+    assert [s["id"] for s in rv["steps"]] == ["filing", "rule_map", "tests", "sandbox", "recommendation", "signoff"]
     rule_map = rv["steps"][1]["data"]
-    assert [x["id"] for x in rule_map["rules"]] == [f"M.{i}" for i in range(1, 7)] and rule_map["uncovered"] == [] and rule_map["flagged"] == []
+    assert [x["id"] for x in rule_map["rules"]] == [f"F.{i}" for i in range(1, 7)] and rule_map["uncovered"] == [] and rule_map["flagged"] == []
     sb = rv["steps"][3]["data"]
     assert [(t["decision"], t["rule"]) for t in sb] == [("DENY", "R.6"), ("DENY", "R.7"), ("DENY", "R.2"), ("DENY", "R.4"), ("ESCALATE", "R.9")]
     assert all(t["pass"] for t in sb)
     rec = rv["steps"][4]["data"]
-    assert rec["verdict"] == "APPROVE WITH CONDITIONS" and rec["decides"] is False
-    for banned in ("approve", "reject", "recommend"):
+    assert rec["verdict"] == "ADMIT WITH CONDITIONS" and rec["decides"] is False
+    for banned in ("approve", "reject", "recommend", "admit", "decline"):
         assert banned not in rec["narrative"].lower()
-    # the review issues nothing; approval enters the model in the registry; only the customer creates a passport
-    assert r["application"]["status"] == "submitted" and not [x for x in client.get("/api/state").json()["passports"] if x["application_id"] == a["id"]]
+    # the review issues nothing; admission puts the product on the bank's list; only the customer creates a passport
+    assert r["registration"]["status"] == "registered" and r["registration"]["admission_status"] is None and not [x for x in client.get("/api/state").json()["passports"] if x["registration_id"] == a["id"]]
     assert client.get(f"/api/status/SANDBOX-{a['ref']}").status_code == 404
-    d = client.post(f"/api/applications/{a['id']}/decision", json={"decision": "approve", "note": "Assistant recommends; I decide.", "human_confirm_above": 5000}).json()
-    assert d["model"]["model_status"] == "active" and "passport" not in d
-    assert client.get("/api/state").json()["models"][0]["model_id"] == "openpay-paygpt-6"
+    d = client.post(f"/api/registrations/{a['id']}/admission", json={"decision": "admit", "note": "Assistant recommends; I decide.", "hold_above": 5000}).json()
+    assert d["product"]["admission_status"] == "admitted" and "passport" not in d
+    assert client.get("/api/state").json()["products"][0]["product_id"] == "openpay-paygpt-6"
 
 
 def test_review_refers_when_a_check_flags(client):
-    a = client.post("/api/applications").json()
-    a = client.post(f"/api/applications/{a['id']}/prefill").json()
-    f = a["fields"]; f["model"]["model_version"]["value"] = "latest"
-    client.put(f"/api/applications/{a['id']}/fields", json={"fields": f})
-    a = client.post(f"/api/applications/{a['id']}/submit").json()
-    assert "M.4" in [c["id"] for c in a["checks"] if c["result"] == "flag"]
-    rv = client.post(f"/api/applications/{a['id']}/review").json()["review"]
-    assert rv["steps"][4]["data"]["verdict"] == "REFER" and "M.4" in rv["steps"][1]["data"]["flagged"]
+    a = client.post("/api/registrations").json()
+    a = client.post(f"/api/registrations/{a['id']}/prefill").json()
+    f = a["fields"]; f["product"]["model_version"]["value"] = "latest"
+    client.put(f"/api/registrations/{a['id']}/fields", json={"fields": f})
+    a = client.post(f"/api/registrations/{a['id']}/submit").json()
+    assert "F.4" in [c["id"] for c in a["checks"] if c["result"] == "flag"]
+    rv = client.post(f"/api/registrations/{a['id']}/review").json()["review"]
+    assert rv["steps"][4]["data"]["verdict"] == "REFER" and "F.4" in rv["steps"][1]["data"]["flagged"]
 
 
 # ── Iteration 2, Task 3: exception panel, pattern alert, revocation loop ────
@@ -427,8 +427,8 @@ def test_rogue_execution_key_fails_r4_even_with_valid_delegation(client):
     r = client.post("/api/agent/act", json={"passport_id": p["passport_id"], "invoice_ref": "FT-R", "signer": "rogue", "chain": True, "delegate_amount": 4000, **FEN}).json()
     assert r["rule"] == "R.4" and "not signed by the key named in the delegation" in next(s for s in r["trace"] if s["rule"] == "R.4")["note"]
     # execution private key never leaves the server
-    a = client.get("/api/state").json()["applications"][0]
-    assert "private_pem" not in json.dumps(a["agent"])
+    pp = next(x for x in client.get("/api/state").json()["passports"] if x["passport_id"] == p["passport_id"])
+    assert "private_pem" not in json.dumps(pp["agent"])
 
 
 # ── Iteration 3, Task 2: instruction-level Ed25519 verification, proven by tamper ──
@@ -481,7 +481,7 @@ def test_envelope_tamper_each_signer_flips_one_byte(client):
     pid = p["passport_id"]
     env = client.get(f"/api/passports/{pid}").json()["envelope"]
     req = _signed_instruction(client, pid)
-    for part, rule in (("assurance", "R.1"), ("agent_identity", "R.3"), ("mandate", "R.5")):
+    for part, rule in (("admission", "R.1"), ("agent_identity", "R.3"), ("mandate", "R.5")):
         bad = dict(env)
         header, payload, sig = env[part].split(".")
         raw = bytearray(crypto.b64u_decode(payload)); raw[5] ^= 1        # one bit inside the signed payload
@@ -492,13 +492,13 @@ def test_envelope_tamper_each_signer_flips_one_byte(client):
 
 
 # ── Iteration 3, Task 3: Issuance Flow v4 — customer writes its own mandate within policy ceilings ──
-def test_registration_carries_no_customer_and_assurance_carries_ceilings(client):
+def test_registration_carries_no_customer_and_admission_carries_ceilings(client):
     p, a = issue_one(client, sign_mandate=False)
-    assert set(a["fields"]) == {"company", "attestation", "model", "intended_use"}   # no customer, no agent, no key, no insurance
-    assert a["fields"]["model"]["model_version"]["value"] == "claude-sonnet-5"
+    assert set(a["fields"]) == {"company", "principal", "insurance", "product", "assurance_evidence", "intended_use"}   # no customer, no agent, no key, no mandate content
+    assert a["fields"]["product"]["model_version"]["value"] == "claude-sonnet-5"
     assert [c["id"] for c in a["checks"] if c["result"] != "pass"] == []
-    assert p["assurance"]["policy_ceilings"]["per_payment_ceiling"]["amount"] == 10000 and p["assurance"]["policy_ceilings"]["monthly_per_account_ceiling"]["amount"] == 50000
-    assert p["assurance"]["model_ref"]["registration"] == a["ref"] and p["assurance"]["attestation"]["covers"] == "documentation accuracy only"
+    assert p["admission"]["ceilings"]["per_payment_ceiling"]["amount"] == 10000 and p["admission"]["ceilings"]["monthly_per_account_ceiling"]["amount"] == 50000
+    assert p["admission"]["product_ref"]["registration"] == a["ref"] and p["admission"]["accountable_principal"]["covers"] == "accuracy of the filing" and p["admission"]["assurance_evidence"]["reference"] == "IAE-2026-0412"
     assert p["mandate_proposed"]["customer"] is None and p["mandate_proposed"]["authorization_details"][0]["supplier_allowlist"] == []
     assert p["agent_identity"]["iss"] == "northgate-joinery-ltd" and p["agent_identity"]["agent"]["model_version"] == "claude-sonnet-5" and p["agent_identity"]["deployment"]["proof_of_possession"] is True
 
@@ -529,8 +529,8 @@ def test_customer_mandate_is_gated_only_by_ceiling_containment(client):
     r = act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 8000})
     assert r["rule"] == "R.7"
     assert act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Delta Fixings Ltd", "payee_account_ref": "40-40-40 12121212", "amount": 900})["decision"] == "ALLOW"
-    # the authority never had the mandate content in the registration
-    a = client.get("/api/state").json()["applications"][0]
+    # the register never had the mandate content in the registration
+    a = client.get("/api/state").json()["registrations"][0]
     assert "Delta" not in json.dumps(a["fields"])
 
 
@@ -541,36 +541,36 @@ def test_demo_seed_twice_gives_identical_baselines(client):
         st = client.get("/api/state").json()
         p = st["passports"][0]
         au = client.get("/api/audit").json()
-        return {"seed": {k: r[k] for k in ("stage", "application", "recommendation", "status", "mandate_signed", "audit_entries")},
+        return {"seed": {k: r[k] for k in ("stage", "registration", "recommendation", "status", "mandate_signed", "audit_entries")},
                 "passport": {"id": p["passport_id"], "status": p["status"], "payees": len(p["mandate"]["authorization_details"][0]["supplier_allowlist"]), "payments": p["payments"], "ledger": p["ledger"]},
                 "violations": len(st["violations"]), "alerts": len(st["alerts"]), "audit_kinds": [x["kind"] for x in au["rows"]], "chain_ok": au["chain"]["ok"]}
     b1, b2 = baseline(), baseline()
     assert b1 == b2, (b1, b2)
     assert b1["passport"]["status"] == "active" and b1["passport"]["payees"] == 3 and b1["passport"]["payments"] == 0 and b1["violations"] == 0
-    assert b1["seed"]["recommendation"] == "APPROVE WITH CONDITIONS" and b1["chain_ok"]
-    s = client.post("/api/demo/seed?stage=submitted").json()
-    assert s["stage"] == "submitted" and "passport_id" not in s and client.get("/api/state").json()["applications"][0]["status"] == "submitted"
+    assert b1["seed"]["recommendation"] == "ADMIT WITH CONDITIONS" and b1["chain_ok"]
+    s = client.post("/api/demo/seed?stage=registered").json()
+    assert s["stage"] == "registered" and "passport_id" not in s and client.get("/api/state").json()["registrations"][0]["status"] == "registered"
     assert client.post("/api/demo/seed?stage=nope").status_code == 400
 
 
-# ── Model register: cascade ─────────────────────────────────────────────────
-def test_model_revoke_cascades_to_passports_and_passport_revoke_is_unchanged(client):
+# ── Product admission: cascade ─────────────────────────────────────────────────
+def test_product_revoke_cascades_to_passports_and_passport_revoke_is_unchanged(client):
     p1, a = issue_one(client)
-    p2 = client.post("/api/agents", json={"application_id": a["id"]}).json()
+    p2 = client.post("/api/agents", json={"registration_id": a["id"]}).json()
     p2 = client.post(f"/api/passports/{p2['passport_id']}/mandate/sign").json()
     ok = {"action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455", "amount": 900}
     assert act(client, p1["passport_id"], ok)["decision"] == "ALLOW" and act(client, p2["passport_id"], ok)["decision"] == "ALLOW"
-    r = client.post(f"/api/models/{a['id']}/status", json={"status": "suspended", "reason": "model card inaccurate"}).json()
-    assert r["model"]["model_status"] == "suspended" and set(r["passports"]) == {p1["passport_id"], p2["passport_id"]}
+    r = client.post(f"/api/registrations/{a['id']}/admission/status", json={"status": "suspended", "reason": "model card inaccurate"}).json()
+    assert r["product"]["admission_status"] == "suspended" and set(r["passports"]) == {p1["passport_id"], p2["passport_id"]}
     assert act(client, p1["passport_id"], ok)["rule"] == "R.2" and act(client, p2["passport_id"], ok)["rule"] == "R.2"
-    assert client.post("/api/agents", json={"application_id": a["id"]}).status_code == 400   # no new agents on a suspended model
-    r = client.post(f"/api/models/{a['id']}/status", json={"status": "active", "reason": "corrected"}).json()
+    assert client.post("/api/agents", json={"registration_id": a["id"]}).status_code == 400   # no new agents on a suspended product
+    r = client.post(f"/api/registrations/{a['id']}/admission/status", json={"status": "active", "reason": "corrected"}).json()
     assert act(client, p1["passport_id"], ok)["decision"] == "ALLOW"
-    r = client.post(f"/api/models/{a['id']}/status", json={"status": "revoked", "reason": "withdrawn"}).json()
+    r = client.post(f"/api/registrations/{a['id']}/admission/status", json={"status": "revoked", "reason": "withdrawn"}).json()
     for pid in (p1["passport_id"], p2["passport_id"]):
         assert client.get(f"/api/status/{pid}").json()["status"] == "revoked" and act(client, pid, ok)["rule"] == "R.2"
         assert client.get(f"/api/passports/{pid}").json()["vouch_status"] == "REVOKED"
-    assert client.post(f"/api/models/{a['id']}/status", json={"status": "active", "reason": "undo"}).status_code == 400
+    assert client.post(f"/api/registrations/{a['id']}/admission/status", json={"status": "active", "reason": "undo"}).status_code == 400
     a2 = client.get("/api/audit").json(); assert a2["chain"]["ok"]
 
 
@@ -594,8 +594,9 @@ def test_grounds_declaration_records_intent_before_reading_and_flags_mismatch(cl
 
 # ── Action Terminal: the scenario page, and the console behind ?console=1 ─────────────────────────────────────
 def test_action_terminal_scenario_and_console(client):
-    h = client.get("/bank").text
+    h = client.get("/terminal").text
     assert "Before the standard" in h and "After the standard" in h and "terminal.js" in h and "Money gone" in h and "Agent Passport" in h and "Run the agent" in h
     assert 'id="beats"' not in h
-    c = client.get("/bank?console=1").text
+    c = client.get("/terminal?console=1").text
+    assert client.get("/bank?console=1", follow_redirects=False).status_code == 302 and client.get("/regulator", follow_redirects=False).headers["location"] == "/bank"
     assert 'id="beats"' in c and 'id="gauntlet"' in c and "terminal.js" not in c

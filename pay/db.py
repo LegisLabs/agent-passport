@@ -1,11 +1,12 @@
-"""SQLite persistence for the payments vertical. Standard library only.
+"""SQLite persistence. Standard library only.
 
 Tables
-  applications  OpenPay's application and everything derived from it
-  passports     the registry: composite envelope parts + lifecycle status
-  payments      the bank's ledger of executed (ALLOWed) instructions, for R.8
-  audit         append-only, hash-chained decision log with signed receipts
-  kv            misc
+  registrations  an AI product filed on the register, and the bank's admission decision on it
+  passports      the bank's passport list: composite envelope parts + lifecycle status
+  payments       the bank's ledger of executed (ALLOWed) instructions, for R.8
+  audit          append-only, hash-chained decision log with signed receipts
+  violations     the exception log (mutable status, unlike the audit chain)
+  kv             misc
 """
 from __future__ import annotations
 
@@ -17,43 +18,44 @@ from datetime import datetime, timedelta, timezone
 from . import config
 
 SCHEMA = """
-CREATE TABLE IF NOT EXISTS applications (
+CREATE TABLE IF NOT EXISTS registrations (
   id INTEGER PRIMARY KEY,
   ref TEXT UNIQUE NOT NULL,
-  status TEXT NOT NULL,                 -- draft | submitted | info_requested | approved | rejected
+  status TEXT NOT NULL,                 -- draft | registered
   created_at TEXT NOT NULL,
   submitted_at TEXT,
-  decided_at TEXT,
-  extraction_mode TEXT,                 -- gemini | fixture | gemini-fallback
-  extraction_json TEXT,                 -- structured facts with provenance
-  fields_json TEXT,                     -- reviewed/edited fields (what the rules see)
-  documents_json TEXT,                  -- [{name, text}]
-  agent_json TEXT,                      -- {agent_id, public_pem, private_pem(demo), jwk, kid, challenge, challenge_sig, pop_verified}
-  agent_identity_jwt TEXT,              -- signed by OpenPay at submission
-  checks_json TEXT,                     -- results of A.* rules
+  entry_mode TEXT,                      -- form | prefill
+  fields_json TEXT,                     -- what the provider filed (what the checks see)
+  checks_json TEXT,                     -- results of the F.* filing checks
+  registration_jwt TEXT,                -- receipt signed by the register at filing
+  review_json TEXT,                     -- the bank's admission review assistant output
+  admission_status TEXT,                -- null | info_requested | admitted | declined | suspended | revoked
+  admitted_at TEXT,
   officer TEXT,
   officer_note TEXT,
-  condition_json TEXT,                  -- supervisor condition set at approval
+  condition_json TEXT,                  -- the bank's hold condition set at admission
   file_note TEXT
 );
 CREATE TABLE IF NOT EXISTS passports (
   passport_id TEXT PRIMARY KEY,
-  application_id INTEGER NOT NULL,
-  assurance_jwt TEXT NOT NULL,
-  assurance_json TEXT NOT NULL,
+  registration_id INTEGER NOT NULL,
+  admission_jwt TEXT NOT NULL,
+  admission_json TEXT NOT NULL,
   agent_identity_jwt TEXT NOT NULL,
   agent_identity_json TEXT NOT NULL,
-  mandate_proposed_json TEXT NOT NULL,  -- what Northgate is asked to sign
+  mandate_proposed_json TEXT NOT NULL,  -- the customer's draft
   mandate_jwt TEXT,                     -- null until the customer signs
   mandate_json TEXT,
   mandate_signed_at TEXT,
-  status TEXT NOT NULL,                 -- active | suspended | revoked
+  status TEXT NOT NULL,                 -- pending | active | suspended | revoked
   issued_at TEXT NOT NULL,
   expires_at TEXT NOT NULL,
   history_json TEXT NOT NULL,           -- [{ts, from, to, officer, reason}]
   vouch_voucher_id TEXT,
   vouch_mode TEXT,                      -- fixture | live | live-fallback
-  vouch_status TEXT                     -- ACTIVE | REVOKED | null
+  vouch_status TEXT,                    -- ACTIVE | REVOKED | null
+  investigation TEXT,                   -- null | investigating
+  agent_json TEXT                       -- the customer's AI agent: key pair (demo), kid, challenge, pop
 );
 CREATE TABLE IF NOT EXISTS payments (
   id INTEGER PRIMARY KEY,
@@ -70,7 +72,7 @@ CREATE TABLE IF NOT EXISTS payments (
 CREATE TABLE IF NOT EXISTS audit (
   id INTEGER PRIMARY KEY,
   ts TEXT NOT NULL,
-  kind TEXT NOT NULL,                   -- application | check | decision | issue | mandate | lifecycle | verify | incident | vouch | system
+  kind TEXT NOT NULL,                   -- registration | check | admission | agent | mandate | issue | lifecycle | verify | incident | vouch | intent | exception | evidence | system
   subject TEXT,
   entry_json TEXT NOT NULL,
   prev_hash TEXT NOT NULL,
@@ -84,7 +86,7 @@ CREATE TABLE IF NOT EXISTS violations (
   agent_id TEXT,
   rule TEXT NOT NULL,                   -- R.x that refused
   code TEXT NOT NULL,
-  instruction_json TEXT NOT NULL,       -- what the agent tried (signature stripped)
+  instruction_json TEXT NOT NULL,       -- what the AI agent tried (signature stripped)
   evidence_json TEXT,                   -- invoice extraction that produced the instruction, if any
   audit_id INTEGER,
   outcome TEXT NOT NULL,                -- DENY
@@ -93,12 +95,6 @@ CREATE TABLE IF NOT EXISTS violations (
 );
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
 """
-_MIGRATIONS = [
-    "ALTER TABLE passports ADD COLUMN investigation TEXT",          # null | investigating
-    "ALTER TABLE applications ADD COLUMN review_json TEXT",          # Standards Review Assistant output
-    "ALTER TABLE applications ADD COLUMN model_status TEXT",         # null | active | suspended | revoked (approved-models registry)
-    "ALTER TABLE passports ADD COLUMN agent_json TEXT",              # the customer's agent: key pair (demo), kid, challenge, pop
-]
 
 
 def now_iso() -> str:
@@ -116,11 +112,6 @@ def connect() -> sqlite3.Connection:
 def init() -> None:
     with tx() as con:
         con.executescript(SCHEMA)
-        for stmt in _MIGRATIONS:
-            try:
-                con.execute(stmt)
-            except sqlite3.OperationalError:
-                pass  # column already there
 
 
 @contextmanager
@@ -137,21 +128,21 @@ def j(s: str | None):
     return json.loads(s) if s else None
 
 
-def row_to_app(r: sqlite3.Row) -> dict:
+def row_to_reg(r: sqlite3.Row) -> dict:
     d = dict(r)
-    for k in ("extraction_json", "fields_json", "documents_json", "agent_json", "checks_json", "condition_json", "review_json"):
+    for k in ("fields_json", "checks_json", "condition_json", "review_json"):
         d[k[:-5]] = j(d.pop(k))
     return d
 
 
 def row_to_passport(r: sqlite3.Row) -> dict:
     d = dict(r)
-    d["assurance"] = j(d.pop("assurance_json"))
+    d["admission"] = j(d.pop("admission_json"))
     d["agent_identity"] = j(d.pop("agent_identity_json"))
     d["mandate_proposed"] = j(d.pop("mandate_proposed_json"))
     d["mandate"] = j(d.pop("mandate_json"))
     d["history"] = j(d.pop("history_json")) or []
-    d["agent"] = j(d.pop("agent_json")) if "agent_json" in d else None
+    d["agent"] = j(d.pop("agent_json"))
     return d
 
 
@@ -161,70 +152,67 @@ def row_to_audit(r: sqlite3.Row) -> dict:
     return d
 
 
-# ── applications ───────────────────────────────────────────────────────────
-def create_application(ref: str, documents: list[dict]) -> dict:
+# ── registrations ──────────────────────────────────────────────────────────
+def create_registration(ref: str) -> dict:
     with tx() as con:
-        con.execute(
-            "INSERT INTO applications(ref,status,created_at,documents_json) VALUES(?,?,?,?)",
-            (ref, "draft", now_iso(), json.dumps(documents)),
-        )
-        return get_application_by_ref(ref, con)
+        con.execute("INSERT INTO registrations(ref,status,created_at) VALUES(?,?,?)", (ref, "draft", now_iso()))
+        return get_registration_by_ref(ref, con)
 
 
-def get_application(app_id: int, con=None) -> dict | None:
+def get_registration(reg_id: int, con=None) -> dict | None:
     def q(c):
-        r = c.execute("SELECT * FROM applications WHERE id=?", (app_id,)).fetchone()
-        return row_to_app(r) if r else None
+        r = c.execute("SELECT * FROM registrations WHERE id=?", (reg_id,)).fetchone()
+        return row_to_reg(r) if r else None
     if con:
         return q(con)
     with tx() as c:
         return q(c)
 
 
-def get_application_by_ref(ref: str, con=None) -> dict | None:
+def get_registration_by_ref(ref: str, con=None) -> dict | None:
     def q(c):
-        r = c.execute("SELECT * FROM applications WHERE ref=?", (ref,)).fetchone()
-        return row_to_app(r) if r else None
+        r = c.execute("SELECT * FROM registrations WHERE ref=?", (ref,)).fetchone()
+        return row_to_reg(r) if r else None
     if con:
         return q(con)
     with tx() as c:
         return q(c)
 
 
-def list_applications() -> list[dict]:
+def list_registrations() -> list[dict]:
     with tx() as con:
-        return [row_to_app(r) for r in con.execute("SELECT * FROM applications ORDER BY id DESC")]
+        return [row_to_reg(r) for r in con.execute("SELECT * FROM registrations ORDER BY id DESC")]
 
 
-def count_applications() -> int:
+def count_registrations() -> int:
     with tx() as con:
-        return con.execute("SELECT COUNT(*) FROM applications").fetchone()[0]
+        return con.execute("SELECT COUNT(*) FROM registrations").fetchone()[0]
 
 
-def update_application(app_id: int, **cols) -> dict:
+def update_registration(reg_id: int, **cols) -> dict:
     sets, vals = [], []
     for k, v in cols.items():
-        if k in ("extraction", "fields", "documents", "agent", "checks", "condition", "review"):
+        if k in ("fields", "checks", "condition", "review"):
             k = k + "_json"
             v = json.dumps(v)
         sets.append(f"{k}=?")
         vals.append(v)
-    vals.append(app_id)
+    vals.append(reg_id)
     with tx() as con:
-        con.execute(f"UPDATE applications SET {', '.join(sets)} WHERE id=?", vals)
-        return get_application(app_id, con)
+        con.execute(f"UPDATE registrations SET {', '.join(sets)} WHERE id=?", vals)
+        return get_registration(reg_id, con)
 
 
-# ── passports ──────────────────────────────────────────────────────────────
-def create_passport(passport_id: str, application_id: int, assurance_jwt: str, assurance: dict,
+# ── passports (the bank's list) ────────────────────────────────────────────
+def create_passport(passport_id: str, registration_id: int, admission_jwt: str, admission: dict,
                     agent_identity_jwt: str, agent_identity: dict, mandate_proposed: dict,
                     expires_at: str, officer: str, agent: dict | None = None, status: str = "active") -> dict:
-    hist = [{"ts": now_iso(), "from": None, "to": status, "officer": officer, "reason": "Agent registered; passport pending the customer's mandate" if status == "pending" else "Issued"}]
+    hist = [{"ts": now_iso(), "from": None, "to": status, "officer": officer, "reason": "AI agent registered; passport pending the customer's mandate" if status == "pending" else "Issued"}]
     with tx() as con:
         con.execute(
-            "INSERT INTO passports(passport_id,application_id,assurance_jwt,assurance_json,agent_identity_jwt,agent_identity_json,"
+            "INSERT INTO passports(passport_id,registration_id,admission_jwt,admission_json,agent_identity_jwt,agent_identity_json,"
             "mandate_proposed_json,status,issued_at,expires_at,history_json,agent_json) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)",
-            (passport_id, application_id, assurance_jwt, json.dumps(assurance), agent_identity_jwt, json.dumps(agent_identity),
+            (passport_id, registration_id, admission_jwt, json.dumps(admission), agent_identity_jwt, json.dumps(agent_identity),
              json.dumps(mandate_proposed), status, now_iso(), expires_at, json.dumps(hist), json.dumps(agent) if agent else None),
         )
         return get_passport(passport_id, con)
@@ -235,9 +223,9 @@ def count_passports() -> int:
         return con.execute("SELECT COUNT(*) FROM passports").fetchone()[0]
 
 
-def passports_for_application(application_id: int) -> list[dict]:
+def passports_for_registration(registration_id: int) -> list[dict]:
     with tx() as con:
-        return [row_to_passport(r) for r in con.execute("SELECT * FROM passports WHERE application_id=? ORDER BY issued_at DESC", (application_id,))]
+        return [row_to_passport(r) for r in con.execute("SELECT * FROM passports WHERE registration_id=? ORDER BY issued_at DESC", (registration_id,))]
 
 
 def rename_passport(old_id: str, new_id: str) -> None:
@@ -251,6 +239,18 @@ def rename_passport(old_id: str, new_id: str) -> None:
 def set_passport_agent(passport_id: str, agent: dict) -> dict:
     with tx() as con:
         con.execute("UPDATE passports SET agent_json=? WHERE passport_id=?", (json.dumps(agent), passport_id))
+        return get_passport(passport_id, con)
+
+
+def set_passport_admission(passport_id: str, admission_jwt: str, admission: dict) -> dict:
+    with tx() as con:
+        con.execute("UPDATE passports SET admission_jwt=?, admission_json=?, issued_at=? WHERE passport_id=?", (admission_jwt, json.dumps(admission), now_iso(), passport_id))
+        return get_passport(passport_id, con)
+
+
+def set_mandate_proposed(passport_id: str, mandate_proposed: dict) -> dict:
+    with tx() as con:
+        con.execute("UPDATE passports SET mandate_proposed_json=? WHERE passport_id=?", (json.dumps(mandate_proposed), passport_id))
         return get_passport(passport_id, con)
 
 
@@ -325,6 +325,15 @@ def insert_payment(passport_id: str, payee_account_ref: str, amount: float, curr
         return dict(con.execute("SELECT * FROM payments WHERE id=?", (cur.lastrowid,)).fetchone())
 
 
+def list_payments(passport_id: str | None = None, limit: int = 200) -> list[dict]:
+    with tx() as con:
+        if passport_id:
+            rows = con.execute("SELECT * FROM payments WHERE passport_id=? ORDER BY id DESC LIMIT ?", (passport_id, limit))
+        else:
+            rows = con.execute("SELECT * FROM payments ORDER BY id DESC LIMIT ?", (limit,))
+        return [dict(r) for r in rows]
+
+
 def count_payments(passport_id: str) -> int:
     with tx() as con:
         return con.execute("SELECT COUNT(*) FROM payments WHERE passport_id=?", (passport_id,)).fetchone()[0]
@@ -346,13 +355,18 @@ def insert_audit(kind: str, subject: str | None, entry: dict, prev_hash: str, h:
         return row_to_audit(r)
 
 
-def list_audit(limit: int = 500, kind: str | None = None) -> list[dict]:
+def list_audit(limit: int = 500, kind: str | None = None, subject: str | None = None) -> list[dict]:
     with tx() as con:
+        q, args = "SELECT * FROM audit", []
+        where = []
         if kind:
-            rows = con.execute("SELECT * FROM audit WHERE kind=? ORDER BY id DESC LIMIT ?", (kind, limit))
-        else:
-            rows = con.execute("SELECT * FROM audit ORDER BY id DESC LIMIT ?", (limit,))
-        return [row_to_audit(r) for r in rows]
+            where.append("kind=?"); args.append(kind)
+        if subject:
+            where.append("subject=?"); args.append(subject)
+        if where:
+            q += " WHERE " + " AND ".join(where)
+        q += " ORDER BY id DESC LIMIT ?"; args.append(limit)
+        return [row_to_audit(r) for r in con.execute(q, args)]
 
 
 def get_audit(audit_id: int) -> dict | None:
@@ -418,5 +432,5 @@ def pattern_alerts(count: int, window_hours: int) -> list[dict]:
 
 def reset_all() -> None:
     with tx() as con:
-        for t in ("applications", "passports", "payments", "audit", "violations", "kv"):
+        for t in ("registrations", "passports", "payments", "audit", "violations", "kv"):
             con.execute(f"DELETE FROM {t}")

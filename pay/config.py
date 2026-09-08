@@ -1,6 +1,6 @@
-"""Settings for the payments vertical. Everything has a safe default for local runs.
+"""Settings for Agent Passport, bank-first. Everything has a safe default for local runs.
 
-Shares the repo .env with the HMRC app (same Gemini key, plus the vouch.finance
+Shares the repo .env with the tax demonstrator (same Gemini key, plus the vouch.finance
 sandbox key). Data lives in its own folder so both apps can run side by side.
 """
 from __future__ import annotations
@@ -24,7 +24,7 @@ def _load_dotenv() -> None:
 _load_dotenv()
 
 DATA_DIR = Path(os.environ.get("PAY_DATA_DIR", Path(os.environ.get("DATA_DIR", ROOT / "data")) / "pay"))
-DB_PATH = Path(os.environ.get("PAY_DB_PATH", DATA_DIR / "agent_passport_pay.db"))
+DB_PATH = Path(os.environ.get("PAY_DB_PATH", DATA_DIR / "agent_passport_bank.db"))
 KEYS_DIR = Path(os.environ.get("PAY_KEYS_DIR", DATA_DIR / "keys"))
 RULEPACK_PATH = Path(os.environ.get("PAY_RULEPACK_PATH", ROOT / "rulepacks" / "payments-2026.09.json"))
 FIXTURES_DIR = ROOT / "fixtures" / "pay"
@@ -41,16 +41,26 @@ VOUCH_BASE_URL = os.environ.get("API_BASE_URL", "https://cdir.vouch.finance/api/
 # local = the bank executes; vouch = also settle each ALLOW on the vouch rail (needs a seeded kit)
 PAYMENT_RAIL = os.environ.get("PAYMENT_RAIL", "local")
 
-# Part B: delegation chain (AP Orchestrator Agent -> Payment Execution Agent). off | on. Per-request override allowed.
+# Delegation chain (AI agent orchestrator -> execution agent). off | on. Per-request override allowed.
 DELEGATION_CHAIN = os.environ.get("DELEGATION_CHAIN", "off")
 DELEGATION_MAX_GBP = float(os.environ.get("DELEGATION_MAX_GBP", "4000"))
 
-# The cast. Synthetic names; jurisdiction-neutral authority.
-ISSUER = "payments-authority-demo"
-ISSUER_NAME = "National Payments Supervisor (demo)"
-OFFICER = "A. Ferreira"
-OPERATOR = "OpenPay Ltd"
+# The cast. Synthetic names. Four parties and one observer:
+#   the register   an industry body keeps the register of AI products (identity and accountability, no quality judgement)
+#   the provider   the AI company that files a registration
+#   the bank       admits products to its list, holds the customer's mandate, checks every payment
+#   the customer   the business whose money the AI agent moves; signs the mandate inside its bank's app
+#   supervisory access   a regulator pulls evidence for an incident through normal supervisory processes
+REGISTER_ID = "agent-passport-register-demo"
+REGISTER_NAME = "Agent Passport Register (demo)"
+REGISTER_OPERATOR = "Agent Passport implementation entity (demo), an industry body on the Open Banking model"
+PROVIDER = "OpenPay Ltd"
+PRODUCT_NAME = "PayGPT 6.0"
+BANK_ID = "meridian-bank-demo"
+BANK = "Meridian Bank (demo)"
+BANK_OFFICER = "A. Ferreira"
+BANK_TEAM = "Payments Risk"
 CUSTOMER = "Northgate Joinery Ltd"
-BANK = "Northgate's bank (demo)"
-AGENT_NAME = "PayGPT 6.0"
-APP_VERSION = "0.2.0"
+CUSTOMER_ID = "northgate-joinery-ltd"
+SUPERVISOR = "Supervisory access (demo)"
+APP_VERSION = "0.3.0"

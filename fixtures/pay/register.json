@@ -1,0 +1,8 @@
+{
+ "_comment": "Entries already on the Agent Passport Register (synthetic). Shown on the Provider surface and in the bank's register view; F.6 refuses a product_id that is already on the register.",
+ "products": [
+  {"product": "OpenPay 5.5", "product_id": "openpay-5-5", "provider": "OpenPay Ltd", "registered": "2025-11-14", "status": "lapsed", "registration": "REG-2025-0004"},
+  {"product": "OpenPay 5.6", "product_id": "openpay-5-6", "provider": "OpenPay Ltd", "registered": "2026-03-02", "status": "active", "registration": "REG-2026-0009"},
+  {"product": "LedgerLine Payables 3", "product_id": "ledgerline-payables-3", "provider": "LedgerLine Software Ltd", "registered": "2026-05-19", "status": "active", "registration": "REG-2026-0012"}
+ ]
+}

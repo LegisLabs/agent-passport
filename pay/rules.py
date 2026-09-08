@@ -1,11 +1,10 @@
-"""The deterministic middle, payments vertical.
+"""The deterministic middle. No model is involved anywhere in this module; every function is
+pure over its inputs so a decision can be replayed later.
 
-Application checks (A.*) run over the reviewed structured fields plus the
-authority's own records. Runtime verification (R.*) runs at the bank over a
-presented envelope (three JWTs), a signed payment instruction, the authority's
-registry status and the bank's own ledger total, in a fixed order, deny by
-default. No model is involved anywhere in this module; every function is pure
-over its inputs so a decision can be replayed later.
+Filing checks (F.*) run on the register when a provider files an AI product: completeness and
+accountability, never a quality judgement. Runtime verification (R.*) runs at the bank over a
+presented envelope (three JWTs), a signed payment instruction, the bank's own passport list and
+the bank's own ledger total, in a fixed order, deny by default.
 """
 from __future__ import annotations
 
@@ -26,7 +25,7 @@ def pack() -> dict:
     return _PACK
 
 
-def registry() -> dict:
+def public_records() -> dict:
     return json.loads((config.FIXTURES_DIR / "registry.json").read_text())
 
 
@@ -46,12 +45,11 @@ def _v(fields: dict, *path, default=None):
 
 
 def norm_account(ref: str | None) -> str:
-    """'60-11-22 10101010' -> '601122 10101010' style: keep digits only, split sort code / account."""
-    digits = re.sub(r"\D", "", str(ref or ""))
-    return digits
+    """'60-11-22 10101010' -> '6011221010101 0' style: keep digits only."""
+    return re.sub(r"\D", "", str(ref or ""))
 
 
-# ── Application checks ─────────────────────────────────────────────────────
+# ── Filing checks on the register ──────────────────────────────────────────
 def _check(rule: dict, ok: bool, evidence: str, detail: str = "") -> dict:
     return {
         "id": rule["id"], "title": rule["title"], "status": rule["status"], "source": rule["source"],
@@ -59,49 +57,58 @@ def _check(rule: dict, ok: bool, evidence: str, detail: str = "") -> dict:
     }
 
 
-def registered_models() -> list[dict]:
-    return json.loads((config.FIXTURES_DIR / "registered_models.json").read_text())["models"]
+def register_entries() -> list[dict]:
+    return json.loads((config.FIXTURES_DIR / "register.json").read_text())["products"]
 
 
-def run_application_checks(fields: dict, agent: dict | None = None, reg: dict | None = None, today: date | None = None) -> list[dict]:
-    """Model registration checks M.1–M.6 over the fields the model company entered plus the authority's records."""
-    reg = reg or registry()
+def run_registration_checks(fields: dict, reg: dict | None = None, today: date | None = None) -> list[dict]:
+    """F.1 to F.6 over the fields the provider filed plus public records. Completeness and accountability only.
+    A flag does not stop the filing; it is visible to every bank that reads the register."""
+    reg = reg or public_records()
+    today = today or date.today()
     pol = pack()["policy"]
     out = []
-    for rule in pack()["application_rules"]:
+    for rule in pack()["registration_rules"]:
         c = rule["check"]
         if c == "companies_house_match":
             num = _v(fields, "company", "companies_house_number") or ""
             rec = reg["companies_house"].get(num)
             ok = bool(rec and rec["status"] == "active" and rec["name"].lower() == (_v(fields, "company", "legal_name") or "").lower())
             out.append(_check(rule, ok, f"Companies House {num}", "active company, name matches" if ok else "no matching active company"))
-        elif c == "attestation":
-            at = fields.get("attestation", {})
+        elif c == "accountable_principal":
+            at = fields.get("principal", {})
             ok = all(_v(at, k) for k in ("name", "role", "declaration_ref"))
-            out.append(_check(rule, ok, "registration: attestation", f"{_v(at, 'name')}, {_v(at, 'role')}, declaration {_v(at, 'declaration_ref')}: documentation accuracy attested on submission" if ok else "attestation incomplete"))
-        elif c == "model_documented":
-            m = fields.get("model", {})
-            missing = [k for k in ("model_name", "model_id", "model_provider", "model_version", "benchmarks_url", "training_details_url", "documentation_url") if not _v(m, k)]
-            bad_urls = [k for k in ("benchmarks_url", "training_details_url", "documentation_url") if _v(m, k) and not re.match(r"^https://\S+$", str(_v(m, k)))]
-            ok = not missing and not bad_urls
-            out.append(_check(rule, ok, "registration: model documentation", f"{_v(m, 'model_name')} on {_v(m, 'model_provider')} {_v(m, 'model_version')}; benchmark data, training details and model card published" if ok else ("missing: " + ", ".join(missing) if missing else "not https URLs: " + ", ".join(bad_urls))))
-        elif c == "version_pinned":
-            ver = str(_v(fields, "model", "model_version") or "")
-            ok = bool(ver) and not re.search(r"latest|\*|current", ver, re.I) and bool(re.search(r"[\d]", ver))
-            out.append(_check(rule, ok, f"model_version {ver or '—'}", "fixed version; a change means re-registration" if ok else "not a pinned version"))
-        elif c == "intended_use_within_policy":
-            at = _v(fields, "intended_use", "action_type")
-            ok = at in pol["action_types"]
-            out.append(_check(rule, ok, "policy table", f"{at} is a permitted action type" if ok else f"{at or 'no action type'} is outside {', '.join(pol['action_types'])}"))
+            out.append(_check(rule, ok, "filing: accountable principal", f"{_v(at, 'name')}, {_v(at, 'role')}, declaration {_v(at, 'declaration_ref')}: accountable for the accuracy of this filing" if ok else "accountable principal incomplete"))
+        elif c == "insurance":
+            ins = fields.get("insurance", {})
+            cover = float(_v(ins, "cover_gbp") or 0)
+            exp = str(_v(ins, "expires") or "")
+            ok = bool(_v(ins, "insurer") and _v(ins, "policy_ref")) and cover >= pol["min_insurance_cover_gbp"] and exp >= today.isoformat()
+            out.append(_check(rule, ok, f"policy {_v(ins, 'policy_ref') or '—'}", f"{_v(ins, 'insurer')}: cover £{cover:,.0f}, in force to {exp}" if ok else ("cover below the £{:,.0f} minimum".format(pol["min_insurance_cover_gbp"]) if cover < pol["min_insurance_cover_gbp"] else "policy missing or expired")))
+        elif c == "product_documented":
+            m = fields.get("product", {})
+            missing = [k for k in ("product_name", "product_id", "release", "model_provider", "model_version", "documentation_url") if not _v(m, k)]
+            ver = str(_v(m, "model_version") or "")
+            pinned = bool(ver) and not re.search(r"latest|\*|current", ver, re.I) and bool(re.search(r"[\d]", ver))
+            url_ok = bool(re.match(r"^https://\S+$", str(_v(m, "documentation_url") or "")))
+            ok = not missing and pinned and url_ok
+            out.append(_check(rule, ok, "filing: product", f"{_v(m, 'product_name')} release {_v(m, 'release')} on {_v(m, 'model_provider')} {ver}; documentation published" if ok else ("missing: " + ", ".join(missing) if missing else ("model version is not pinned" if not pinned else "documentation is not an https URL"))))
+        elif c == "assurance_evidence":
+            ae = fields.get("assurance_evidence", {})
+            missing = [k for k in ("issuer", "reference", "date", "use_case", "report_url") if not _v(ae, k)]
+            covers = (_v(ae, "use_case") or "") == (_v(fields, "intended_use", "action_type") or "")
+            url_ok = bool(re.match(r"^https://\S+$", str(_v(ae, "report_url") or "")))
+            ok = not missing and covers and url_ok
+            out.append(_check(rule, ok, f"{_v(ae, 'issuer') or '—'} {_v(ae, 'reference') or ''}".strip(), f"independent evidence dated {_v(ae, 'date')} for use case {_v(ae, 'use_case')}; attached, not assessed by the register" if ok else ("missing: " + ", ".join(missing) if missing else ("evidence does not cover the registered use case" if not covers else "report is not an https URL"))))
         elif c == "not_already_registered":
-            mid = _v(fields, "model", "model_id")
-            clash = next((m for m in registered_models() if m.get("model_id") == mid and m.get("status") in ("active", "suspended")), None)
-            ok = bool(mid) and clash is None
-            out.append(_check(rule, ok, "approved-models registry", f"{mid} is new to the register" if ok else (f"{mid} is already registered as {clash['registration']}" if clash else "no model id")))
+            pid = _v(fields, "product", "product_id")
+            clash = next((m for m in register_entries() if m.get("product_id") == pid and m.get("status") == "active"), None)
+            ok = bool(pid) and clash is None
+            out.append(_check(rule, ok, "Agent Passport Register", f"{pid} is new to the register" if ok else (f"{pid} is already on the register as {clash['registration']}" if clash else "no product id")))
     return out
 
 
-# ── Runtime verification ───────────────────────────────────────────────────
+# ── Runtime verification at the bank ───────────────────────────────────────
 def _rule(rid: str) -> dict:
     return next(r for r in pack()["runtime_rules"] if r["id"] == rid)
 
@@ -114,7 +121,7 @@ REQUEST_FIELDS = ("passport_id", "action_type", "payee_account_ref", "supplier_n
 
 
 def request_signing_input(req: dict) -> bytes:
-    """Canonical bytes the agent signs: the instruction without the signature.
+    """Canonical bytes the AI agent signs: the instruction without the signature.
     Integral floats are written as integers so 3200 and 3200.0 sign identically whichever side parsed them."""
     body = {}
     for k in REQUEST_FIELDS:
@@ -124,11 +131,11 @@ def request_signing_input(req: dict) -> bytes:
     return crypto.canonical(body).encode()
 
 
-def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total: float = 0.0, today: date | None = None) -> dict:
+def verify_action(envelope: dict, passport_status: str, req: dict, ledger_total: float = 0.0, today: date | None = None) -> dict:
     """Ordered checks at the bank, deny by default.
 
-    envelope         {assurance, agent_identity, mandate} compact JWTs (mandate may be null)
-    registry_status  the authority registry's current status for the passport id
+    envelope         {admission, agent_identity, mandate} compact JWTs (mandate may be null)
+    passport_status  the bank's current status for the passport id on its own list
     req              {passport_id, action_type, payee_account_ref, supplier_name, amount, currency, invoice_ref, nonce, agent_signature}
     ledger_total     the bank's executed total for this payee account in the trailing 30 days
     """
@@ -139,27 +146,27 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
         trace.append({"rule": rid, "title": _rule(rid)["title"], "ok": ok, "note": note})
         return ok
 
-    # R.1 assurance signature (authority); no assurance at all means the passport was never issued
-    if not envelope.get("assurance"):
-        step("R.1", False, "no assurance: the passport has not been issued (the customer has not signed its mandate)")
-        return _result("R.1", "DENY", "PASSPORT_NOT_ISSUED", "passport not issued: the customer has not yet signed the mandate that gives the agent life", trace)
-    assurance = crypto.verify_jwt("authority", envelope.get("assurance"))
-    if not step("R.1", assurance is not None, "authority signature verifies" if assurance else "assurance does not verify against the authority key"):
-        return _result("R.1", "DENY", _rule("R.1")["code"], "assurance signature invalid", trace)
+    # R.1 admission signature (bank key); no admission at all means the passport was never issued
+    if not envelope.get("admission"):
+        step("R.1", False, "no admission: the passport has not been issued (the customer has not signed its mandate)")
+        return _result("R.1", "DENY", "PASSPORT_NOT_ISSUED", "passport not issued: the customer has not yet signed the mandate that gives the AI agent authority", trace)
+    admission = crypto.verify_jwt("bank", envelope.get("admission"))
+    if not step("R.1", admission is not None, "bank admission signature verifies" if admission else "admission does not verify against the bank key"):
+        return _result("R.1", "DENY", _rule("R.1")["code"], "admission signature invalid", trace)
 
-    # R.2 status + expiry (registry is authoritative; token validity is the second guard)
-    expired = today.isoformat() > assurance.get("valid_until", "9999-12-31")
-    active = registry_status == "active" and not expired
-    if not step("R.2", active, f"registry status {registry_status}" + (", expired" if expired else "")):
-        return _result("R.2", "DENY", _rule("R.2")["code"], f"assurance not active: status is {registry_status.upper()}" + (" and validity has ended" if expired else ""), trace)
+    # R.2 status + expiry (the bank's list is authoritative; token validity is the second guard)
+    expired = today.isoformat() > admission.get("valid_until", "9999-12-31")
+    active = passport_status == "active" and not expired
+    if not step("R.2", active, f"passport list status {passport_status}" + (", expired" if expired else "")):
+        return _result("R.2", "DENY", _rule("R.2")["code"], f"passport not active: status is {passport_status.upper()}" + (" and validity has ended" if expired else ""), trace)
 
-    # R.3 agent identity signature (provider) and binding to this assurance
+    # R.3 agent identity signature (customer) and binding to this admission
     ident = crypto.verify_jwt("northgate", envelope.get("agent_identity"))
-    bound = bool(ident) and crypto.sha256_hex(envelope.get("agent_identity") or "") == (assurance.get("binds") or {}).get("agent_identity_sha256")
-    if not step("R.3", bool(ident) and bound, "customer signature verifies; agent identity bound to this assurance" if ident and bound else ("agent identity does not verify against the customer key" if not ident else "agent identity is not the one this assurance was issued for")):
-        return _result("R.3", "DENY", _rule("R.3")["code"], "agent identity signature invalid or not bound to this assurance", trace)
+    bound = bool(ident) and crypto.sha256_hex(envelope.get("agent_identity") or "") == (admission.get("binds") or {}).get("agent_identity_sha256")
+    if not step("R.3", bool(ident) and bound, "customer signature verifies; agent identity bound to this admission" if ident and bound else ("agent identity does not verify against the customer key" if not ident else "agent identity is not the one this admission was issued for")):
+        return _result("R.3", "DENY", _rule("R.3")["code"], "agent identity signature invalid or not bound to this admission", trace)
 
-    # R.4 instruction signed by the agent key in agent_identity.cnf. With a delegation chain (Part B), the
+    # R.4 instruction signed by the AI agent key in agent_identity.cnf. With a delegation chain, the
     # orchestrator's key signs the delegation and the delegated execution key signs the instruction.
     jwk = (ident.get("cnf") or {}).get("jwk")
     delegation = None
@@ -171,16 +178,16 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
         note_bad = "delegation not signed by the bound orchestrator key" if not delegation else "instruction not signed by the key named in the delegation"
     else:
         sig_ok = bool(jwk and req.get("agent_signature") and crypto.verify_with_jwk(jwk, request_signing_input(req), req["agent_signature"]))
-        note_ok, note_bad = "instruction signature matches the agent key", "instruction not signed by the bound agent key: possible copied passport"
+        note_ok, note_bad = "instruction signature matches the AI agent key", "instruction not signed by the bound AI agent key: possible copied passport"
     if not step("R.4", sig_ok, note_ok if sig_ok else note_bad):
-        return _result("R.4", "DENY", _rule("R.4")["code"], "instruction not signed by the passport's agent key (possession not proven)", trace)
+        return _result("R.4", "DENY", _rule("R.4")["code"], "instruction not signed by the passport's AI agent key (possession not proven)", trace)
 
     # R.5 mandate present, signed by the customer, unexpired
     if not envelope.get("mandate"):
         step("R.5", False, "mandate not signed by the customer")
-        return _result("R.5", "DENY", "MANDATE_NOT_SIGNED", "mandate not signed: the customer has not yet authorised this agent", trace)
+        return _result("R.5", "DENY", "MANDATE_NOT_SIGNED", "mandate not signed: the customer has not yet authorised this AI agent", trace)
     mandate = crypto.verify_jwt("northgate", envelope.get("mandate"))
-    if not step("R.5", mandate is not None and mandate.get("passport_id") == assurance.get("jti"), "customer signature verifies" if mandate else "mandate does not verify against the customer key"):
+    if not step("R.5", mandate is not None and mandate.get("passport_id") == admission.get("jti"), "customer signature verifies" if mandate else "mandate does not verify against the customer key"):
         return _result("R.5", "DENY", "MANDATE_SIGNATURE_INVALID", "mandate signature invalid or for a different passport", trace)
     if today.isoformat() > mandate.get("valid_until", "9999-12-31"):
         step("R.5", False, f"mandate expired {mandate.get('valid_until')}")
@@ -188,7 +195,7 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
 
     ad = (mandate.get("authorization_details") or [{}])[0]
 
-    # C.a–C.c delegation chain (Part B): only when a delegation is presented. S_action ⊆ S_1 (delegation) ⊆ S_0 (mandate).
+    # C.a to C.c delegation chain: only when a delegation is presented. S_action ⊆ S_1 (delegation) ⊆ S_0 (mandate).
     chain = None
     if delegation is not None:
         chain = verify_chain(ad, delegation, req, today)
@@ -221,18 +228,18 @@ def verify_action(envelope: dict, registry_status: str, req: dict, ledger_total:
     if not step("R.8", projected <= monthly, f"£{ledger_total:,.0f} already paid to this account in 30 days + £{amount:,.0f} = £{projected:,.0f} " + ("within" if projected <= monthly else "exceeds") + f" £{monthly:,.0f}"):
         return _result("R.8", "DENY", _rule("R.8")["code"], f"30-day total for this account would reach £{projected:,.0f}, above the £{monthly:,.0f} limit; cumulative pattern refused", trace)
 
-    # R.9 supervisor condition
-    thr = ((assurance.get("condition") or {}).get("human_confirm_above") or {}).get("amount")
+    # R.9 the bank's hold condition
+    thr = ((admission.get("condition") or {}).get("hold_above") or {}).get("amount")
     if thr is not None and amount > float(thr):
-        step("R.9", False, f"£{amount:,.0f} above the £{float(thr):,.0f} human-confirmation condition")
-        return _result("R.9", "ESCALATE", _rule("R.9")["code"], f"£{amount:,.0f} exceeds the £{float(thr):,.0f} supervisor condition; held for the customer's authorising officer", trace)
-    step("R.9", True, f"£{amount:,.0f} within the human-confirmation condition")
-    out = _result("R.9", "ALLOW", "WITHIN_MANDATE", "within the customer-signed mandate and the supervisor's conditions", trace)
+        step("R.9", False, f"£{amount:,.0f} above the £{float(thr):,.0f} hold condition")
+        return _result("R.9", "ESCALATE", _rule("R.9")["code"], f"£{amount:,.0f} exceeds the bank's £{float(thr):,.0f} hold condition; held for the customer's named approver", trace)
+    step("R.9", True, f"£{amount:,.0f} within the hold condition")
+    out = _result("R.9", "ALLOW", "WITHIN_MANDATE", "within the customer-signed mandate and the bank's admission conditions", trace)
     out["chain"] = chain
     return out
 
 
-# ── Part B: delegation chain ────────────────────────────────────────────────
+# ── Delegation chain ────────────────────────────────────────────────────────
 CHAIN_RULES = [
     {"id": "C.a", "title": "Root mandate scope is well formed", "code": "ROOT_SCOPE_INVALID"},
     {"id": "C.b", "title": "Delegation is a subset of the root mandate (beneficiaries, ceiling, actions, validity)", "code": "DELEGATION_EXPANDS_SCOPE"},
@@ -281,8 +288,8 @@ def verify_chain(root_ad: dict, delegation: dict, req: dict, today: date | None 
                        "action": {"payee": req.get("payee_account_ref"), "amount": amount, "action": req.get("action_type")}}}
 
 
-# ── Phase 3: the customer's own mandate must sit within the authority's policy ceilings ──
-def check_mandate_containment(mandate: dict, assurance_valid_until: str | None = None) -> list[dict]:
+# ── The customer's own mandate must sit within the bank's admission ceilings ──
+def check_mandate_containment(mandate: dict, admission_valid_until: str | None = None) -> list[dict]:
     """Ceiling containment at signing. Returns the failed checks (empty = within ceilings)."""
     pol = pack()["policy"]
     ad = mandate
@@ -294,14 +301,14 @@ def check_mandate_containment(mandate: dict, assurance_valid_until: str | None =
             problems.append({"field": "supplier_allowlist", "problem": f"payee '{s.get('name') or '?'}' needs a name and a sort code plus 8-digit account"})
     per = float(ad.get("per_payment_limit") or 0)
     if per <= 0 or per > pol["per_payment_ceiling_gbp"]:
-        problems.append({"field": "per_payment_limit", "problem": f"per-payment limit £{per:,.0f} must be between £1 and the policy ceiling £{pol['per_payment_ceiling_gbp']:,.0f}"})
+        problems.append({"field": "per_payment_limit", "problem": f"per-payment limit £{per:,.0f} must be between £1 and the admission ceiling £{pol['per_payment_ceiling_gbp']:,.0f}"})
     monthly = float(ad.get("monthly_limit_per_account") or 0)
     if monthly <= 0 or monthly > pol["monthly_per_account_ceiling_gbp"]:
-        problems.append({"field": "monthly_limit_per_account", "problem": f"30-day limit £{monthly:,.0f} must be between £1 and the policy ceiling £{pol['monthly_per_account_ceiling_gbp']:,.0f}"})
+        problems.append({"field": "monthly_limit_per_account", "problem": f"30-day limit £{monthly:,.0f} must be between £1 and the admission ceiling £{pol['monthly_per_account_ceiling_gbp']:,.0f}"})
     if per > 0 and monthly > 0 and monthly < per:
         problems.append({"field": "monthly_limit_per_account", "problem": "30-day limit cannot be below the per-payment limit"})
     vu = str(ad.get("valid_until") or "")
-    cap = min(pol["max_validity"], assurance_valid_until or pol["max_validity"])
+    cap = min(pol["max_validity"], admission_valid_until or pol["max_validity"])
     if not vu or vu > cap:
         problems.append({"field": "valid_until", "problem": f"expiry must be on or before {cap}"})
     if not set(ad.get("actions") or []) <= set(pol["action_types"]) or not ad.get("actions"):

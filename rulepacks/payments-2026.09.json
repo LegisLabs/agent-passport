@@ -1,8 +1,9 @@
 {
-  "id": "payments-2026.09",
-  "title": "Agent Passport rule pack — B2B payment initiation (prototype)",
-  "jurisdiction": "neutral",
-  "issuer": "payments-authority-demo",
+  "id": "payments-2026.09.3",
+  "title": "Agent Passport rule pack, B2B payment initiation (APS 1001 revision 3, bank-first)",
+  "jurisdiction": "United Kingdom (proposed industry standard; no current legal requirement)",
+  "register": "agent-passport-register-demo",
+  "bank": "meridian-bank-demo",
   "agent_class": "accounts_payable_agent",
   "policy": {
     "action_types": ["pay_invoice"],
@@ -11,12 +12,11 @@
     "monthly_per_account_ceiling_gbp": 50000,
     "monthly_window": "P30D",
     "max_validity": "2027-03-31",
-    "ceilings_note": "Policy ceilings set by the authority when it approves the model. Every customer mandate must stay within them; the containment check runs when the customer signs.",
-    "human_confirm_above_gbp": 5000,
+    "ceilings_note": "Admission ceilings set by the bank when it admits an AI product to its list. Every customer mandate on that product must stay within them; the containment check runs when the customer signs.",
+    "hold_above_gbp": 5000,
     "min_insurance_cover_gbp": 1000000,
-    "recognised_software": ["PayGPT", "OpenPay", "LedgerLine Payables", "InvoiceBot"],
     "incident_deny_threshold": 3,
-    "pattern_threshold": {"count": 2, "window_hours": 24, "note": "same rule refused this many times within the window on one passport raises a supervisor alert"},
+    "pattern_threshold": {"count": 2, "window_hours": 24, "note": "the same rule refused this many times within the window on one passport raises an alert to the bank's payments risk team"},
     "delegation_max_gbp": 4000
   },
   "chain_rules": [
@@ -24,23 +24,23 @@
     {"id": "C.b", "title": "Delegation is a subset of the root mandate", "status": "PROTOTYPE", "source": "Delegation signed by the orchestrator key in agent_identity.cnf; beneficiaries, ceiling, actions, validity ⊆ root", "data": "delegation JWT + envelope.mandate", "on_fail": "DENY", "code": "DELEGATION_EXPANDS_SCOPE"},
     {"id": "C.c", "title": "Action lies inside the narrowest scope", "status": "PROTOTYPE", "source": "Instruction signed by the delegated execution key named in the delegation", "data": "delegation JWT + instruction", "on_fail": "DENY", "code": "ACTION_OUTSIDE_DELEGATION"}
   ],
-  "application_rules": [
-    {"id": "M.1", "title": "Model company resolves at Companies House", "status": "CURRENT", "source": "Companies House register", "check": "companies_house_match", "fail": "flag"},
-    {"id": "M.2", "title": "A named person attests the registered documentation is accurate", "status": "PROTOTYPE", "source": "Truthfulness declaration, as for a Companies House filing (prototype condition); no liability for what agents later do", "check": "attestation", "fail": "flag"},
-    {"id": "M.3", "title": "Model documentation complete (provider, version, published benchmark data, training details, model card)", "status": "PROTOTYPE", "source": "Registration form; EU AI Act-style provider documentation (prototype condition)", "check": "model_documented", "fail": "flag"},
-    {"id": "M.4", "title": "Foundation model version is pinned", "status": "PROTOTYPE", "source": "Registration form: a fixed version, no floating alias", "check": "version_pinned", "fail": "flag"},
-    {"id": "M.5", "title": "Intended use within the policy's action types", "status": "PROTOTYPE", "source": "Rule pack policy table", "check": "intended_use_within_policy", "fail": "flag"},
-    {"id": "M.6", "title": "Model not already on the register", "status": "PROTOTYPE", "source": "Approved-models registry", "check": "not_already_registered", "fail": "flag"}
+  "registration_rules": [
+    {"id": "F.1", "title": "Provider resolves at Companies House", "status": "CURRENT", "source": "Companies House register", "check": "companies_house_match", "fail": "flag"},
+    {"id": "F.2", "title": "Accountable principal named, with a signed declaration", "status": "PROTOTYPE", "source": "Filing declaration, as for a Companies House filing; accountability for the filing, not a quality judgement", "check": "accountable_principal", "fail": "flag"},
+    {"id": "F.3", "title": "Insurance evidenced, cover at or above the minimum, in force", "status": "PROTOTYPE", "source": "Professional indemnity policy summary; minimum cover in the policy table", "check": "insurance", "fail": "flag"},
+    {"id": "F.4", "title": "AI product documented with a pinned model version", "status": "PROTOTYPE", "source": "Filing form: product name, identifier, release, foundation model provider and pinned version, documentation location", "check": "product_documented", "fail": "flag"},
+    {"id": "F.5", "title": "Independent Assurance Evidence attached and covering the registered use case", "status": "PROTOTYPE", "source": "Independent benchmark or audit report: issuer, reference, date, use case, report location. Presence and scope are checked; the register makes no quality judgement", "check": "assurance_evidence", "fail": "flag"},
+    {"id": "F.6", "title": "Product not already on the register", "status": "PROTOTYPE", "source": "Agent Passport Register", "check": "not_already_registered", "fail": "flag"}
   ],
   "runtime_rules": [
-    {"id": "R.1", "title": "Assurance signature genuine (authority key)", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "envelope.assurance", "on_fail": "DENY", "code": "ASSURANCE_SIGNATURE_INVALID", "codes": ["PASSPORT_NOT_ISSUED", "ASSURANCE_SIGNATURE_INVALID"]},
-    {"id": "R.2", "title": "Assurance active and unexpired (registry lookup)", "status": "PROTOTYPE", "source": "Authority status registry (real-time lookup)", "data": "registry", "on_fail": "DENY", "code": "ASSURANCE_NOT_ACTIVE"},
-    {"id": "R.3", "title": "Agent identity signature genuine (provider key)", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "envelope.agent_identity", "on_fail": "DENY", "code": "AGENT_IDENTITY_SIGNATURE_INVALID"},
-    {"id": "R.4", "title": "Instruction signed by the agent key inside agent_identity", "status": "PROTOTYPE", "source": "RFC 7800 cnf / DPoP-style proof-of-possession", "data": "envelope.agent_identity + instruction", "on_fail": "DENY", "code": "AGENT_SIGNATURE_INVALID"},
+    {"id": "R.1", "title": "Admission signature genuine (bank key)", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "envelope.admission", "on_fail": "DENY", "code": "ADMISSION_SIGNATURE_INVALID", "codes": ["PASSPORT_NOT_ISSUED", "ADMISSION_SIGNATURE_INVALID"]},
+    {"id": "R.2", "title": "Passport active and unexpired (bank's list lookup)", "status": "PROTOTYPE", "source": "The bank's passport list (real-time lookup)", "data": "passport list", "on_fail": "DENY", "code": "PASSPORT_NOT_ACTIVE"},
+    {"id": "R.3", "title": "Agent identity signature genuine (customer key), bound to this admission", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "envelope.agent_identity", "on_fail": "DENY", "code": "AGENT_IDENTITY_SIGNATURE_INVALID"},
+    {"id": "R.4", "title": "Instruction signed by the AI agent key inside agent_identity", "status": "PROTOTYPE", "source": "RFC 7800 cnf / DPoP-style proof-of-possession", "data": "envelope.agent_identity + instruction", "on_fail": "DENY", "code": "AGENT_SIGNATURE_INVALID"},
     {"id": "R.5", "title": "Mandate signed by the customer and unexpired", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037); mandate validity", "data": "envelope.mandate", "on_fail": "DENY", "code": "MANDATE_NOT_SIGNED", "codes": ["MANDATE_NOT_SIGNED", "MANDATE_SIGNATURE_INVALID", "MANDATE_EXPIRED"]},
     {"id": "R.6", "title": "Action permitted and payee account on the customer-signed allowlist", "status": "PROTOTYPE", "source": "authorization_details (RFC 9396 shape); Confirmation-of-Payee analogue", "data": "envelope.mandate + instruction", "on_fail": "DENY", "code": "PAYEE_NOT_ON_MANDATE", "codes": ["OUT_OF_SCOPE", "PAYEE_NOT_ON_MANDATE"]},
     {"id": "R.7", "title": "Amount within the per-payment limit", "status": "PROTOTYPE", "source": "Mandate per_payment_limit", "data": "envelope.mandate + instruction", "on_fail": "DENY", "code": "PER_PAYMENT_LIMIT_EXCEEDED"},
-    {"id": "R.8", "title": "Amount plus 30-day total for this payee account within the monthly limit", "status": "PROTOTYPE", "source": "Mandate monthly_limit_per_account; bank-held ledger (limit in the mandate, total in the bank)", "data": "envelope.mandate + bank ledger", "on_fail": "DENY", "code": "MONTHLY_LIMIT_EXCEEDED"},
-    {"id": "R.9", "title": "Supervisor condition: amount above human_confirm_above is held for a named human", "status": "PROTOTYPE", "source": "Assurance condition set by the authority officer", "data": "envelope.assurance + instruction", "on_fail": "ESCALATE", "code": "HUMAN_CONFIRMATION_REQUIRED"}
+    {"id": "R.8", "title": "Amount plus 30-day total for this payee account within the monthly limit", "status": "PROTOTYPE", "source": "Mandate monthly_limit_per_account; bank-held ledger (limit in the mandate, total at the bank)", "data": "envelope.mandate + bank ledger", "on_fail": "DENY", "code": "MONTHLY_LIMIT_EXCEEDED"},
+    {"id": "R.9", "title": "Bank hold condition: amount above hold_above is held for the customer's named approver", "status": "PROTOTYPE", "source": "Admission condition set by the bank's payments risk officer", "data": "envelope.admission + instruction", "on_fail": "ESCALATE", "code": "HUMAN_CONFIRMATION_REQUIRED"}
   ]
 }

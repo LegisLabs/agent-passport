@@ -1,16 +1,16 @@
-"""Standards Review Assistant (the brief's KYA standards evaluation tool).
+"""Admission review assistant: the bank's own tool for deciding whether to admit a registered AI product.
 
-Six visible steps the regulator's copilot runs when an officer opens a submitted application. Every step is
-deterministic over structured facts; the sandbox run uses the same rules.verify_action the bank uses. The
-model may phrase a summary (through extraction.draft_file_note, verdict vocabulary rejected); it never scores,
-decides or signs. Only the officer's own POST /decision applies the authority signature.
+Six visible steps the bank's payments risk officer runs when a registration is opened. Every step is
+deterministic over structured facts; the sandbox run uses the same rules.verify_action the bank uses at
+payment time. The model may phrase a summary (through extraction.draft_file_note, verdict vocabulary
+rejected); it never scores, decides or signs. Only the officer's own POST /admission applies the bank's key.
 
-  1 EVIDENCE READ           what the model company registered, what customers will do with it, what the authority is asked to certify
-  2 STANDARDS RULE MAP      each rule in the versioned pack mapped to the evidence that satisfies it; uncovered items flagged
-  3 ADVERSARIAL TESTS       five test instructions specific to this passport
-  4 SANDBOX RUN             each test through the real R.1–R.9 engine against a provisional, sandbox-signed envelope
-  5 RECOMMENDATION          APPROVE WITH CONDITIONS / REFER, reasoning drawn from 2–4, labelled "AI recommendation — human decision required"
-  6 HUMAN SIGN-OFF          the existing officer decision; nothing here approves anything
+  1 FILING READ             what the provider filed on the register, what the bank is being asked to admit
+  2 REQUIREMENT MAP         each filing check mapped to the evidence that satisfies it; uncovered items flagged
+  3 ADVERSARIAL TESTS       five test instructions specific to this product
+  4 SANDBOX RUN             each test through the real R.1 to R.9 engine against a provisional, sandbox-signed envelope
+  5 RECOMMENDATION          ADMIT WITH CONDITIONS / REFER, reasoning drawn from 2 to 4, labelled "recommendation, the officer decides"
+  6 OFFICER DECISION        the bank's decision; nothing here admits anything
 """
 from __future__ import annotations
 
@@ -19,8 +19,8 @@ from datetime import date, timedelta
 from . import config, crypto, extraction, rules
 
 RULE_EVIDENCE = {
-    "M.1": ("company", "companies_house_number"), "M.2": ("attestation", "declaration_ref"), "M.3": ("model", "documentation_url"),
-    "M.4": ("model", "model_version"), "M.5": ("intended_use", "action_type"), "M.6": ("model", "model_id"),
+    "F.1": ("company", "companies_house_number"), "F.2": ("principal", "declaration_ref"), "F.3": ("insurance", "policy_ref"),
+    "F.4": ("product", "model_version"), "F.5": ("assurance_evidence", "reference"), "F.6": ("product", "product_id"),
 }
 
 
@@ -28,33 +28,36 @@ def _v(fields, *path):
     return rules._v(fields, *path)
 
 
-def step_evidence(a: dict) -> dict:
+def step_filing(a: dict) -> dict:
     f = a["fields"]
     pol = rules.pack()["policy"]
+    ae = f.get("assurance_evidence", {})
     return {
-        "company_registers": {"legal_name": _v(f, "company", "legal_name"), "companies_house": _v(f, "company", "companies_house_number"),
-                              "model": f"{_v(f, 'model', 'model_name')} ({_v(f, 'model', 'model_id')}, release {_v(f, 'model', 'release')})",
-                              "foundation_model": f"{_v(f, 'model', 'model_provider')} · {_v(f, 'model', 'model_version')}",
-                              "benchmarks": _v(f, "model", "benchmarks_url"), "training_details": _v(f, "model", "training_details_url"), "documentation": _v(f, "model", "documentation_url"),
-                              "attested_by": f"{_v(f, 'attestation', 'name')}, {_v(f, 'attestation', 'role')} ({_v(f, 'attestation', 'declaration_ref')}): documentation accuracy only",
-                              "intended_use": f"{_v(f, 'intended_use', 'action_type')}: {_v(f, 'intended_use', 'description')}"},
-        "customers_will": {"note": "No customer, no agent, no key at registration. A model becomes an agent when a customer gives it a mandate: the customer registers its agent on the model (own key, proof of possession, configuration hash) and writes and signs its mandate within the policy ceilings."},
-        "authority_asked_to_certify": {"model_approval": "company identity, attestation, documentation completeness, pinned version, intended use and register uniqueness verified against records",
-                                       "policy_ceilings": f"per payment ≤ £{pol['per_payment_ceiling_gbp']:,.0f}; per account in 30 days ≤ £{pol['monthly_per_account_ceiling_gbp']:,.0f}; expiry ≤ {pol['max_validity']}; actions {', '.join(pol['action_types'])}",
-                                       "condition_default": float(pol["human_confirm_above_gbp"])},
-        "documents": [], "registration": "fields entered by the model company on the Provider Panel" + (" (prefilled for the demo)" if a.get("extraction_mode") == "prefill" else ""), "extraction_mode": a.get("extraction_mode"),
+        "provider_filed": {"legal_name": _v(f, "company", "legal_name"), "companies_house": _v(f, "company", "companies_house_number"),
+                           "accountable_principal": f"{_v(f, 'principal', 'name')}, {_v(f, 'principal', 'role')} ({_v(f, 'principal', 'declaration_ref')})",
+                           "insurance": f"{_v(f, 'insurance', 'insurer')} {_v(f, 'insurance', 'policy_ref')}, cover £{float(_v(f, 'insurance', 'cover_gbp') or 0):,.0f} to {_v(f, 'insurance', 'expires')}",
+                           "product": f"{_v(f, 'product', 'product_name')} ({_v(f, 'product', 'product_id')}, release {_v(f, 'product', 'release')})",
+                           "foundation_model": f"{_v(f, 'product', 'model_provider')} · {_v(f, 'product', 'model_version')}",
+                           "documentation": _v(f, "product", "documentation_url"),
+                           "independent_assurance_evidence": f"{_v(ae, 'issuer')} {_v(ae, 'reference')}, {_v(ae, 'date')}, use case {_v(ae, 'use_case')}: {_v(ae, 'summary')}",
+                           "intended_use": f"{_v(f, 'intended_use', 'action_type')}: {_v(f, 'intended_use', 'description')}"},
+        "register_says": {"note": "The register records identity and accountability. It does not certify that the product is good; it guarantees that someone is accountable when it is bad. The quality judgement is the bank's."},
+        "bank_decides": {"admission": "whether customers of this bank may delegate payments to this product, and under what ceilings and hold condition",
+                         "ceilings": f"per payment ≤ £{pol['per_payment_ceiling_gbp']:,.0f}; per account in 30 days ≤ £{pol['monthly_per_account_ceiling_gbp']:,.0f}; expiry ≤ {pol['max_validity']}; actions {', '.join(pol['action_types'])}",
+                         "hold_above_default": float(pol["hold_above_gbp"])},
+        "registration": "fields filed by the provider on the register" + (" (prefilled for the demo)" if a.get("entry_mode") == "prefill" else ""), "entry_mode": a.get("entry_mode"),
     }
 
 
-def step_rule_map(a: dict) -> dict:
+def step_requirement_map(a: dict) -> dict:
     checks = {c["id"]: c for c in a.get("checks") or []}
     f = a["fields"]
     rows = []
-    for r in rules.pack()["application_rules"]:
+    for r in rules.pack()["registration_rules"]:
         c = checks.get(r["id"])
         path = RULE_EVIDENCE.get(r["id"])
         fact = f.get(path[0], {}).get(path[1]) if path else None
-        ev = {"value": fact.get("value"), "source_doc": fact.get("source_doc"), "quote": fact.get("quote")} if isinstance(fact, dict) else ({"value": "signed challenge", "source_doc": "agent key registration", "quote": None} if r["id"] == "A.5" else None)
+        ev = {"value": fact.get("value"), "source_doc": fact.get("source_doc"), "quote": fact.get("quote")} if isinstance(fact, dict) else None
         rows.append({"id": r["id"], "title": r["title"], "status": r["status"], "source": r["source"], "result": c["result"] if c else "not run", "detail": c["detail"] if c else "", "evidence": ev,
                      "covered": bool(ev and ev.get("value") not in (None, "")) and bool(c)})
     return {"rule_pack": rules.pack()["id"], "rules": rows, "uncovered": [r["id"] for r in rows if not r["covered"]], "flagged": [r["id"] for r in rows if r["result"] == "flag"]}
@@ -64,42 +67,41 @@ SANDBOX_PAYEE = {"supplier_id": "SANDBOX-1", "name": "Sandbox Supplier Ltd", "ac
 
 
 def step_tests(a: dict) -> list[dict]:
-    """Five adversarial instructions against a sandbox mandate set at the policy ceilings (no real customer is involved)."""
-    f = a["fields"]
+    """Five adversarial instructions against a sandbox mandate set at the admission ceilings (no real customer is involved)."""
     pol = rules.pack()["policy"]
     cap = float(pol["per_payment_ceiling_gbp"])
-    thr = float(pol["human_confirm_above_gbp"])
+    thr = float(pol["hold_above_gbp"])
     return [
         {"id": "T1", "title": "Payment to a non-mandated supplier", "expect": "DENY", "expect_rule": "R.6", "instruction": {"supplier_name": "Unlisted Courier Ltd", "payee_account_ref": "60-11-22 20202020", "amount": min(cap, 2500.0)}, "variant": "normal"},
-        {"id": "T2", "title": f"Amount £1 above the policy ceiling (£{cap:,.0f})", "expect": "DENY", "expect_rule": "R.7", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": cap + 1}, "variant": "normal"},
+        {"id": "T2", "title": f"Amount £1 above the admission ceiling (£{cap:,.0f})", "expect": "DENY", "expect_rule": "R.7", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": cap + 1}, "variant": "normal"},
         {"id": "T3", "title": "Expired passport presented", "expect": "DENY", "expect_rule": "R.2", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": 100.0}, "variant": "expired"},
         {"id": "T4", "title": "Instruction signed with a rogue key", "expect": "DENY", "expect_rule": "R.4", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": 100.0}, "variant": "rogue"},
-        {"id": "T5", "title": f"Amount above the supervisor condition (£{thr:,.0f}) but within the ceiling", "expect": "ESCALATE", "expect_rule": "R.9", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": min(cap, thr + 100)}, "variant": "normal"},
+        {"id": "T5", "title": f"Amount above the hold condition (£{thr:,.0f}) but within the ceiling", "expect": "ESCALATE", "expect_rule": "R.9", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": min(cap, thr + 100)}, "variant": "normal"},
     ]
 
 
 def _sandbox_envelope(a: dict, condition: float, expired: bool, agent_priv: str, agent_jwk: dict) -> dict:
-    """A provisional envelope signed by the real keys for a SANDBOX passport that is never entered in the registry.
-    The agent does not exist yet at registration, so the sandbox mints an ephemeral agent key for the run."""
+    """A provisional envelope signed by the real keys for a SANDBOX passport that is never entered on the bank's list.
+    The AI agent does not exist yet at admission, so the sandbox mints an ephemeral agent key for the run."""
     f = a["fields"]
     pol = rules.pack()["policy"]
     pid = f"SANDBOX-{a['ref']}"
     valid_until = (date.today() - timedelta(days=1)).isoformat() if expired else pol["max_validity"]
     ident = crypto.sign_jwt("northgate", {"iss": "sandbox-customer", "typ": "agent_identity", "sandbox": True, "sub": "sandbox-agent", "iat": crypto.now_ts(),
-                                          "agent": {"name": "sandbox agent", "agent_id": "sandbox-agent", "model_id": _v(f, "model", "model_id")}, "cnf": {"jwk": agent_jwk}}, typ="agent-identity+jwt")
-    assurance = crypto.sign_jwt("authority", {"iss": config.ISSUER, "typ": "assurance", "sandbox": True, "jti": pid, "iat": crypto.now_ts(), "valid_until": valid_until,
-                                              "model_ref": {"registration": a["ref"], "model_id": _v(f, "model", "model_id"), "model_name": _v(f, "model", "model_name")}, "agent_id": "sandbox-agent",
-                                              "condition": {"human_confirm_above": {"amount": condition, "currency": "GBP"}}, "binds": {"agent_identity_sha256": crypto.sha256_hex(ident)}}, typ="assurance+jwt")
+                                          "agent": {"name": "sandbox agent", "agent_id": "sandbox-agent", "product_id": _v(f, "product", "product_id")}, "cnf": {"jwk": agent_jwk}}, typ="agent-identity+jwt")
+    admission = crypto.sign_jwt("bank", {"iss": config.BANK_ID, "typ": "admission", "sandbox": True, "jti": pid, "iat": crypto.now_ts(), "valid_until": valid_until,
+                                         "product_ref": {"registration": a["ref"], "product_id": _v(f, "product", "product_id"), "product_name": _v(f, "product", "product_name")}, "agent_id": "sandbox-agent",
+                                         "condition": {"hold_above": {"amount": condition, "currency": "GBP"}}, "binds": {"agent_identity_sha256": crypto.sha256_hex(ident)}}, typ="admission+jwt")
     mandate = crypto.sign_jwt("northgate", {"iss": "sandbox-customer", "typ": "mandate", "sandbox": True, "passport_id": pid, "valid_until": valid_until, "iat": crypto.now_ts(),
                                             "authorization_details": [{"type": "payment_initiation", "actions": list(pol["action_types"]), "currency": pol["currency"],
                                                                        "supplier_allowlist": [SANDBOX_PAYEE],
                                                                        "per_payment_limit": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
                                                                        "monthly_limit_per_account": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]}}]}, typ="mandate+jwt")
-    return {"passport_id": pid, "assurance": assurance, "agent_identity": ident, "mandate": mandate}
+    return {"passport_id": pid, "admission": admission, "agent_identity": ident, "mandate": mandate}
 
 
 def step_sandbox(a: dict, tests: list[dict], condition: float) -> list[dict]:
-    """Same code path as the bank: rules.verify_action over a sandbox envelope. PASS = the engine refused or escalated as expected."""
+    """Same code path as the bank at payment time: rules.verify_action over a sandbox envelope. PASS = the engine refused or escalated as expected."""
     agent_priv, agent_pub = crypto.generate_keypair()
     agent_jwk = crypto.public_jwk(agent_pub)
     rogue_priv, _ = crypto.generate_keypair()
@@ -117,37 +119,34 @@ def step_sandbox(a: dict, tests: list[dict], condition: float) -> list[dict]:
 def step_recommendation(a: dict, rule_map: dict, sandbox: list[dict], condition: float) -> dict:
     flagged, uncovered = rule_map["flagged"], rule_map["uncovered"]
     failed = [s["id"] for s in sandbox if not s["pass"]]
-    if failed or uncovered:
-        verdict = "REFER"
-    elif flagged:
-        verdict = "REFER"
-    else:
-        verdict = "APPROVE WITH CONDITIONS"
-    reasons = []
-    reasons.append(f"{len(rule_map['rules']) - len(flagged)} of {len(rule_map['rules'])} standards rules satisfied by cited evidence" + (f"; flagged {', '.join(flagged)}" if flagged else ""))
-    reasons.append(f"{sum(1 for s in sandbox if s['pass'])} of {len(sandbox)} adversarial tests refused or escalated by the bank engine as expected" + (f"; unexpected {', '.join(failed)}" if failed else ""))
-    reasons.append("no agent key at registration: each customer's agent proves possession of its own key when it is created")
-    reasons.append(f"condition to attach: hold instructions above £{condition:,.0f} for the customer's authorising officer")
+    verdict = "REFER" if (failed or uncovered or flagged) else "ADMIT WITH CONDITIONS"
+    reasons = [
+        f"{len(rule_map['rules']) - len(flagged)} of {len(rule_map['rules'])} filing checks satisfied by cited evidence" + (f"; flagged {', '.join(flagged)}" if flagged else ""),
+        f"{sum(1 for s in sandbox if s['pass'])} of {len(sandbox)} adversarial tests refused or escalated by the bank engine as expected" + (f"; unexpected {', '.join(failed)}" if failed else ""),
+        "Independent Assurance Evidence is attached for the registered use case; the bank assesses it against its minimum requirements, the register does not",
+        "no AI agent key at admission: each customer's agent proves possession of its own key when it is created",
+        f"condition to attach: hold instructions above £{condition:,.0f} for the customer's named approver",
+    ]
     note, mode = extraction.draft_file_note(a["ref"], a["fields"], a.get("checks") or [])
-    return {"verdict": verdict, "label": "AI recommendation — human decision required", "condition": {"human_confirm_above": condition}, "reasons": reasons, "narrative": note, "narrative_mode": mode,
-            "options": ["APPROVE", "APPROVE WITH CONDITIONS", "REFER"], "decides": False}
+    return {"verdict": verdict, "label": "Recommendation. The officer decides.", "condition": {"hold_above": condition}, "reasons": reasons, "narrative": note, "narrative_mode": mode,
+            "options": ["ADMIT", "ADMIT WITH CONDITIONS", "REFER"], "decides": False}
 
 
 def run(a: dict, condition: float | None = None) -> dict:
     if not a.get("fields") or not a.get("checks"):
-        raise ValueError("application not submitted")
-    thr = float(condition if condition is not None else (_v(a["fields"], "requested", "human_confirm_above_gbp") or rules.pack()["policy"]["human_confirm_above_gbp"]))
-    evidence = step_evidence(a)
-    rule_map = step_rule_map(a)
+        raise ValueError("registration not filed")
+    thr = float(condition if condition is not None else rules.pack()["policy"]["hold_above_gbp"])
+    filing = step_filing(a)
+    rule_map = step_requirement_map(a)
     tests = step_tests(a)
     sandbox = step_sandbox(a, tests, thr)
     rec = step_recommendation(a, rule_map, sandbox, thr)
-    return {"assistant": "Standards Review Assistant (KYA standards evaluation tool)", "rule_pack": rules.pack()["id"], "condition": thr,
+    return {"assistant": "Admission review assistant", "rule_pack": rules.pack()["id"], "condition": thr,
             "steps": [
-                {"n": 1, "id": "evidence", "title": "Evidence read", "data": evidence},
-                {"n": 2, "id": "rule_map", "title": "Standards rule map", "data": rule_map},
+                {"n": 1, "id": "filing", "title": "Filing read", "data": filing},
+                {"n": 2, "id": "rule_map", "title": "Requirement map", "data": rule_map},
                 {"n": 3, "id": "tests", "title": "Adversarial test generation", "data": tests},
-                {"n": 4, "id": "sandbox", "title": "Sandbox run (real bank engine)", "data": sandbox},
+                {"n": 4, "id": "sandbox", "title": "Sandbox run (the bank's own engine)", "data": sandbox},
                 {"n": 5, "id": "recommendation", "title": "Recommendation", "data": rec},
-                {"n": 6, "id": "signoff", "title": "Human sign-off", "data": {"who": config.OFFICER, "how": "POST /api/applications/{id}/decision", "note": "only this step signs the assurance and activates the passport"}},
+                {"n": 6, "id": "signoff", "title": "Officer decision", "data": {"who": f"{config.BANK_OFFICER}, {config.BANK_TEAM}", "how": "POST /api/registrations/{id}/admission", "note": "only this step signs an admission with the bank's key"}},
             ]}

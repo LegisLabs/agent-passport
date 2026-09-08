@@ -1,14 +1,14 @@
 """Keys, JWTs and nonces for the composite passport.
 
 Three signers, each entitled to exactly one claim set:
-  authority  signs the assurance JWT      (KY-A assurance + supervisor condition)
-  openpay    reserved: the model company attests its documentation, it does not sign
-  northgate  signs the agent_identity JWT (its deployment of an approved model: agent key, config hash)
-             and the mandate JWT          (supplier allowlist, limits, expiry)
+  register   signs the registration receipt   (the AI product is on the register; someone is accountable)
+  bank       signs the admission JWT           (the bank admitted the product to its list, with ceilings and a hold condition)
+  northgate  signs the agent_identity JWT      (the customer's deployment of the product: agent key, config hash)
+             and the mandate JWT               (supplier allowlist, limits, expiry)
 Each is an Ed25519 key generated once into KEYS_DIR (never committed). The
-agent has a fourth key, generated per application; the demo agent lives inside
+AI agent has a fourth key, generated per deployment; the demo agent lives inside
 this process, so its private key is kept in the database for the simulation.
-A rogue key is generated on demand for the stolen-passport beat.
+A rogue key is generated on demand for the copied-passport beat.
 
 JWT = RFC 7519 compact serialisation, alg EdDSA (RFC 8037), via PyJWT.
 """
@@ -26,7 +26,7 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey,
 
 from . import config
 
-SIGNERS = ("authority", "openpay", "northgate")
+SIGNERS = ("register", "bank", "northgate")
 
 
 # ── helpers ────────────────────────────────────────────────────────────────
@@ -106,7 +106,7 @@ _keys: dict[str, dict] = {}
 
 
 def signer(name: str) -> dict:
-    """{private_pem, public_pem, jwk, kid} for authority | openpay | northgate."""
+    """{private_pem, public_pem, jwk, kid} for register | bank | northgate."""
     if name not in SIGNERS:
         raise KeyError(name)
     if name in _keys:
@@ -178,14 +178,14 @@ def decode_unverified(token: str) -> tuple[dict, dict]:
 def verify_envelope(env: dict) -> dict:
     """Checks all three JWTs against the party entitled to each claim set.
 
-    Returns {ok, failure, assurance, agent_identity, mandate}: `failure` is the
-    first part that did not verify ("assurance" | "agent_identity" |
+    Returns {ok, failure, admission, agent_identity, mandate}: `failure` is the
+    first part that did not verify ("admission" | "agent_identity" |
     "mandate_missing" | "mandate"), or None. Payloads are None when unverified.
     """
-    out = {"ok": False, "failure": None, "assurance": None, "agent_identity": None, "mandate": None}
-    out["assurance"] = verify_jwt("authority", env.get("assurance"))
-    if out["assurance"] is None:
-        out["failure"] = "assurance"
+    out = {"ok": False, "failure": None, "admission": None, "agent_identity": None, "mandate": None}
+    out["admission"] = verify_jwt("bank", env.get("admission"))
+    if out["admission"] is None:
+        out["failure"] = "admission"
         return out
     out["agent_identity"] = verify_jwt("northgate", env.get("agent_identity"))
     if out["agent_identity"] is None:
