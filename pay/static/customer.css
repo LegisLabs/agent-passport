@@ -88,3 +88,28 @@ body:not([data-cupage="overview"]) .fx-hello { display: none; }
 .fx .cu-note__head { flex-wrap: wrap; }
 .fx .cu-note__head .mono { white-space: nowrap; margin-left: auto; }
 .fx .tx__amt.pending { color: var(--fx-amber); }
+
+/* approving a held payment: the banking-app screen. Amount first, one reason, approve or reject */
+.fx .apv { max-width: 26rem; margin: 8px auto 0; }
+.fx .apv__head { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; margin-bottom: 18px; }
+.fx .apv__amt { display: block; font-size: 2.75rem; font-weight: 800; letter-spacing: -.03em; line-height: 1; margin-bottom: 8px; }
+.fx .apv__amt small { font-size: 1.25rem; font-weight: 700; letter-spacing: 0; }
+.fx .apv__name { font-size: 1.125rem; font-weight: 700; }
+.fx .apv__meta { margin-top: 4px; font-size: .875rem; color: var(--fx-ink-2); }
+.fx .apv__avatar { flex: 0 0 auto; width: 72px; height: 72px; border-radius: 50%; background: #fff; border: 1px solid var(--fx-line); display: grid; place-items: center; font-size: 1.375rem; font-weight: 800; color: var(--fx-ink-2); letter-spacing: .02em; }
+.fx .apv__why { display: flex; align-items: center; gap: 12px; padding: 14px 16px; border-radius: 14px; background: #fff; border: 1px solid var(--fx-line); font-size: .9375rem; line-height: 1.4; margin-bottom: 14px; }
+.fx .apv__why p { margin: 0; }
+.fx .apv__clock { flex: 0 0 auto; width: 36px; height: 36px; border-radius: 50%; background: var(--fx-teal); color: #fff; display: grid; place-items: center; }
+.fx .apv__clock svg { width: 20px; height: 20px; }
+.fx .apv__q { margin: 0 0 22px; }
+.fx .apv__q > summary { cursor: pointer; color: var(--fx-teal); font-weight: 700; font-size: .9375rem; list-style: none; }
+.fx .apv__q > summary::-webkit-details-marker { display: none; }
+.fx .apv__q p { margin: 8px 0 0; font-size: .875rem; color: var(--fx-ink-2); line-height: 1.5; }
+.fx .apv__label { margin-top: 0; }
+.fx .apv__actions { display: grid; gap: 10px; margin-top: 22px; }
+.fx .apv__btn { appearance: none; border: 0; border-radius: 999px; background: var(--fx-teal-deep); color: #fff; font: inherit; font-weight: 800; font-size: 1.0625rem; padding: 16px 20px; cursor: pointer; }
+.fx .apv__btn:hover { background: var(--fx-teal-2); }
+.fx .apv__btn:focus-visible, .fx .apv__link:focus-visible { outline: 2px solid var(--fx-ink); outline-offset: 3px; }
+.fx .apv__link { appearance: none; border: 0; background: none; color: var(--fx-teal); font: inherit; font-weight: 800; font-size: 1.0625rem; padding: 12px; cursor: pointer; }
+.fx .apv__foot { margin: 14px 0 0; text-align: center; color: var(--fx-ink-2); }
+body[data-cupage="event"] .fx #cu-event { max-width: 30rem; margin: 0 auto; }
