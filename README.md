@@ -24,8 +24,8 @@ The buyer is the bank, which offers the capability to its business customers. Th
 | Guardrail | What the prototype does | Where |
 |---|---|---|
 | Human in the loop | A person signs every mandate. The first payment under each mandate version is held for the customer to confirm. Any payment above the bank's hold condition, and any payment that fails a check, is held for a named person who approves or declines it with a note. Both outcomes are receipted chain entries naming who decided, when, and on what. | `pay/main.py` (`sign_mandate`, `decide_held`, `confirm_first`), `pay/rules.py` (R.9 and `_result`), the bank and customer dashboards |
-| Auditability and traceability | Every event is one entry in a hash chain (each hash covers the previous hash and the canonical entry). Verifications and human decisions carry a receipt signed by the bank's Ed25519 key. Each verification stores the exact inputs it used, so any decision can be replayed and shown identical. Evidence bundles for a passport or a refusal are exported on request, and the export is itself chained. | `pay/audit.py`, `pay/db.py` (`audit` table), `/api/audit`, `/api/audit/{id}/replay`, `/api/evidence/*`, the Evidence trail card on `/bank` |
-| Safety and governance controls | Deny by default, no model inference at execution time. The rule pack is data, not code, and every rule is labelled CURRENT or PROTOTYPE. Ceilings are the bank's; mandates are contained within them at signing and at amendment; every instruction carries a nonce so a replay is refused; refusals are classed as fraud indicator or agent error and routed differently. The language model reads invoices and drafts file notes only; it never checks, scores, approves or verifies, and it falls back to a deterministic fixture that says so. | `rulepacks/payments-2026.09.json`, `pay/rules.py`, `pay/extraction.py`, `pay/review.py` |
+| Auditability and traceability | Every event is one entry in a hash chain (each hash covers the previous hash and the canonical entry). Verifications and human decisions carry a receipt signed by the bank's Ed25519 key. Each verification stores the exact inputs it used, so any decision can be replayed and shown identical. Evidence bundles for a passport or a refusal are exported on request, and the export is itself chained. | `pay/audit.py`, `pay/db.py` (`audit` table), `/api/audit`, `/api/audit/{id}/replay`, `/api/evidence/*`, the Activity page on `/bank` (every instruction opens into its nine checks, receipt and replay) |
+| Safety and governance controls | Nothing executes unless every check passes, and a failed check is held for a person, never silently dropped. No model inference at execution time. The rule pack is data, not code, and every rule is labelled CURRENT or PROTOTYPE. Ceilings are the bank's; mandates are contained within them at signing and at amendment; every instruction carries a nonce so a replay is refused; refusals are classed as fraud indicator or agent error and routed differently. The language model reads invoices and drafts file notes only; it never checks, scores, approves or verifies, and it falls back to a deterministic fixture that says so. | `rulepacks/payments-2026.09.json`, `pay/rules.py`, `pay/extraction.py`, `pay/review.py` |
 | Cyber risk management | Three independent signers (register, bank, customer), EdDSA over Ed25519; each instruction is signed by the agent's own key bound in the agent identity (RFC 7800 `cnf`) with proof of possession at registration; a copied passport without the key fails R.4; a replayed instruction fails R.4; a stale or revoked mandate fails R.5; suspension and revocation cascade from the product to every passport and to the vouch.finance voucher. Secrets stay in `.env`, never in the repository; all firms, accounts and documents are synthetic. | `pay/crypto.py`, `pay/rules.py` (R.1 to R.5), `pay/main.py` (status cascade), `pay/vouch.py` |
 
 ## Architecture overview
@@ -89,10 +89,10 @@ Optional environment (`.env.example` documents each):
 Tests:
 
 ```bash
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest -q      # 86 tests, fully offline
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest -q      # 86 tests, fully offline (fixture extraction and vouch; Companies House answered by the demo register)
 ```
 
-Browser walk of the whole journey (registration, approval, mandate, terminal, held payments, amendment, revocation, evidence): see `tests/ui/README.md`; `BASE=http://localhost:8014 python tests/ui/walk_bank_first.py`.
+The Playwright walk in `tests/ui/walk_bank_first.py` (see `tests/ui/README.md`) is a development aid that drove the journey end to end during the build; it has not been updated for the final page layout, so pytest is the verified suite.
 
 The tax demonstrator (`app.main:app`, port 8013) is kept for comparison and is not part of the demo.
 
@@ -104,7 +104,7 @@ The tax demonstrator (`app.main:app`, port 8013) is kept for comparison and is n
 | `/terminal` | Everyone | Action Terminal: one altered invoice, two worlds. Before the standard the AI agent pays the changed account; after it, the bank's checks hold the payment at R.6 for a person |
 | `/terminal?console=1` | Judges | Expert console: ten scripted instructions (clean, redirected, over limit, above hold, monthly limit, copied passport, out of scope, lifecycle, wrong currency, replay), the raw verifier output |
 | `/customer` | A business inside its bank's app | Overview (balance, AI agents, transactions with the agent's payments among the rest), notifications and Needs your attention (the first-payment confirmation, held payments to approve or decline with a note), the evidence trail, the mandate page (sign, amend, revoke) |
-| `/bank` | The bank's payments risk team | Activity (every instruction today, why it was processed, held or refused, the nine checks per row), Needs attention (held payments and fraud indicators, with approve and decline), agent network, outcomes, statistics by agent, payment intent, region, model provider and AI product, active AI agents, AI products (the register and approvals), supervisory access exports, the evidence trail with replay |
+| `/bank` | The bank's payments risk team | Overview: Needs attention (held payments and fraud indicators, approve or decline with a note), agent network, outcomes, statistics by agent, payment intent, region, model provider and AI product, supervisory access exports. Pages: `?page=activity` (every instruction today, why it was processed, held or flagged, the nine checks, receipt and replay per row), `?page=agents` (active AI agents), `?page=products` (the register and the bank's approvals), `?page=add-product` (the bank enters and approves a product in one step) |
 | `/bank?ref=REG-2026-0014` | The bank officer | Approval decision for one registered product: the filing, the seven checks, the review assistant, ceilings scaled by the assurance level, the hold condition |
 | `/provider` | The bank officer | Register an AI product: the filing form with one prefill for the demo |
 | `/about` | Policy readers | How it works, the policy context, the passport, the rules, the standards, what this is not |
@@ -221,6 +221,10 @@ Everything else in this repository was written by the team during the hackathon.
 ## Data
 
 All firms, people, accounts, invoices, keys and records are synthetic and generated by the app. No real personal data, confidential supervisory information or proprietary dataset is used or included. API keys live in `.env`, which is not committed; `.env.example` documents them. The bank's "other customers" on the dashboard are in-memory synthetic rows and are never written to the database.
+
+## Submission
+
+Three deliverables, per the participant guide: the presentation deck (NayaOne, Documents), the demo video of no more than three minutes (NayaOne, Media; the script is in [DEMO_SCRIPT.md](DEMO_SCRIPT.md)), and this repository with the live web app (NayaOne, Sandpits, GitLab). The four mandatory guardrails are mapped to code above and are shown working in the video: the human approval of a held payment, the evidence trail with signed receipts and replay, the hold on a failed check, the signed instruction that a copied passport cannot forge. The live site is public and needs no credentials; it stays up until at least 18 September 2026. All data is synthetic. Legis Labs Ltd retains the intellectual property and grants the organisers the licence set out in the participant guide.
 
 ## Not claimed
 

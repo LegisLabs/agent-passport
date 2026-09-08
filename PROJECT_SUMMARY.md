@@ -38,7 +38,7 @@ Plain words: each AI agent deployment holds a key only it can use; the bank chal
 
 # 4. The nine checks at the bank
 
-Rule pack `payments-2026.09.6`, data not code. Evaluated in order; the first failure stops the run.
+Rule pack `payments-2026.09.7`, data not code. Evaluated in order; the first failure stops the run.
 
 | Check | What it verifies | Failure codes |
 |---|---|---|
@@ -159,7 +159,7 @@ FastAPI and Jinja2 with SQLite from the standard library, PyJWT and cryptography
 | `fixtures/pay/` | Registration fixture, register entries, synthetic company register, customer mandate draft, agent draft, invoices, oracle |
 | `pay/templates/` | home, about, provider, bank, customer, terminal, bank_console, base |
 | `pay/static/` | app.js, terminal.js, app.css, dashboard.css, fx-pages.css, terminal.css, brand assets, APS 1001 PDF and page images |
-| `docs/v6_bank_first/APS_1001.txt` | The standard, revision 4 |
+| `docs/v6_bank_first/APS_1001.txt` | The standard, revision 5 |
 | `deploy/` | Docker Compose, Caddy drop-in, publish script |
 | `tests/test_pay.py` | 49 test functions covering the API, rules, oracle cases, seeds, decisions, amendments, revocation, search |
 | `tests/ui/walk_bank_first.py` | A Playwright walk of the whole journey, 117 checks, run locally and against the live host |
@@ -207,7 +207,7 @@ The full audit with 28 checkpoints, code citations, 80 screenshots and a priorit
 
 - Earlier: tax demonstrator (HMRC self assessment rule pack), then the payments vertical with an authority-approval model, deployed at pay.cdir.legislabs.uk.
 - Pivot to bank-first: the authority-approval panel replaced by the industry register, bank admission and customer mandate; Legis Labs identity; deployment at cdir.legislabs.uk preserving the tax demonstrator at /tax/.
-- Consolidation: assurance levels; currency, velocity, nonce replay; account-type tiers and customer classes; Companies House check; two failure classes; APS 1001 revision 4.
+- Consolidation: assurance levels; currency, velocity, nonce replay; account-type tiers and customer classes; Companies House check; two failure classes; APS 1001 revision 5.
 - Final revision: replay visible everywhere; classes visible everywhere; assurance badge everywhere; planned fields on record.
 - Final big update: institutional design pass (later reverted to the pay.cdir vocabulary at the team's request, colours kept); status model; exceptions-first bank console with human decisions; statistics; mandate amendment and revocation; name-first Companies House search; empty forms with prefill and context; About additions (where it sits in the bank, what this is not, per-stakeholder paragraph, identity in one breath).
 - Demo tailoring: evidence trail folded into the bank dashboard; register seeded with admitted products; dashboards, register page and How it works in the app-card shell; header menu reduced to Home, Customer dashboard, Bank dashboard, How it works; first-payment confirmation hold.
@@ -216,7 +216,7 @@ The full audit with 28 checkpoints, code citations, 80 screenshots and a priorit
 # 21. Submission checklist
 
 - Live site: https://cdir.legislabs.uk, reseeded with `stage=history` before presenting, simulated traffic off.
-- The standard: `pay/static/APS_1001.pdf`, revision 4.
+- The standard: `pay/static/APS_1001.pdf`, revision 5.
 - The story: the Action Terminal, Before then After, with the three signatures shown between them.
 - The depth: the About page and this summary.
 - The audit: `AUDIT_REPORT.md` with the fix list; the first eight items are small and should be done before the pitch on 17 September.

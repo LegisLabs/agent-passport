@@ -26,9 +26,9 @@ Say: "This is the bank's side. Every instruction today, and why it was processed
 
 Clicks: on the held payment press "Approve", then confirm; point at the row now reading "Processed · released by approver".
 
-Say: "And here is the customer's twelve thousand pound payment in the evidence trail: who asked to pay whom, how much, the nine checks, the hold, the approval with the finance director's name, each entry hashed onto the one before it. Replay any decision from its recorded inputs and it comes out identical. A supervisor asks for this after an incident and reads it. Nothing reports to a regulator automatically."
+Say: "And here is the customer's twelve thousand pound payment in Activity, the bank's evidence trail: who asked to pay whom, how much, the nine checks, the hold, the approval with the finance director's name, each entry hashed onto the one before it. Replay any decision from its recorded inputs and it comes out identical. A supervisor asks for this after an incident and reads it. Nothing reports to a regulator automatically."
 
-Clicks: scroll to the Evidence trail card, open the Ashby row, press "Replay every verification".
+Clicks: press "Activity" in the header, open the Ashby row, press "Replay this decision".
 
 **2:00 to 2:45 · Action Terminal, "After the standard" (switch tab, press play)**
 

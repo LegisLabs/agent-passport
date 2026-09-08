@@ -6,6 +6,7 @@ import tempfile
 from pathlib import Path
 
 os.environ["PAY_DATA_DIR"] = tempfile.mkdtemp()
+os.environ["COMPANIES_HOUSE_API_KEY"] = ""   # never call Companies House from the tests: the labelled demo register answers
 os.environ["EXTRACTION_MODE"] = "fixture"
 os.environ["VOUCH_MODE"] = "fixture"
 os.environ["PAYMENT_RAIL"] = "local"

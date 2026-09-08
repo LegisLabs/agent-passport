@@ -7,5 +7,6 @@ mkdir -p /tmp/agent-passport-shots
 /tmp/pw/bin/python tests/ui/walk_iteration2.py   # review assistant, invoice demo, exception loop, labels, 390px
 /tmp/pw/bin/python tests/ui/walk_beats.py        # the eight bank beats in order
 /tmp/pw/bin/python tests/ui/walk_chain.py        # delegation chain toggle and boundary beats
+/tmp/pw/bin/python tests/ui/walk_bank_first.py   # the bank-first journey end to end (written against an earlier page layout; some checks need updating)
 ```
 Each script resets the demo database it points at.
