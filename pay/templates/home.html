@@ -4,7 +4,6 @@
 <section class="hero">
   <div class="wrap hero__grid">
     <div>
-      <p class="hero__kicker">Bank-side verification for AI agent payments</p>
       <h1 class="hero__h1">Know the AI agent before it pays.</h1>
       <p class="hero__lede">Businesses are handing their invoices to AI agents that read, decide and pay. When one of them pays, the bank cannot see which agent acted, on whose authority, or who answers for it. Agent Passport gives the bank those three answers before money moves: a registered provider, an admitted AI product, a customer-signed mandate, and a check on every payment.</p>
       <p class="hero__actions"><a class="btn btn--inverse" href="/terminal">Watch an invoice get caught</a><a class="hero__link" href="/bank">Open the bank console</a></p>
@@ -90,21 +89,12 @@ flowchart LR
   </section>
 
   <section class="home__section">
-    <h2 class="h2">Why a bank would adopt it</h2>
-    <ul class="cards3">
-      <li><h3>Fraud loss</h3><p>Invoice redirection and prompt injection fail at the payee check, whatever the invoice says. The mandate names accounts, not names.</p></li>
-      <li><h3>Defensible evidence</h3><p>Every decision is signed, hash-chained and replayable from its recorded inputs. When a payment is disputed, the bank shows what the AI agent was permitted to do and what it tried.</p></li>
-      <li><h3>Liability clarity</h3><p>The provider answers for its filing, the customer for its mandate, the bank for the check. Nobody loses except the attacker.</p></li>
-    </ul>
-  </section>
-
-  <section class="home__section policy">
-    <h2 class="h2">Where this sits in UK policy</h2>
-    <p class="home__lede">Agent Passport is designed to be adopted by industry and to give regulators what they need without asking them to operate or approve it.</p>
-    <dl class="policy__list">
-      <div><dt>HM Treasury, Modernising Payment Services Regulation</dt><dd>The consultation published on 14 July 2026 (closing 6 October 2026) says in section 3.2 that the Payment Services Regulations 2017 were designed before AI and may not fully facilitate agentic payments. Question 15 asks how authentication, consent and liability provisions must adapt. This prototype is one working answer: the passport addresses authentication of the AI agent, the signed mandate addresses consent, and the evidence trail addresses liability. <a href="https://www.gov.uk/government/consultations/modernising-payment-services-regulation/modernising-payment-services-regulation-consultation">Read the consultation</a>.</dd></div>
-      <div><dt>Governance on the Open Banking model</dt><dd>The same consultation describes a not-for-profit Future Entity that sets common standards, industry adopting them through commercial schemes, and the FCA setting guardrails and receiving information without operating the infrastructure. APS 1001 is written as a candidate standard for a body of that kind, on the precedent of the Open Banking Implementation Entity. Participation would be commercial, not mandated.</dd></div>
-      <div><dt>Testing route: FCA AI Lab, Supercharged Sandbox</dt><dd>The FCA's second Supercharged Sandbox cohort (July to December 2026, 21 firms from 199 applications) names agentic payments as a priority focus, with NayaOne, NVIDIA and Anthropic among its partners. The FCA's stated approach is to rely on existing frameworks and use practical experimentation to inform future supervisory expectations. That is the route we intend for testing this design. The sandbox is where a design is tested, not a body that approves a product.</dd></div>
+    <h2 class="h2">The result</h2>
+    <p class="home__lede">What happens when the same invoice arrives at a bank that runs Agent Passport.</p>
+    <dl class="result">
+      <div><dt>The fraud fails.</dt><dd>Invoice redirection and prompt injection stop at the payee check, whatever the invoice says. The mandate names accounts, not names, so a document cannot move the destination.</dd></div>
+      <div><dt>The bank can prove what it did.</dt><dd>Every decision is signed, hash-chained and replayable from its recorded inputs. When a payment is disputed, the bank shows what the AI agent was permitted to do, what it tried, and which rule stopped it.</dd></div>
+      <div><dt>Everyone knows who answers.</dt><dd>The provider answers for its filing, the customer for its mandate, the bank for the check. A supervisor gets the evidence on request without operating any of it. Nobody loses except the attacker.</dd></div>
     </dl>
   </section>
 

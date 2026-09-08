@@ -19,9 +19,9 @@ const AP = (() => {
   const v = (f, ...path) => { let c = f; for (const p of path) { if (!c || typeof c !== 'object' || !(p in c)) return undefined; c = c[p]; } return (c && typeof c === 'object' && 'value' in c) ? c.value : c; };
   const NUMERIC = new Set(['hold_above_gbp', 'cover_gbp']);
   const jwtPayload = (tok) => { try { const b = tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b), c => c.charCodeAt(0)))); } catch (e) { return null; } };
-  const rows = (id, list, cols, empty = 'None yet.') => { const tb = $(id).querySelector('tbody'); tb.innerHTML = ''; list.forEach(x => { const tr = el('tr', null, x.cells.map(c => `<td>${c}</td>`).join('')); if (x.attrs) Object.assign(tr.dataset, x.attrs); tb.append(tr); }); if (!list.length) tb.append(el('tr', null, `<td class="empty-row" colspan="${cols}">${esc(empty)}</td>`)); };
+  const rows = (id, list, cols, empty = 'None yet.') => { const tb = $(id).querySelector('tbody'); tb.innerHTML = ''; const numCols = [...$(id).querySelectorAll('thead th')].map(th => th.classList.contains('num')); list.forEach(x => { const tr = el('tr', null, x.cells.map((c, i) => `<td${numCols[i] ? ' class="num"' : ''}>${c}</td>`).join('')); if (x.attrs) Object.assign(tr.dataset, x.attrs); tb.append(tr); }); if (!list.length) tb.append(el('tr', null, `<td class="empty-row" colspan="${cols}">${esc(empty)}</td>`)); };
   const admissionTag = (a) => a.admission_status ? tag(a.admission_status, { admitted: 'admitted', suspended: 'suspended', revoked: 'removed', declined: 'declined', info_requested: 'information requested' }[a.admission_status] || a.admission_status) : (a.status === 'registered' ? tag('grey', 'not yet decided') : tag('grey', '—'));
-  const regTag = (a) => a.status === 'registered' ? tag('registered', 'on the register') : tag('draft', 'draft');
+  const regTag = (a) => a.status === 'registered' ? tag('active', 'on the register') : tag('draft', 'draft');
   const modeLabel = (m) => m === 'gemini' ? 'Gemini (live)' : m === 'fixture' ? 'fixture (deterministic stand-in)' : 'fixture after Gemini failed';
   const holdOf = (a) => (((a && a.condition) || {}).hold_above || {}).amount;
 
@@ -56,7 +56,7 @@ const AP = (() => {
       const regs = state.registrations, prior = state.register || [];
       rows('pv-products', [
         ...regs.map(x => ({ cells: [`<a href="/provider?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(x.fields, 'product', 'product_name') || 'Untitled'), esc(v(x.fields, 'company', 'legal_name') || ''), d(x.submitted_at), regTag(x), admissionTag(x)] })),
-        ...prior.map(m => ({ cells: [esc(m.registration), esc(m.product), esc(m.provider), d(m.registered), tag(m.status, m.status === 'active' ? 'on the register' : m.status), tag('grey', '—')] })),
+        ...prior.map(m => ({ cells: [esc(m.registration), esc(m.product), esc(m.provider), d(m.registered), tag(m.status, m.status === 'active' ? 'on the register' : m.status), '<span class="small">no decision</span>'] })),
       ], 6);
       const has = !!a, draft = has && a.status === 'draft';
       $('pv-form').hidden = !has;

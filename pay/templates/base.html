@@ -25,14 +25,6 @@
       <span class="masthead__product">Agent Passport</span>
     </a>
     <nav class="masthead__nav" aria-label="Primary">
-      <ul class="masthead__links">
-        <li><a href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>My AI agents</a></li>
-        <li><a href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>Bank console</a></li>
-        <li><a href="/terminal" {% if view in ('terminal', 'console') %}aria-current="page"{% endif %}>Action Terminal</a></li>
-        <li><a href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>Evidence trail</a></li>
-        <li><a href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}>Register a product</a></li>
-        <li><a href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>How it works</a></li>
-      </ul>
       <button class="masthead__menu" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel">Menu</button>
       <div class="menu-panel" id="menu-panel" hidden>
         <ul class="menu-panel__list">
