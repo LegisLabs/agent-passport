@@ -72,50 +72,36 @@ flowchart LR
   <h2 class="h2">The result</h2>
   <p class="home__lede">What lands on a supervisor's desk when it asks about the invoice above: one page, produced by the bank.</p>
   <div class="evd-split">
-    <article class="a4" aria-label="Evidence record for the refused instruction">
-      <header class="a4__head">
-        <div><b>Meridian Bank (demo)</b><span>Payments Risk · Agent Passport evidence record</span></div>
-        <div class="a4__ref"><span>Record</span><b>EV-2026-0017</b></div>
-        <span class="a4__stamp">Denied</span>
-      </header>
-      <h3 class="a4__h">Instruction</h3>
-      <dl class="a4__f">
-        <div><dt>Time</dt><dd>8 September 2026, 13:28:49</dd></div>
-        <div><dt>Passport</dt><dd>AP-2026-0107</dd></div>
-        <div><dt>AI agent</dt><dd>PayGPT 6.0, OpenPay Ltd</dd></div>
-        <div><dt>Customer</dt><dd>Northgate Joinery Ltd</dd></div>
-        <div><dt>Amount</dt><dd>£2,500.00</dd></div>
-        <div><dt>Payee</dt><dd>Fenwick Timber Ltd</dd></div>
-        <div><dt>Account</dt><dd>60-11-22 99887766</dd></div>
-        <div><dt>Invoice</dt><dd>INV-9001</dd></div>
-        <div><dt>Signature</dt><dd>AI agent key, verified</dd></div>
-        <div><dt>Declared before reading</dt><dd>60-11-22 10101010</dd></div>
-      </dl>
-      <h3 class="a4__h">Mandate</h3>
-      <dl class="a4__f">
-        <div><dt>Signed by</dt><dd>Helen Marsh, Finance Director</dd></div>
-        <div><dt>Fenwick Timber Ltd</dt><dd>60-11-22 10101010</dd></div>
-        <div><dt>Per payment</dt><dd>up to £10,000</dd></div>
-        <div><dt>Per account, 30 days</dt><dd>up to £20,000</dd></div>
-        <div><dt>Valid until</dt><dd>31 March 2027</dd></div>
-        <div><dt>Product admitted by</dt><dd>A. Ferreira, 8 September 2026</dd></div>
-      </dl>
-      <h3 class="a4__h">Decision</h3>
-      <dl class="a4__f">
-        <div><dt>Outcome</dt><dd><b>Refused</b></dd></div>
-        <div><dt>Rule</dt><dd>R.6, payee not on the mandate</dd></div>
-        <div><dt>Checks passed</dt><dd>R.1 to R.5</dd></div>
-        <div><dt>Not evaluated</dt><dd>R.7 to R.9</dd></div>
-        <div><dt>Finding</dt><dd>The invoice changed the account. The AI agent did not.</dd></div>
-      </dl>
-      <h3 class="a4__h">Proof</h3>
-      <dl class="a4__f">
-        <div><dt>Receipt</dt><dd>signed by the bank</dd></div>
-        <div><dt>Chain entry</dt><dd>#17 · 9c1e4b7d2a60</dd></div>
-        <div><dt>Replay</dt><dd>identical</dd></div>
-        <div><dt>Register</dt><dd>REG-2026-0014, receipt verified</dd></div>
-      </dl>
-      <footer class="a4__foot"><span>Synthetic record.</span><a href="/api/evidence/passports/AP-2026-0107">Live bundle</a></footer>
+    <article class="print" aria-label="Payment check record for the refused instruction">
+<pre class="print__body">MERIDIAN BANK (DEMO)            AGENT PASSPORT
+PAYMENT CHECK RECORD                EV-2026-0017
+08 SEP 2026  13:28:49
+------------------------------------------------
+FROM     Northgate Joinery Ltd
+         business account 20-45-77 31908822
+BY       PayGPT 6.0, AI agent (OpenPay Ltd)
+         passport AP-2026-0107
+TO       Fenwick Timber Ltd
+<mark>         account 60-11-22 99887766   NOT ON MANDATE</mark>
+AMOUNT   £2,500.00           invoice INV-9001
+------------------------------------------------
+MANDATE  signed by Helen Marsh, Finance Director
+         Fenwick Timber Ltd   60-11-22 10101010
+         limit £10,000 per payment
+CHECKS   R.1 ok  R.2 ok  R.3 ok  R.4 ok  R.5 ok
+<mark>         R.6 FAIL  payee account not on mandate</mark>
+         R.7 R.8 R.9  not run
+------------------------------------------------
+<b>RESULT   REFUSED. MONEY DID NOT MOVE.</b>
+         The invoice changed the account.
+         The AI agent did not.
+------------------------------------------------
+RECEIPT  signed by the bank      kid c9Qw3eVh
+CHAIN    entry #17 9c1e4b7d2a60  <- #16 e2f0a97c
+REPLAY   identical
+REGISTER REG-2026-0014  receipt verified
+------------------------------------------------
+synthetic record  ·  <a href="/api/evidence/passports/AP-2026-0107">live bundle</a></pre>
     </article>
     <ul class="evd__points">
       <li><b>The fraud fails.</b> The payee check stops invoice redirection and prompt injection whatever the invoice says. The mandate names accounts, not names.</li>

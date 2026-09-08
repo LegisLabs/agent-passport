@@ -667,7 +667,7 @@ const AP = (() => {
   }
 
   function home() {
-    const ink = '#14213a', ink2 = '#4b5a6e', blue = '#2b6ca3', line = '#e3e9f0', font = '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif';
+    const ink = '#0b0c0c', ink2 = '#505a5f', blue = '#6b1b45', line = '#e5e7e8', font = '"Helvetica Neue", Arial, Helvetica, sans-serif';
     if (window.Chart) {
       Chart.defaults.font.family = font; Chart.defaults.font.size = 13; Chart.defaults.color = ink2;
       const values = { id: 'values', afterDatasetsDraw(c) { const { ctx } = c; ctx.save(); ctx.font = `600 14px ${font}`; ctx.fillStyle = ink; ctx.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((bar, i) => { const dd = c.data.datasets[0]; ctx.fillText(dd.labelsText ? dd.labelsText[i] : dd.data[i], bar.x, bar.y - 8); }); ctx.restore(); } };
@@ -678,14 +678,14 @@ const AP = (() => {
         const pts = [{ x: 2024, y: 229 }, { x: 2025, y: 262 }, { x: 2030, y: 1500 }];
         const lbl = { 229: '$229bn', 262: '$262bn', 1500: '$1.5tn' };
         const pointLabels = { id: 'pointLabels', afterDatasetsDraw(c) { const { ctx } = c; ctx.save(); ctx.font = `600 14px ${font}`; ctx.fillStyle = ink; ctx.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((pt, i) => { ctx.fillText(lbl[pts[i].y], pt.x, pt.y - 14); }); ctx.restore(); } };
-        new Chart($('chart-shift'), { type: 'line', plugins: [pointLabels], data: { datasets: [{ data: pts, borderColor: blue, backgroundColor: 'rgba(43,108,163,.12)', fill: true, tension: .45, borderWidth: 3, pointRadius: 6, pointBackgroundColor: blue, pointBorderColor: '#fff', pointBorderWidth: 2, segment: { borderDash: (s) => s.p1.parsed.x > 2025 ? [8, 6] : undefined } }] },
+        new Chart($('chart-shift'), { type: 'line', plugins: [pointLabels], data: { datasets: [{ data: pts, borderColor: blue, backgroundColor: 'rgba(107,27,69,.12)', fill: true, tension: .45, borderWidth: 3, pointRadius: 6, pointBackgroundColor: blue, pointBorderColor: '#fff', pointBorderWidth: 2, segment: { borderDash: (s) => s.p1.parsed.x > 2025 ? [8, 6] : undefined } }] },
           options: { animation: { duration: 900 }, responsive: true, maintainAspectRatio: false, layout: { padding: { top: 28, right: 24 } }, plugins: { legend: { display: false }, tooltip: { enabled: false } },
             scales: { x: { type: 'linear', min: 2023.6, max: 2030.4, grid: { display: false }, border: { color: line }, afterBuildTicks: (ax) => { ax.ticks = [2024, 2025, 2026, 2027, 2028, 2029, 2030].map(value => ({ value })); }, ticks: { color: ink, font: { size: 14 }, callback: (v_) => String(v_) } }, y: { beginAtZero: true, max: 1600, grid: { color: line }, border: { display: false }, ticks: { stepSize: 400 } } } } });
       }
       if ($('chart-app')) bars('chart-app', ['2021', '2022', '2023', '2024', '2025'], [583, 485, 460, 451, 576], ['£583m', '£485m', '£460m', '£451m', '£576m'], null, { max: 700, step: 175 });
     }
     if (window.mermaid) {
-      mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'loose', fontFamily: font, themeVariables: { primaryColor: '#ffffff', primaryBorderColor: '#9fb3c8', primaryTextColor: ink, lineColor: '#4b5a6e', secondaryColor: '#f3f6fa', tertiaryColor: '#f3f6fa', fontSize: '15px', fontFamily: font },
+      mermaid.initialize({ startOnLoad: false, theme: 'base', securityLevel: 'loose', fontFamily: font, themeVariables: { primaryColor: '#ffffff', primaryBorderColor: ink, primaryTextColor: ink, lineColor: ink, secondaryColor: '#f3f2f1', tertiaryColor: '#f3f2f1', fontSize: '16px', fontFamily: font },
         flowchart: { htmlLabels: true, curve: 'basis', nodeSpacing: 34, rankSpacing: 52, padding: 12, useMaxWidth: true } });
       mermaid.run({ querySelector: '.mermaid' });
     }

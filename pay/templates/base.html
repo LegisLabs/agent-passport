@@ -6,9 +6,7 @@
 <title>{% block title %}Agent Passport{% endblock %} · Agent Passport by Legis Labs</title>
 <meta name="description" content="{% block description %}Agent Passport: bank-side verification of AI agent payments. A registered provider, an admitted AI product, a customer-signed mandate, and a check on every payment.{% endblock %}">
 <meta name="robots" content="noindex">
-<meta name="theme-color" content="#0f2f5c">
-<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;600&display=swap">
+<meta name="theme-color" content="#6b1b45">
 <link rel="stylesheet" href="/static/app.css">
 <link rel="icon" href="/static/favicon.svg" type="image/svg+xml">
 <link rel="icon" href="/static/favicon.png" sizes="32x32">
@@ -21,26 +19,23 @@
 <header class="masthead" role="banner">
   <div class="wrap masthead__row">
     <a class="masthead__logo" href="/" aria-label="Legis Labs, Agent Passport home">
-      <img class="masthead__mark" src="/static/brand/legis-labs-white.svg" alt="Legis Labs" width="94" height="45">
+      <img class="masthead__mark" src="/static/brand/legis-labs-white.svg" alt="Legis Labs" width="84" height="40">
+      <span class="masthead__tag">Agent Passport</span>
     </a>
-    <nav class="masthead__nav" aria-label="Primary">
-      <ul class="masthead__links">
-        <li><a href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>Customer</a></li>
-        <li><a href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>Bank</a></li>
-        <li><a href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>How it works</a></li>
-      </ul>
-      <button class="masthead__menu" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel">Menu</button>
+    <nav class="masthead__nav" aria-label="Header">
+      <a class="masthead__link" href="/terminal">Action Terminal</a>
+      <button class="masthead__menu" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel" aria-haspopup="true">Menu</button>
       <div class="menu-panel" id="menu-panel" hidden>
-        <ul class="menu-panel__list">
-          <li><a href="/" {% if view == 'home' %}aria-current="page"{% endif %}>Home</a></li>
-          <li><a href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>Customer dashboard</a></li>
-          <li><a href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>Bank dashboard</a></li>
-          <li><a href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>How it works</a></li>
-          <li><a href="/terminal" {% if view in ('terminal', 'console') %}aria-current="page"{% endif %}>Action Terminal</a></li>
-          <li><a href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>Evidence trail</a></li>
-          <li><a href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}>Register a product</a></li>
-          <li><a href="/static/APS_1001.pdf">APS 1001, the standard (PDF)</a></li>
-        </ul>
+    <ul class="wrap menu-panel__list">
+      <li><a href="/" {% if view == 'home' %}aria-current="page"{% endif %}>Home</a></li>
+      <li><a href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>Customer dashboard</a></li>
+      <li><a href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>Bank dashboard</a></li>
+      <li><a href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>How it works</a></li>
+      <li><a href="/terminal" {% if view in ('terminal', 'console') %}aria-current="page"{% endif %}>Action Terminal</a></li>
+      <li><a href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>Evidence trail</a></li>
+      <li><a href="/provider" {% if view == 'provider' %}aria-current="page"{% endif %}>Register a product</a></li>
+      <li><a href="/static/APS_1001.pdf">APS 1001, the standard (PDF)</a></li>
+    </ul>
       </div>
     </nav>
   </div>
@@ -48,6 +43,13 @@
 {% block role %}{% endblock %}
 {% block hero %}{% endblock %}
 <div class="wrap shell{% if view == 'home' %} shell--solo{% endif %}">
+  {% if view != 'home' %}<nav class="sidenav" id="sidenav" aria-label="Dashboards">
+    <ul>
+      <li><a href="/customer" {% if view == 'customer' %}aria-current="page"{% endif %}>Customer dashboard</a></li>
+      <li><a href="/bank" {% if view == 'bank' %}aria-current="page"{% endif %}>Bank dashboard</a></li>
+      <li><a href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>How it works</a></li>
+    </ul>
+  </nav>{% endif %}
   <main id="main" class="main">
 {% block content %}{% endblock %}
   </main>
@@ -59,7 +61,7 @@
     <div>
       <h2 class="footer__h">Agent Passport</h2>
       <ul class="footer__list">
-        <li><a href="/customer">Customer dashboard</a></li><li><a href="/bank">Bank dashboard</a></li><li><a href="/terminal">Action Terminal</a></li><li><a href="/audit">Evidence trail</a></li><li><a href="/provider">Register an AI product</a></li><li><a href="/about">How it works</a></li><li><a href="/static/APS_1001.pdf">APS 1001, the proposed standard (PDF)</a></li><li><a href="/api/docs">API</a></li>
+        <li><a href="/customer">Customer dashboard</a></li><li><a href="/bank">Bank dashboard</a></li><li><a href="/about">How it works</a></li><li><a href="/terminal">Action Terminal</a></li><li><a href="/audit">Evidence trail</a></li><li><a href="/provider">Register an AI product</a></li><li><a href="/static/APS_1001.pdf">APS 1001, the proposed standard (PDF)</a></li><li><a href="/api/docs">API</a></li>
       </ul>
     </div>
     <div>
