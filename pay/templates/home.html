@@ -77,20 +77,16 @@ flowchart LR
   <article class="rec" aria-label="Evidence of the refused transaction">
     <header class="rec__head">
       <div><span class="rec__k">Evidence of transaction</span><b>Meridian Bank (demo) · Payments Risk</b></div>
-      <div class="rec__ref"><span class="rec__k">Record</span><b class="mono">EV-2026-0017</b><span class="rec__k">8 September 2026</span></div>
+      <div class="rec__ref"><b class="mono">EV-2026-0017</b><span class="rec__k">8 September 2026</span></div>
     </header>
-    <div class="rec__grid">
-      <div><span class="rec__k">From</span>Northgate Joinery Ltd<br><span class="small">business account <span class="mono">20-45-77 31908822</span></span></div>
-      <div><span class="rec__k">By</span>PayGPT 6.0, AI agent<br><span class="small">passport <span class="mono">AP-2026-0107</span> · signature verified</span></div>
-      <div><span class="rec__k">To</span>Fenwick Timber Ltd<br><span class="rec__flag">account <span class="mono">60-11-22 99887766</span> · not on the mandate</span></div>
-      <div><span class="rec__k">Amount</span><span class="mono">£2,500.00</span></div>
-    </div>
-    <div class="rec__result"><b>Refused. Money did not move.</b><span>Check R.6, payee account not on the mandate. The mandate allows Fenwick Timber Ltd at 60-11-22 10101010 only.</span></div>
     <dl class="rec__proof">
-      <div><dt>Receipt</dt><dd>signed by the bank, Ed25519</dd></div>
-      <div><dt>Chain entry</dt><dd>#17 · <span class="mono">9c1e4b7d2a60f3e1</span></dd></div>
+      <div><dt>From</dt><dd>Northgate Joinery Ltd, account <span class="mono">20-45-77 31908822</span></dd></div>
+      <div><dt>By</dt><dd>PayGPT 6.0, AI agent, passport <span class="mono">AP-2026-0107</span>, signature verified</dd></div>
+      <div><dt>To</dt><dd>Fenwick Timber Ltd, account <span class="mono rec__bad">60-11-22 99887766</span>, not on the mandate</dd></div>
+      <div><dt>Amount</dt><dd><span class="mono">£2,500.00</span></dd></div>
+      <div><dt>Result</dt><dd><b class="rec__bad">Refused. Money did not move.</b> Check R.6: the mandate allows Fenwick Timber Ltd at <span class="mono">60-11-22 10101010</span> only.</dd></div>
     </dl>
-    <footer class="rec__foot"><span class="rec__seal">Verified</span><span>Synthetic record. <a href="/api/evidence/passports/AP-2026-0107">The live bundle</a> carries every signature and hash.</span></footer>
+    <p class="rec__foot">Signed by the bank, Ed25519 · chain entry #17 <span class="mono">9c1e4b7d2a60f3e1</span> · synthetic record; <a href="/api/evidence/passports/AP-2026-0107">the live bundle</a> carries every signature and hash.</p>
   </article>
   </div>
 
