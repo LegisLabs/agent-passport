@@ -2,7 +2,10 @@
  "_comment": "Northgate's own draft mandate, prefilled on the Customer Panel from its service agreement. The finance director edits and signs it; the authority never reviews it.",
  "customer": {
   "legal_name": "Northgate Joinery Ltd",
-  "companies_house_number": "11223344"
+  "companies_house_number": "11223344",
+  "customer_class": "sme",
+  "account_type": "business_current",
+  "account_ref": "20-45-77 31908822"
  },
  "authorising_officer": {
   "name": "Helen Marsh",
@@ -16,20 +19,24 @@
   {
    "supplier_id": "SUP-001",
    "name": "Fenwick Timber Ltd",
-   "account_ref": "60-11-22 10101010"
+   "account_ref": "60-11-22 10101010",
+   "companies_house_number": "04471982"
   },
   {
    "supplier_id": "SUP-002",
    "name": "Ashby Ironmongery Ltd",
-   "account_ref": "30-98-76 22334455"
+   "account_ref": "30-98-76 22334455",
+   "companies_house_number": "07310455"
   },
   {
    "supplier_id": "SUP-003",
    "name": "Coastline Glass Ltd",
-   "account_ref": "20-13-57 77665544"
+   "account_ref": "20-13-57 77665544",
+   "companies_house_number": "09284117"
   }
  ],
  "per_payment_limit": 10000,
  "monthly_limit_per_account": 20000,
- "valid_until": "2027-03-31"
+ "valid_until": "2027-03-31",
+ "max_payments_per_day": 10
 }

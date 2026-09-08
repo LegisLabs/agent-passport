@@ -239,7 +239,35 @@
    "currency": "USD",
    "expected_decision": "DENY",
    "expected_rule": "R.6",
-   "expected_code": "OUT_OF_SCOPE"
+   "expected_code": "CURRENCY_NOT_PERMITTED"
+  },
+  {
+   "id": "P19",
+   "passport_status": "active",
+   "mandate": "signed",
+   "signer": "agent",
+   "replay": true,
+   "action_type": "pay_invoice",
+   "supplier_name": "Fenwick Timber Ltd",
+   "payee_account_ref": "60-11-22 10101010",
+   "amount": 1000,
+   "expected_decision": "DENY",
+   "expected_rule": "R.4",
+   "expected_code": "REPLAY_DETECTED"
+  },
+  {
+   "id": "P20",
+   "passport_status": "active",
+   "mandate": "signed",
+   "signer": "agent",
+   "daily_before": 10,
+   "action_type": "pay_invoice",
+   "supplier_name": "Ashby Ironmongery Ltd",
+   "payee_account_ref": "30-98-76 22334455",
+   "amount": 500,
+   "expected_decision": "DENY",
+   "expected_rule": "R.8",
+   "expected_code": "DAILY_COUNT_EXCEEDED"
   }
  ]
 }

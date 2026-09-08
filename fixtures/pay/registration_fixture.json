@@ -1,39 +1,140 @@
 {
  "_comment": "Prefilled registration of an AI product for the demo (Layer 1). The provider files it on the register; nobody reviews it. A person types or corrects these values on the Provider surface.",
  "company": {
-  "legal_name": {"value": "OpenPay Ltd", "source_doc": null, "quote": null},
-  "companies_house_number": {"value": "10987654", "source_doc": null, "quote": null},
-  "website": {"value": "openpay.example", "source_doc": null, "quote": null}
+  "legal_name": {
+   "value": "OpenPay Ltd",
+   "source_doc": null,
+   "quote": null
+  },
+  "companies_house_number": {
+   "value": "10987654",
+   "source_doc": null,
+   "quote": null
+  },
+  "website": {
+   "value": "openpay.example",
+   "source_doc": null,
+   "quote": null
+  }
  },
  "principal": {
-  "name": {"value": "Daniel Okoye", "source_doc": null, "quote": null},
-  "role": {"value": "Head of Model Governance", "source_doc": null, "quote": null},
-  "declaration_ref": {"value": "DEC-2026-017", "source_doc": null, "quote": null}
+  "name": {
+   "value": "Daniel Okoye",
+   "source_doc": null,
+   "quote": null
+  },
+  "role": {
+   "value": "Head of Model Governance",
+   "source_doc": null,
+   "quote": null
+  },
+  "declaration_ref": {
+   "value": "DEC-2026-017",
+   "source_doc": null,
+   "quote": null
+  }
  },
  "insurance": {
-  "insurer": {"value": "Halden Mutual (demo)", "source_doc": null, "quote": null},
-  "policy_ref": {"value": "PI-4471-2026", "source_doc": null, "quote": null},
-  "cover_gbp": {"value": 2000000, "source_doc": null, "quote": null},
-  "expires": {"value": "2027-06-30", "source_doc": null, "quote": null}
+  "insurer": {
+   "value": "Halden Mutual (demo)",
+   "source_doc": null,
+   "quote": null
+  },
+  "policy_ref": {
+   "value": "PI-4471-2026",
+   "source_doc": null,
+   "quote": null
+  },
+  "cover_gbp": {
+   "value": 2000000,
+   "source_doc": null,
+   "quote": null
+  },
+  "expires": {
+   "value": "2027-06-30",
+   "source_doc": null,
+   "quote": null
+  }
  },
  "product": {
-  "product_name": {"value": "PayGPT 6.0", "source_doc": null, "quote": null},
-  "product_id": {"value": "openpay-paygpt-6", "source_doc": null, "quote": null},
-  "release": {"value": "6.0.2", "source_doc": null, "quote": null},
-  "model_provider": {"value": "Anthropic (Claude)", "source_doc": null, "quote": null},
-  "model_version": {"value": "claude-sonnet-5", "source_doc": null, "quote": null},
-  "documentation_url": {"value": "https://openpay.example/paygpt-6/model-card", "source_doc": null, "quote": null}
+  "product_name": {
+   "value": "PayGPT 6.0",
+   "source_doc": null,
+   "quote": null
+  },
+  "product_id": {
+   "value": "openpay-paygpt-6",
+   "source_doc": null,
+   "quote": null
+  },
+  "release": {
+   "value": "6.0.2",
+   "source_doc": null,
+   "quote": null
+  },
+  "model_provider": {
+   "value": "Anthropic (Claude)",
+   "source_doc": null,
+   "quote": null
+  },
+  "model_version": {
+   "value": "claude-sonnet-5",
+   "source_doc": null,
+   "quote": null
+  },
+  "documentation_url": {
+   "value": "https://openpay.example/paygpt-6/model-card",
+   "source_doc": null,
+   "quote": null
+  }
  },
  "assurance_evidence": {
-  "issuer": {"value": "Brightwater Assurance LLP (demo)", "source_doc": null, "quote": null},
-  "reference": {"value": "IAE-2026-0412", "source_doc": null, "quote": null},
-  "date": {"value": "2026-08-14", "source_doc": null, "quote": null},
-  "use_case": {"value": "pay_invoice", "source_doc": null, "quote": null},
-  "summary": {"value": "Independent benchmark of invoice reading and payment-instruction generation against the APS 1001 minimum assurance requirements for B2B invoice payment: 2,400 synthetic invoices including redirection and prompt-injection cases", "source_doc": null, "quote": null},
-  "report_url": {"value": "https://brightwater.example/reports/IAE-2026-0412", "source_doc": null, "quote": null}
+  "issuer": {
+   "value": "Brightwater Assurance LLP (demo)",
+   "source_doc": null,
+   "quote": null
+  },
+  "reference": {
+   "value": "IAE-2026-0412",
+   "source_doc": null,
+   "quote": null
+  },
+  "date": {
+   "value": "2026-08-14",
+   "source_doc": null,
+   "quote": null
+  },
+  "use_case": {
+   "value": "pay_invoice",
+   "source_doc": null,
+   "quote": null
+  },
+  "summary": {
+   "value": "Independent benchmark of invoice reading and payment-instruction generation against the APS 1001 minimum assurance requirements for B2B invoice payment: 2,400 synthetic invoices including redirection and prompt-injection cases",
+   "source_doc": null,
+   "quote": null
+  },
+  "report_url": {
+   "value": "https://brightwater.example/reports/IAE-2026-0412",
+   "source_doc": null,
+   "quote": null
+  },
+  "level": {
+   "value": "independently-audited",
+   "source_doc": null,
+   "quote": null
+  }
  },
  "intended_use": {
-  "action_type": {"value": "pay_invoice", "source_doc": null, "quote": null},
-  "description": {"value": "read supplier invoices and initiate payment instructions within a customer-signed mandate", "source_doc": null, "quote": null}
+  "action_type": {
+   "value": "pay_invoice",
+   "source_doc": null,
+   "quote": null
+  },
+  "description": {
+   "value": "read supplier invoices and initiate payment instructions within a customer-signed mandate",
+   "source_doc": null,
+   "quote": null
+  }
  }
 }

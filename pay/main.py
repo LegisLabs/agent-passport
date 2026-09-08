@@ -16,7 +16,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 
-from . import audit, config, crypto, db, extraction, fixtures, review, rules, vouch
+from . import audit, companies_house, config, crypto, db, extraction, fixtures, review, rules, vouch
 
 HERE = Path(__file__).parent
 
@@ -123,7 +123,8 @@ def state():
             "incidents": db.list_audit(50, kind="incident"), "violations": db.list_violations(), "alerts": db.pattern_alerts(pat["count"], pat["window_hours"]), "pattern_threshold": pat,
             "payments": db.list_payments(limit=100),
             "vouch_mode": vouch.mode(), "payment_rail": vouch.rail(),
-            "mandate_draft": mandate_draft(), "agent_draft": agent_draft(), "policy": {k: pol[k] for k in ("per_payment_ceiling_gbp", "monthly_per_account_ceiling_gbp", "max_validity", "action_types", "currency", "hold_above_gbp", "min_insurance_cover_gbp")},
+            "mandate_draft": mandate_draft(), "agent_draft": agent_draft(), "policy": {k: pol[k] for k in ("per_payment_ceiling_gbp", "monthly_per_account_ceiling_gbp", "max_validity", "action_types", "currency", "hold_above_gbp", "min_insurance_cover_gbp", "velocity_ceiling_per_day", "assurance_levels", "min_assurance_level_for_admission", "account_tiers", "customer_classes")},
+            "failure_classes": rules.pack().get("failure_classes", {}), "planned_fields": rules.pack().get("planned_fields", []), "companies_house_mode": companies_house.mode(),
             "cast": {"bank": config.BANK, "officer": config.BANK_OFFICER, "team": config.BANK_TEAM, "customer": config.CUSTOMER, "provider": config.PROVIDER, "register": config.REGISTER_NAME, "supervisor": config.SUPERVISOR},
             "delegation_chain": config.DELEGATION_CHAIN == "on", "delegation_max_gbp": config.DELEGATION_MAX_GBP, "chain_beats": fixtures.CHAIN_BEATS, "chain_rules": rules.pack().get("chain_rules", [])}
 
@@ -132,6 +133,7 @@ def product_summary(a: dict) -> dict:
     f = a.get("fields") or {}
     return {"registration_id": a["id"], "ref": a["ref"], "product_name": rules._v(f, "product", "product_name"), "product_id": rules._v(f, "product", "product_id"),
             "provider": rules._v(f, "company", "legal_name"), "model_version": rules._v(f, "product", "model_version"), "admission_status": a.get("admission_status"),
+            "assurance_level": rules._v(f, "assurance_evidence", "level"), "ceilings": rules.admission_ceilings(rules._v(f, "assurance_evidence", "level")),
             "admitted_at": a.get("admitted_at"), "condition": a.get("condition"), "passports": [p["passport_id"] for p in db.passports_for_registration(a["id"])]}
 
 
@@ -179,6 +181,17 @@ def envelope_of(p: dict) -> dict:
         "vouch_voucher_id": p.get("vouch_voucher_id"),
         "cnf": None,  # key binding lives inside agent_identity.cnf, signed by the customer
     }
+
+
+# ── API: the public register of companies (Companies House, or the labelled demo register) ──
+@app.get("/api/companies/search")
+def companies_search(q: str):
+    return {"mode": companies_house.mode(), "items": companies_house.search(q)}
+
+
+@app.get("/api/companies/{number}")
+def companies_lookup(number: str):
+    return {"mode": companies_house.mode(), **companies_house.lookup(number)}
 
 
 # ── API: the register (Layer 1, the provider files an AI product) ──────────
@@ -232,7 +245,7 @@ def submit(reg_id: int):
         "accountable_principal": {"name": rules._v(f, "principal", "name"), "role": rules._v(f, "principal", "role"), "declaration_ref": rules._v(f, "principal", "declaration_ref")},
         "product": {"product_name": rules._v(f, "product", "product_name"), "product_id": rules._v(f, "product", "product_id"), "release": rules._v(f, "product", "release"),
                     "model_provider": rules._v(f, "product", "model_provider"), "model_version": rules._v(f, "product", "model_version")},
-        "assurance_evidence": {"issuer": rules._v(f, "assurance_evidence", "issuer"), "reference": rules._v(f, "assurance_evidence", "reference"), "date": rules._v(f, "assurance_evidence", "date"), "use_case": rules._v(f, "assurance_evidence", "use_case")},
+        "assurance_evidence": {"level": rules._v(f, "assurance_evidence", "level"), "issuer": rules._v(f, "assurance_evidence", "issuer"), "reference": rules._v(f, "assurance_evidence", "reference"), "date": rules._v(f, "assurance_evidence", "date"), "use_case": rules._v(f, "assurance_evidence", "use_case")},
         "filing_sha256": crypto.sha256_hex(crypto.canonical(f)), "checks": {c["id"]: c["result"] for c in checks},
         "meaning": "on the register: identity and accountability recorded; no quality judgement made",
     }, typ="registration-receipt+jwt")
@@ -284,12 +297,16 @@ def admission_decision(reg_id: int, body: AdmissionIn):
         _400("an officer note is required")
     who = f"{config.BANK_OFFICER}, {config.BANK_TEAM}"
     if body.decision == "admit":
-        thr = float(body.hold_above if body.hold_above is not None else rules.pack()["policy"]["hold_above_gbp"])
-        condition = {"hold_above": {"amount": thr, "currency": "GBP"}}
+        level = rules._v(a["fields"], "assurance_evidence", "level")
         pol = rules.pack()["policy"]
+        if not rules.level_meets(level, pol["min_assurance_level_for_admission"]):
+            _400(f"this bank admits products at {rules.assurance_level(pol['min_assurance_level_for_admission'])['label'].lower()} or above; this filing is {rules.assurance_level(level)['label'].lower()}")
+        thr = float(body.hold_above if body.hold_above is not None else pol["hold_above_gbp"])
+        condition = {"hold_above": {"amount": thr, "currency": "GBP"}}
+        ceilings = rules.admission_ceilings(level)
         a = db.update_registration(reg_id, admission_status="admitted", admitted_at=db.now_iso(), officer=who, officer_note=body.note, condition=condition)
         audit.record("admission", a["ref"], {"event": "AI product admitted to the bank's list; ceilings and hold condition set", "officer": who, "note": body.note, "condition": condition,
-                                             "product_id": rules._v(a["fields"], "product", "product_id"), "ceilings": {"per_payment": pol["per_payment_ceiling_gbp"], "monthly_per_account": pol["monthly_per_account_ceiling_gbp"], "max_validity": pol["max_validity"]}})
+                                             "product_id": rules._v(a["fields"], "product", "product_id"), "assurance_level": level, "ceilings": {"per_payment": ceilings["per_payment_ceiling"]["amount"], "monthly_per_account": ceilings["monthly_per_account_ceiling"]["amount"], "max_validity": pol["max_validity"], "ceiling_factor": ceilings["ceiling_factor"]}})
         return {"registration": public_reg(a), "product": product_summary(a)}
     if body.decision == "request_info":
         a = db.update_registration(reg_id, admission_status="info_requested", officer=who, officer_note=body.note)
@@ -300,13 +317,6 @@ def admission_decision(reg_id: int, body: AdmissionIn):
         audit.record("admission", a["ref"], {"event": "bank declined to admit the product; it stays on the register", "officer": who, "note": body.note})
         return {"registration": public_reg(a)}
     _400("unknown decision")
-
-
-def admission_ceilings() -> dict:
-    pol = rules.pack()["policy"]
-    return {"per_payment_ceiling": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
-            "monthly_per_account_ceiling": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]},
-            "max_validity": pol["max_validity"], "action_types": list(pol["action_types"])}
 
 
 class ProductStatusIn(BaseModel):
@@ -374,6 +384,8 @@ def create_agent_on_product(a: dict, deployment: dict) -> dict:
         _400("product is not on the bank's list")
     f = a["fields"]
     pol = rules.pack()["policy"]
+    level = rules._v(f, "assurance_evidence", "level")
+    ceilings = rules.admission_ceilings(level)
     n = db.count_passports() + 107
     pid = f"AG-2026-{n:04d}"   # the agent record; it becomes passport AP-2026-{n} when the customer signs its mandate
     priv, pub = crypto.generate_keypair()
@@ -403,9 +415,9 @@ def create_agent_on_product(a: dict, deployment: dict) -> dict:
         "admission": {"status": "ADMITTED", "filing_checks_passed": sum(c["result"] == "pass" for c in checks), "filing_checks_flagged": [c["id"] for c in checks if c["result"] != "pass"],
                       "issued": "by the bank's system from its admission decision when the customer signed its mandate; no per-customer review"},
         "condition": a.get("condition") or {"hold_above": {"amount": float(pol["hold_above_gbp"]), "currency": "GBP"}},
-        "ceilings": admission_ceilings(),
+        "ceilings": ceilings,
         "accountable_principal": {"name": rules._v(f, "principal", "name"), "role": rules._v(f, "principal", "role"), "declaration_ref": rules._v(f, "principal", "declaration_ref"), "covers": "accuracy of the filing"},
-        "assurance_evidence": {"issuer": rules._v(f, "assurance_evidence", "issuer"), "reference": rules._v(f, "assurance_evidence", "reference"), "date": rules._v(f, "assurance_evidence", "date")},
+        "assurance_evidence": {"level": level, "issuer": rules._v(f, "assurance_evidence", "issuer"), "reference": rules._v(f, "assurance_evidence", "reference"), "date": rules._v(f, "assurance_evidence", "date")},
         "binds": {"agent_identity_sha256": crypto.sha256_hex(ident_jwt), "agent_kid": ag["kid"]},
         "status": {"list": f"/api/status/{pid.replace('AG-', 'AP-')}"}, "issued_by": "the bank's system, from its admission decision",
     }
@@ -413,9 +425,10 @@ def create_agent_on_product(a: dict, deployment: dict) -> dict:
         "typ": "mandate", "passport_id": pid.replace("AG-", "AP-"), "valid_until": valid_until, "exp": exp, "customer": None, "authorising_officer": None,
         "provider": rules._v(f, "company", "legal_name"), "agent_id": agent_id, "agent_kid": ag["kid"], "written_by": "customer",
         "authorization_details": [{"type": "payment_initiation", "actions": list(pol["action_types"]), "currency": pol["currency"], "supplier_allowlist": [],
-                                   "per_payment_limit": {"amount": float(pol["per_payment_ceiling_gbp"]), "currency": pol["currency"]},
-                                   "monthly_limit_per_account": {"amount": float(pol["monthly_per_account_ceiling_gbp"]), "currency": pol["currency"], "window": pol["monthly_window"]}}],
-        "ceilings": admission_ceilings(),
+                                   "per_payment_limit": {"amount": ceilings["per_payment_ceiling"]["amount"], "currency": pol["currency"]},
+                                   "monthly_limit_per_account": {"amount": ceilings["monthly_per_account_ceiling"]["amount"], "currency": pol["currency"], "window": pol["monthly_window"]},
+                                   "max_payments_per_day": ceilings["velocity_ceiling_per_day"]}],
+        "ceilings": ceilings,
     }
     p = db.create_passport(pid, a["id"], "", admission, ident_jwt, ident_payload, mandate_proposed, valid_until, config.CUSTOMER, agent=ag, status="pending")
     audit.record("agent", pid, {"event": "customer registered its AI agent on an admitted product: key generated, possession proven, agent_identity signed by the customer; no passport until the customer signs its mandate",
@@ -516,6 +529,8 @@ class MandateIn(BaseModel):
     supplier_allowlist: list[dict] | None = None
     per_payment_limit: float | None = None
     monthly_limit_per_account: float | None = None
+    max_payments_per_day: int | None = None
+    currency: str | None = None
     valid_until: str | None = None
     actions: list[str] | None = None
 
@@ -525,19 +540,37 @@ def check_mandate(passport_id: str, body: MandateIn | None = None):
     """Ceiling containment preview: the same check that runs at signing, without signing."""
     p = db.get_passport(passport_id) or _404()
     m = _merge_mandate(body)
-    problems = rules.check_mandate_containment(m, p["admission"]["valid_until"])
-    return {"within_ceilings": not problems, "problems": problems, "ceilings": p["mandate_proposed"].get("ceilings"), "mandate": m}
+    ceilings = p["admission"].get("ceilings") or rules.admission_ceilings()
+    problems = rules.check_mandate_containment(m, p["admission"]["valid_until"], ceilings)
+    return {"within_ceilings": not problems, "problems": problems, "ceilings": ceilings, "limits": rules.effective_limits(ceilings, (m.get("customer") or {}).get("account_type")), "mandate": m}
 
 
 def _merge_mandate(body: MandateIn | None) -> dict:
     d = mandate_draft()
     if body:
-        for k in ("customer", "authorising_officer", "supplier_allowlist", "per_payment_limit", "monthly_limit_per_account", "valid_until", "actions"):
+        for k in ("customer", "authorising_officer", "supplier_allowlist", "per_payment_limit", "monthly_limit_per_account", "max_payments_per_day", "currency", "valid_until", "actions"):
             v = getattr(body, k)
             if v is not None:
                 d[k] = v
-    d["supplier_allowlist"] = [{"supplier_id": (x.get("supplier_id") or f"SUP-{i + 1:03d}"), "name": (x.get("name") or "").strip(), "account_ref": (x.get("account_ref") or "").strip()} for i, x in enumerate(d.get("supplier_allowlist") or [])]
+    d["supplier_allowlist"] = [{"supplier_id": (x.get("supplier_id") or f"SUP-{i + 1:03d}"), "name": (x.get("name") or "").strip(), "account_ref": (x.get("account_ref") or "").strip(),
+                               "companies_house_number": companies_house.normalise_number(x.get("companies_house_number")) or None} for i, x in enumerate(d.get("supplier_allowlist") or [])]
     return d
+
+
+def verify_payees(suppliers: list[dict]) -> list[dict]:
+    """Each payee with a company number is checked against the public register at signing; the result travels in the mandate.
+    Companies House reports what companies filed. It holds no bank accounts, so the account still comes from the customer."""
+    out = []
+    for sp in suppliers:
+        sp = dict(sp)
+        if sp.get("companies_house_number"):
+            rec = companies_house.lookup(sp["companies_house_number"])
+            sp["register_check"] = {"checked": "Companies House public register", "source": rec.get("source"), "checked_at": rec.get("checked_at"), "legal_name": rec.get("legal_name"),
+                                    "status": rec.get("status"), "registered_office": rec.get("address"), "found": bool(rec.get("found")),
+                                    "result": ("active company; filed name matches" if rec.get("active") and companies_house.names_match(rec.get("legal_name"), sp.get("name")) else ("active company; filed name differs from the payee name given" if rec.get("active") else f"company is {rec.get('status')}")) if rec.get("found") else "no company with this number on the register",
+                                    "account_check": "Confirmation of Payee (account name to account number) planned, bank-side; the register holds no bank account data"}
+        out.append(sp)
+    return out
 
 
 @app.post("/api/passports/{passport_id}/mandate/sign")
@@ -552,27 +585,33 @@ def sign_mandate(passport_id: str, body: MandateIn | None = None):
     if (db.get_registration(p["registration_id"]) or {}).get("admission_status") != "admitted":
         _400("the product is suspended or no longer on the bank's list; no passport can be issued on it")
     m = _merge_mandate(body)
-    problems = rules.check_mandate_containment(m, p["admission"]["valid_until"])
+    ceilings = p["admission"].get("ceilings") or rules.admission_ceilings()
+    problems = rules.check_mandate_containment(m, p["admission"]["valid_until"], ceilings)
     if problems:
-        raise HTTPException(422, {"message": "mandate outside the admission ceilings", "problems": problems})
+        raise HTTPException(422, {"message": "mandate outside the agent-channel limits for this account", "problems": problems})
     pol = rules.pack()["policy"]
     mp = p["mandate_proposed"]
     new_id = passport_id.replace("AG-", "AP-")
+    suppliers = verify_payees(m["supplier_allowlist"])
+    limits = rules.effective_limits(ceilings, (m.get("customer") or {}).get("account_type"))
     payload = {
         "iss": config.CUSTOMER_ID, "typ": "mandate", "passport_id": new_id, "iat": crypto.now_ts(), "valid_until": m["valid_until"],
         "exp": int(datetime.fromisoformat(m["valid_until"] + "T23:59:59+00:00").timestamp()),
         "customer": m["customer"], "authorising_officer": m["authorising_officer"], "signed_by": m["authorising_officer"],
+        "account": {"type": (m.get("customer") or {}).get("account_type"), "tier": limits["account_tier"]["label"], "customer_class": (m.get("customer") or {}).get("customer_class"), "agent_channel_limits": {k: limits[k] for k in ("per_payment", "monthly_per_account", "max_payments_per_day")}},
         "provider": mp["provider"], "agent_id": mp["agent_id"], "agent_kid": mp["agent_kid"], "written_by": "customer",
-        "authorization_details": [{"type": "payment_initiation", "actions": list(m["actions"]), "currency": pol["currency"], "supplier_allowlist": m["supplier_allowlist"],
+        "authorization_details": [{"type": "payment_initiation", "actions": list(m["actions"]), "currency": m.get("currency") or pol["currency"], "supplier_allowlist": suppliers,
                                    "per_payment_limit": {"amount": float(m["per_payment_limit"]), "currency": pol["currency"]},
-                                   "monthly_limit_per_account": {"amount": float(m["monthly_limit_per_account"]), "currency": pol["currency"], "window": pol["monthly_window"]}}],
+                                   "monthly_limit_per_account": {"amount": float(m["monthly_limit_per_account"]), "currency": pol["currency"], "window": pol["monthly_window"]},
+                                   "max_payments_per_day": int(m.get("max_payments_per_day") or limits["max_payments_per_day"])}],
         "within_ceilings": True,
     }
     token = crypto.sign_jwt("northgate", payload, typ="mandate+jwt")
     p = db.set_mandate(passport_id, token, payload)
     p = db.set_mandate_proposed(passport_id, {**mp, **{k: payload[k] for k in ("customer", "authorising_officer", "valid_until", "authorization_details")}})
     audit.record("mandate", passport_id, {"event": "customer wrote and signed its mandate inside its bank's app; ceiling containment passed", "signer": payload["signed_by"], "customer_kid": crypto.signer("northgate")["kid"],
-                                          "suppliers": len(m["supplier_allowlist"]), "per_payment_limit": float(m["per_payment_limit"]), "monthly_limit_per_account": float(m["monthly_limit_per_account"]), "valid_until": m["valid_until"]})
+                                          "suppliers": len(suppliers), "payees_checked": [{"name": x["name"], "companies_house_number": x.get("companies_house_number"), "result": (x.get("register_check") or {}).get("result"), "source": (x.get("register_check") or {}).get("source")} for x in suppliers],
+                                          "per_payment_limit": float(m["per_payment_limit"]), "monthly_limit_per_account": float(m["monthly_limit_per_account"]), "max_payments_per_day": payload["authorization_details"][0]["max_payments_per_day"], "currency": payload["authorization_details"][0]["currency"], "account_type": payload["account"]["type"], "valid_until": m["valid_until"]})
     # the customer's signature gives the AI agent authority: the bank's system now issues the passport from its admission decision
     if not p.get("admission_jwt"):
         admission = {**p["admission"], "jti": new_id, "iat": crypto.now_ts(), "nbf": crypto.now_ts()}
@@ -616,7 +655,8 @@ def minimal_passport(p: dict) -> dict:
         "passport_id": p["passport_id"], "issuer": a["iss"], "provider": a["product_ref"]["provider"], "product": f"{a['product_ref']['product_name']} · {a['product_ref']['model_version']}", "product_ref": a["product_ref"], "ceilings": a.get("ceilings"),
         "agent": i["agent"]["name"], "agent_id": i["agent"]["agent_id"], "agent_kid": crypto.jwk_thumbprint(i["cnf"]["jwk"])[:16],
         "condition": a["condition"], "valid_until": a["valid_until"], "status": p["status"], "mandate_signed": bool(m),
-        "scope": {"actions": ad["actions"], "currency": ad["currency"], "suppliers": len(ad["supplier_allowlist"]), "per_payment_limit": ad["per_payment_limit"], "monthly_limit_per_account": ad["monthly_limit_per_account"]},
+        "scope": {"actions": ad["actions"], "currency": ad["currency"], "suppliers": len(ad["supplier_allowlist"]), "per_payment_limit": ad["per_payment_limit"], "monthly_limit_per_account": ad["monthly_limit_per_account"], "max_payments_per_day": ad.get("max_payments_per_day")},
+        "assurance_level": (a.get("assurance_evidence") or {}).get("level"),
         "signers": {"admission": crypto.signer("bank")["kid"], "agent_identity": crypto.signer("northgate")["kid"], "mandate": crypto.signer("northgate")["kid"]},
     }
 
@@ -682,7 +722,26 @@ def agent_act(body: ActIn):
     else:
         key = p["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
     req["agent_signature"] = crypto.sign_bytes(key, rules.request_signing_input(req))
-    return verify(VerifyIn(passport_id=body.passport_id, instruction=req))
+    out = verify(VerifyIn(passport_id=body.passport_id, instruction=req))
+    if out["decision"] in ("ALLOW", "ESCALATE"):
+        _last_instruction[body.passport_id] = dict(req)   # the last instruction the bank executed or held: the one worth replaying
+    return out
+
+
+_last_instruction: dict[str, dict] = {}
+
+
+class ReplayIn(BaseModel):
+    passport_id: str
+
+
+@app.post("/api/agent/replay")
+def agent_replay(body: ReplayIn):
+    """Something re-presents the last executed instruction, byte for byte. The signature is genuine; the nonce is spent."""
+    req = _last_instruction.get(body.passport_id)
+    if not req:
+        _400("no executed instruction to replay yet: pay something first")
+    return verify(VerifyIn(passport_id=body.passport_id, instruction=dict(req)))
 
 
 class InvoiceIn(BaseModel):
@@ -774,10 +833,13 @@ def verify(body: VerifyIn):
     pp_status = p["status"] if p else "unknown"
     req = body.instruction_dict()
     ledger_total = db.ledger_total(body.passport_id, str(req.get("payee_account_ref") or ""))
-    res = rules.verify_action(env, pp_status, req, ledger_total)
+    seen = db.nonce_seen(body.passport_id, req.get("nonce"))
+    daily = db.daily_count(body.passport_id)
+    res = rules.verify_action(env, pp_status, req, ledger_total, nonce_seen=seen, daily_count=daily)
+    fclass = rules.classify_refusal(res["code"]) if res["decision"] == "DENY" else None
     entry = {"event": "verification", "passport_id": body.passport_id, "instruction": req, "passport_status": pp_status, "presented_envelope": env,
-             "ledger_total_before": ledger_total, "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req)),
-             "decision": res["decision"], "rule": res["rule"], "code": res["code"], "reason": res["reason"], "trace": res["trace"], "rule_pack": res["rule_pack"]}
+             "ledger_total_before": ledger_total, "daily_count_before": daily, "nonce_seen_before": seen, "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req)),
+             "decision": res["decision"], "rule": res["rule"], "code": res["code"], "reason": res["reason"], "failure_class": fclass["id"] if fclass else None, "trace": res["trace"], "rule_pack": res["rule_pack"]}
     rec = audit.record("verify", body.passport_id, entry, receipt_for={"passport_id": body.passport_id, "decision": res["decision"], "rule": res["rule"], "code": res["code"], "instruction_hash": entry["instruction_hash"]})
     r4 = next((t for t in res["trace"] if t["rule"] == "R.4"), None)
     agent_kid = None
@@ -788,7 +850,9 @@ def verify(body: VerifyIn):
         agent_kid = None
     signature = {"checked": r4 is not None, "verified": bool(r4 and r4["ok"]), "alg": "Ed25519 (EdDSA, RFC 8037)", "agent_kid": agent_kid,
                  "signed_fields": list(rules.REQUEST_FIELDS), "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req))}
-    out = {**res, "rule_id": res["rule"], "signature": signature, "audit_id": rec["id"], "audit_hash": rec["hash"], "audit_ref": rec["hash"], "prev_hash": rec["prev_hash"], "receipt": rec["receipt"],
+    if res["decision"] in ("ALLOW", "ESCALATE"):
+        db.remember_nonce(body.passport_id, req.get("nonce"), rec["id"])   # an executed or held instruction spends its nonce; presenting it again is a replay
+    out = {**res, "rule_id": res["rule"], "failure_class": fclass, "signature": signature, "audit_id": rec["id"], "audit_hash": rec["hash"], "audit_ref": rec["hash"], "prev_hash": rec["prev_hash"], "receipt": rec["receipt"],
            "ledger_total_before": ledger_total, "settlement": None, "incident": None, "violation": None,
            "rails": {"passport_list": pp_status, "vouch": {"voucher_id": p.get("vouch_voucher_id") if p else None, "status": p.get("vouch_status") if p else None, "mode": p.get("vouch_mode") if p else None}}}
     if res["decision"] == "ALLOW":
@@ -796,8 +860,8 @@ def verify(body: VerifyIn):
         pay = db.insert_payment(body.passport_id, str(req.get("payee_account_ref")), float(req.get("amount") or 0), str(req.get("currency") or "GBP"), req.get("invoice_ref"), rec["id"], s["rail"], s.get("ref"))
         out["settlement"] = {**s, "ledger_total_after": ledger_total + float(req.get("amount") or 0), "payment_id": pay["id"]}
     elif res["decision"] == "DENY" and p:
-        vio = db.insert_violation(body.passport_id, p["admission"].get("agent_id"), res["rule"], res["code"], req, body.evidence, rec["id"])
-        out["violation"] = {"id": vio["id"], "status": vio["status"]}
+        vio = db.insert_violation(body.passport_id, p["admission"].get("agent_id"), res["rule"], res["code"], req, body.evidence, rec["id"], fclass["id"] if fclass else None)
+        out["violation"] = {"id": vio["id"], "status": vio["status"], "failure_class": fclass}
         n = db.denies_since_last_incident(body.passport_id)
         threshold = rules.pack()["policy"]["incident_deny_threshold"]
         out["deny_count"] = n
@@ -824,7 +888,8 @@ def replay(audit_id: int):
         _400("only verification entries can be replayed")
     e = r["entry"]
     day = date.fromisoformat(e["ts"][:10])
-    res = rules.verify_action(e["presented_envelope"], e.get("passport_status", e.get("registry_status", "unknown")), e["instruction"], e.get("ledger_total_before", 0.0), today=day)
+    res = rules.verify_action(e["presented_envelope"], e.get("passport_status", e.get("registry_status", "unknown")), e["instruction"], e.get("ledger_total_before", 0.0), today=day,
+                              nonce_seen=bool(e.get("nonce_seen_before")), daily_count=int(e.get("daily_count_before") or 0))
     same = res["decision"] == e["decision"] and res["rule"] == e["rule"] and res["code"] == e["code"]
     return {"audit_id": audit_id, "original": {"decision": e["decision"], "rule": e["rule"], "code": e["code"]}, "replay": {"decision": res["decision"], "rule": res["rule"], "code": res["code"]}, "identical": same, "rule_pack": res["rule_pack"]}
 

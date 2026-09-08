@@ -93,8 +93,18 @@ CREATE TABLE IF NOT EXISTS violations (
   status TEXT NOT NULL,                 -- OPEN | INVESTIGATING | RESOLVED
   resolution TEXT                       -- revoked | reinstated | null
 );
+CREATE TABLE IF NOT EXISTS nonces (
+  passport_id TEXT NOT NULL,
+  nonce TEXT NOT NULL,
+  ts TEXT NOT NULL,
+  audit_id INTEGER,
+  PRIMARY KEY (passport_id, nonce)
+);
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
 """
+_MIGRATIONS = [
+    "ALTER TABLE violations ADD COLUMN failure_class TEXT",   # fraud | agent_error | status
+]
 
 
 def now_iso() -> str:
@@ -112,6 +122,11 @@ def connect() -> sqlite3.Connection:
 def init() -> None:
     with tx() as con:
         con.executescript(SCHEMA)
+        for stmt in _MIGRATIONS:
+            try:
+                con.execute(stmt)
+            except sqlite3.OperationalError:
+                pass  # column already there
 
 
 @contextmanager
@@ -334,6 +349,26 @@ def list_payments(passport_id: str | None = None, limit: int = 200) -> list[dict
         return [dict(r) for r in rows]
 
 
+def daily_count(passport_id: str, window_hours: int = 24) -> int:
+    since = (datetime.now(timezone.utc) - timedelta(hours=window_hours)).isoformat(timespec="seconds").replace("+00:00", "Z")
+    with tx() as con:
+        return con.execute("SELECT COUNT(*) FROM payments WHERE passport_id=? AND ts>=?", (passport_id, since)).fetchone()[0]
+
+
+def nonce_seen(passport_id: str, nonce: str | None) -> bool:
+    if not nonce:
+        return False
+    with tx() as con:
+        return con.execute("SELECT 1 FROM nonces WHERE passport_id=? AND nonce=?", (passport_id, nonce)).fetchone() is not None
+
+
+def remember_nonce(passport_id: str, nonce: str | None, audit_id: int | None) -> None:
+    if not nonce:
+        return
+    with tx() as con:
+        con.execute("INSERT OR IGNORE INTO nonces(passport_id,nonce,ts,audit_id) VALUES(?,?,?,?)", (passport_id, nonce, now_iso(), audit_id))
+
+
 def count_payments(passport_id: str) -> int:
     with tx() as con:
         return con.execute("SELECT COUNT(*) FROM payments WHERE passport_id=?", (passport_id,)).fetchone()[0]
@@ -392,11 +427,11 @@ def row_to_violation(r: sqlite3.Row) -> dict:
     return d
 
 
-def insert_violation(passport_id: str, agent_id: str | None, rule: str, code: str, instruction: dict, evidence: dict | None, audit_id: int | None) -> dict:
+def insert_violation(passport_id: str, agent_id: str | None, rule: str, code: str, instruction: dict, evidence: dict | None, audit_id: int | None, failure_class: str | None = None) -> dict:
     inst = {k: v for k, v in instruction.items() if k != "agent_signature"}
     with tx() as con:
-        cur = con.execute("INSERT INTO violations(ts,passport_id,agent_id,rule,code,instruction_json,evidence_json,audit_id,outcome,status) VALUES(?,?,?,?,?,?,?,?,?,?)",
-                          (now_iso(), passport_id, agent_id, rule, code, json.dumps(inst), json.dumps(evidence) if evidence else None, audit_id, "DENY", "OPEN"))
+        cur = con.execute("INSERT INTO violations(ts,passport_id,agent_id,rule,code,instruction_json,evidence_json,audit_id,outcome,status,failure_class) VALUES(?,?,?,?,?,?,?,?,?,?,?)",
+                          (now_iso(), passport_id, agent_id, rule, code, json.dumps(inst), json.dumps(evidence) if evidence else None, audit_id, "DENY", "OPEN", failure_class))
         return row_to_violation(con.execute("SELECT * FROM violations WHERE id=?", (cur.lastrowid,)).fetchone())
 
 
@@ -432,5 +467,5 @@ def pattern_alerts(count: int, window_hours: int) -> list[dict]:
 
 def reset_all() -> None:
     with tx() as con:
-        for t in ("registrations", "passports", "payments", "audit", "violations", "kv"):
+        for t in ("registrations", "passports", "payments", "audit", "violations", "nonces", "kv"):
             con.execute(f"DELETE FROM {t}")

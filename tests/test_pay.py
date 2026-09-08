@@ -81,11 +81,15 @@ def test_envelope_three_signers_and_minimal(client, issued):
 def test_oracle(client, issued, case):
     p, _ = issued
     pid = p["passport_id"]
-    if case["passport_status"] == "revoked" or case["mandate"] == "unsigned" or case.get("ledger_before"):
+    if case["passport_status"] == "revoked" or case["mandate"] == "unsigned" or case.get("ledger_before") or case.get("daily_before"):
         p, _ = issue_one(client, sign_mandate=case["mandate"] == "signed")  # isolated passport for terminal / stateful cases
         pid = p["passport_id"]
     if case.get("ledger_before"):
         db.insert_payment(pid, case["payee_account_ref"], float(case["ledger_before"]), "GBP", "seed", None, "local", None)
+    for k in range(int(case.get("daily_before") or 0)):
+        db.insert_payment(pid, case["payee_account_ref"], 10.0, "GBP", f"seed-{k}", None, "local", None)
+    if case.get("replay"):
+        first = act(client, pid, case); assert first["decision"] == "ALLOW", first
     if case["passport_status"] != "active":
         client.post(f"/api/passports/{pid}/status", json={"status": case["passport_status"], "reason": f"oracle {case['id']}"})
     try:
@@ -97,6 +101,8 @@ def test_oracle(client, issued, case):
                    "amount": case["amount"], "currency": "GBP", "invoice_ref": "INV-T", "nonce": "n"}
             req["agent_signature"] = crypto.sign_bytes(pa["private_pem"], rules.request_signing_input(req))
             res = client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": env}).json()
+        elif case.get("replay"):
+            res = client.post("/api/agent/replay", json={"passport_id": pid}).json()
         else:
             res = act(client, pid, case)
         assert res["decision"] == case["expected_decision"], res
@@ -600,3 +606,55 @@ def test_action_terminal_scenario_and_console(client):
     c = client.get("/terminal?console=1").text
     assert client.get("/bank?console=1", follow_redirects=False).status_code == 302 and client.get("/regulator", follow_redirects=False).headers["location"] == "/bank"
     assert 'id="beats"' in c and 'id="gauntlet"' in c and "terminal.js" not in c
+
+
+# ── Consolidation round: assurance levels, velocity, currency, replay, failure classes, Companies House ──
+def test_assurance_level_scales_ceilings_and_gates_admission(client):
+    a = client.post("/api/registrations").json(); a = client.post(f"/api/registrations/{a['id']}/prefill").json()
+    f = a["fields"]; f["assurance_evidence"]["level"]["value"] = "self-declared"
+    client.put(f"/api/registrations/{a['id']}/fields", json={"fields": f}); a = client.post(f"/api/registrations/{a['id']}/submit").json()
+    assert next(c for c in a["checks"] if c["id"] == "F.5")["assurance_level"] == "self-declared"
+    r = client.post(f"/api/registrations/{a['id']}/admission", json={"decision": "admit", "note": "try"})
+    assert r.status_code == 400 and "self-declared" in r.json()["detail"]
+    assert rules.admission_ceilings("independently-verified")["per_payment_ceiling"]["amount"] == 5000
+    assert rules.admission_ceilings("independently-audited")["ceiling_factor"] == 1.0
+    assert rules.effective_limits(rules.admission_ceilings("independently-audited"), "personal_current")["per_payment"] == 2500
+
+
+def test_mandate_velocity_and_account_tier_are_contained(client):
+    p, _ = issue_one(client, sign_mandate=False)
+    draft = client.get("/api/state").json()["mandate_draft"]
+    r = client.post(f"/api/passports/{p['passport_id']}/mandate/check", json={**draft, "max_payments_per_day": 50}).json()
+    assert r["within_ceilings"] is False and any(x["field"] == "max_payments_per_day" for x in r["problems"])
+    personal = {**draft, "customer": {**draft["customer"], "account_type": "personal_current"}}
+    r = client.post(f"/api/passports/{p['passport_id']}/mandate/check", json=personal).json()
+    assert r["limits"]["per_payment"] == 2500 and any(x["field"] == "per_payment_limit" for x in r["problems"])
+    p = client.post(f"/api/passports/{p['passport_id']}/mandate/sign", json=draft).json()
+    ad = p["mandate"]["authorization_details"][0]
+    assert ad["currency"] == "GBP" and ad["max_payments_per_day"] == 10 and p["mandate"]["account"]["tier"] == "Business current account"
+    assert all(x["register_check"]["found"] and "public register" in x["register_check"]["checked"] for x in ad["supplier_allowlist"])
+
+
+def test_refusals_carry_a_failure_class(client):
+    p, _ = issue_one(client); pid = p["passport_id"]
+    usd = act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 300}, currency="USD")
+    assert usd["code"] == "CURRENCY_NOT_PERMITTED" and usd["failure_class"]["id"] == "agent_error"
+    bad = act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 99887766", "amount": 300})
+    assert bad["failure_class"]["id"] == "fraud"
+    rogue = act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 300}, signer="rogue")
+    assert rogue["failure_class"]["id"] == "fraud"
+    v = client.get("/api/violations", params={"passport_id": pid}).json()["violations"]
+    assert {x["failure_class"] for x in v} == {"agent_error", "fraud"}
+
+
+def test_companies_house_falls_back_to_the_labelled_demo_register(monkeypatch):
+    from pay import companies_house
+    monkeypatch.delenv("COMPANIES_HOUSE_API_KEY", raising=False)
+    r = companies_house.lookup("4471982")
+    assert r["found"] and r["legal_name"] == "FENWICK TIMBER LTD" and "synthetic" in r["source"] and r["number"] == "04471982"
+    assert companies_house.lookup("00000000")["found"] is False
+    assert companies_house.names_match("FENWICK TIMBER LTD", "Fenwick Timber Limited")
+    monkeypatch.setenv("COMPANIES_HOUSE_API_KEY", "not-a-real-key"); monkeypatch.setattr(companies_house, "API", "http://127.0.0.1:9")
+    companies_house._cache.clear()
+    r = companies_house.lookup("07310455")
+    assert r["found"] and "demo register" in r["source"] and "unreachable" in r.get("note", "")

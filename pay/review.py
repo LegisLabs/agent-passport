@@ -39,11 +39,13 @@ def step_filing(a: dict) -> dict:
                            "product": f"{_v(f, 'product', 'product_name')} ({_v(f, 'product', 'product_id')}, release {_v(f, 'product', 'release')})",
                            "foundation_model": f"{_v(f, 'product', 'model_provider')} · {_v(f, 'product', 'model_version')}",
                            "documentation": _v(f, "product", "documentation_url"),
+                           "assurance_level": rules.assurance_level(_v(ae, "level"))["label"] + " (declared by the provider with the evidence; the register does not grade it)",
                            "independent_assurance_evidence": f"{_v(ae, 'issuer')} {_v(ae, 'reference')}, {_v(ae, 'date')}, use case {_v(ae, 'use_case')}: {_v(ae, 'summary')}",
                            "intended_use": f"{_v(f, 'intended_use', 'action_type')}: {_v(f, 'intended_use', 'description')}"},
         "register_says": {"note": "The register records identity and accountability. It does not certify that the product is good; it guarantees that someone is accountable when it is bad. The quality judgement is the bank's."},
         "bank_decides": {"admission": "whether customers of this bank may delegate payments to this product, and under what ceilings and hold condition",
-                         "ceilings": f"per payment ≤ £{pol['per_payment_ceiling_gbp']:,.0f}; per account in 30 days ≤ £{pol['monthly_per_account_ceiling_gbp']:,.0f}; expiry ≤ {pol['max_validity']}; actions {', '.join(pol['action_types'])}",
+                         "ceilings": f"per payment ≤ £{pol['per_payment_ceiling_gbp']:,.0f}; per account in 30 days ≤ £{pol['monthly_per_account_ceiling_gbp']:,.0f}; up to {pol['velocity_ceiling_per_day']} payments a day; expiry ≤ {pol['max_validity']}; actions {', '.join(pol['action_types'])}; scaled by assurance level (self-declared ×0.25, independently verified ×0.5, independently audited ×1)",
+                         "minimum_assurance_level": rules.assurance_level(pol["min_assurance_level_for_admission"])["label"],
                          "hold_above_default": float(pol["hold_above_gbp"])},
         "registration": "fields filed by the provider on the register" + (" (prefilled for the demo)" if a.get("entry_mode") == "prefill" else ""), "entry_mode": a.get("entry_mode"),
     }
@@ -123,7 +125,7 @@ def step_recommendation(a: dict, rule_map: dict, sandbox: list[dict], condition:
     reasons = [
         f"{len(rule_map['rules']) - len(flagged)} of {len(rule_map['rules'])} filing checks satisfied by cited evidence" + (f"; flagged {', '.join(flagged)}" if flagged else ""),
         f"{sum(1 for s in sandbox if s['pass'])} of {len(sandbox)} adversarial tests refused or escalated by the bank engine as expected" + (f"; unexpected {', '.join(failed)}" if failed else ""),
-        "Independent Assurance Evidence is attached for the registered use case; the bank assesses it against its minimum requirements, the register does not",
+        f"Independent Assurance Evidence at level {rules.assurance_level(_v(a['fields'], 'assurance_evidence', 'level'))['label'].lower()} for the registered use case; the bank assesses it against its minimum requirements, the register does not",
         "no AI agent key at admission: each customer's agent proves possession of its own key when it is created",
         f"condition to attach: hold instructions above £{condition:,.0f} for the customer's named approver",
     ]

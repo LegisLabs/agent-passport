@@ -129,7 +129,7 @@ def _fixture_note(ref, fields, checks, flagged) -> str:
     ae = fields.get("assurance_evidence", {})
     s = (f"Registration {ref} from {fields['company']['legal_name']['value']} files {fields['product']['product_name']['value']} "
          f"({fields['product']['model_provider']['value']}, {fields['product']['model_version']['value']}) for {fields['intended_use']['action_type']['value']}. "
-         f"Independent Assurance Evidence from {ae.get('issuer', {}).get('value')} ({ae.get('reference', {}).get('value')}, {ae.get('date', {}).get('value')}) is attached for the same use case. "
+         f"Independent Assurance Evidence at level {ae.get('level', {}).get('value')} from {ae.get('issuer', {}).get('value')} ({ae.get('reference', {}).get('value')}, {ae.get('date', {}).get('value')}) is attached for the same use case. "
          f"{passed} of {len(checks)} filing checks passed.")
     if flagged:
         s += " Flagged: " + "; ".join(f"{c['id']} {c['detail']}" for c in flagged) + "."

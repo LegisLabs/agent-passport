@@ -1,8 +1,49 @@
 {
- "_comment": "Synthetic public records the register and the bank can look up. No real firm.",
+ "_comment": "Synthetic public records used when the Companies House API is not reachable (no key, offline, rate limit). Every response built from here is labelled as the demo register. No real firm.",
  "companies_house": {
-  "10987654": {"name": "OPENPAY LTD", "status": "active", "address": "Unit 9, Riverside Works, Norwich NR1 1QE"},
-  "11223344": {"name": "NORTHGATE JOINERY LTD", "status": "active", "address": "3 Kiln Lane, King's Lynn PE30 4RT"},
-  "12034567": {"name": "LEDGERLINE SOFTWARE LTD", "status": "active", "address": "2 Mill Street, Leeds LS1 4AA"}
+  "10987654": {
+   "name": "OPENPAY LTD",
+   "status": "active",
+   "address": "Unit 9, Riverside Works, Norwich NR1 1QE"
+  },
+  "11223344": {
+   "name": "NORTHGATE JOINERY LTD",
+   "status": "active",
+   "address": "3 Kiln Lane, King's Lynn PE30 4RT"
+  },
+  "12034567": {
+   "name": "LEDGERLINE SOFTWARE LTD",
+   "status": "active",
+   "address": "2 Mill Street, Leeds LS1 4AA"
+  },
+  "04471982": {
+   "name": "FENWICK TIMBER LTD",
+   "status": "active",
+   "address": "Unit 4, Sawmill Road, Thetford IP24 1HY",
+   "type": "ltd",
+   "incorporated": "2002-06-11"
+  },
+  "07310455": {
+   "name": "ASHBY IRONMONGERY LTD",
+   "status": "active",
+   "address": "22 Foundry Lane, Loughborough LE11 1NF",
+   "type": "ltd",
+   "incorporated": "2010-07-02"
+  },
+  "09284117": {
+   "name": "COASTLINE GLASS LTD",
+   "status": "active",
+   "address": "Quay House, 3 Harbour Street, Lowestoft NR32 1AB",
+   "type": "ltd",
+   "incorporated": "2014-10-29"
+  },
+  "13990201": {
+   "name": "FENWICK TIMBER SUPPLIES LTD",
+   "status": "dissolved",
+   "address": "12 Regent Street, London SW1Y 4PE",
+   "type": "ltd",
+   "incorporated": "2022-03-14",
+   "dissolved": "2025-11-02"
+  }
  }
 }

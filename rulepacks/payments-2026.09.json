@@ -1,46 +1,320 @@
 {
-  "id": "payments-2026.09.3",
+  "id": "payments-2026.09.4",
   "title": "Agent Passport rule pack, B2B payment initiation (APS 1001 revision 3, bank-first)",
   "jurisdiction": "United Kingdom (proposed industry standard; no current legal requirement)",
   "register": "agent-passport-register-demo",
   "bank": "meridian-bank-demo",
   "agent_class": "accounts_payable_agent",
   "policy": {
-    "action_types": ["pay_invoice"],
+    "action_types": [
+      "pay_invoice"
+    ],
     "currency": "GBP",
     "per_payment_ceiling_gbp": 10000,
     "monthly_per_account_ceiling_gbp": 50000,
     "monthly_window": "P30D",
     "max_validity": "2027-03-31",
-    "ceilings_note": "Admission ceilings set by the bank when it admits an AI product to its list. Every customer mandate on that product must stay within them; the containment check runs when the customer signs.",
+    "ceilings_note": "Agent-channel ceilings: the account type sets the product ceiling, the provider's assurance level scales the bank's admission ceiling, and every mandate must sit at or below the lower of the two. Containment is checked when the customer signs.",
     "hold_above_gbp": 5000,
     "min_insurance_cover_gbp": 1000000,
     "incident_deny_threshold": 3,
-    "pattern_threshold": {"count": 2, "window_hours": 24, "note": "the same rule refused this many times within the window on one passport raises an alert to the bank's payments risk team"},
-    "delegation_max_gbp": 4000
+    "pattern_threshold": {
+      "count": 2,
+      "window_hours": 24,
+      "note": "the same rule refused this many times within the window on one passport raises an alert to the bank's payments risk team"
+    },
+    "delegation_max_gbp": 4000,
+    "velocity_ceiling_per_day": 20,
+    "assurance_levels": [
+      {
+        "id": "self-declared",
+        "label": "Self-declared",
+        "rank": 1,
+        "ceiling_factor": 0.25,
+        "note": "the provider's own statement; no independent evidence attached"
+      },
+      {
+        "id": "independently-verified",
+        "label": "Independently verified",
+        "rank": 2,
+        "ceiling_factor": 0.5,
+        "note": "a named independent party has checked the documentation against the product"
+      },
+      {
+        "id": "independently-audited",
+        "label": "Independently audited",
+        "rank": 3,
+        "ceiling_factor": 1.0,
+        "note": "a named independent party has tested the product against the minimum assurance requirements for the use case"
+      }
+    ],
+    "min_assurance_level_for_admission": "independently-verified",
+    "account_tiers": {
+      "personal_current": {
+        "label": "Personal current account",
+        "per_payment_gbp": 2500,
+        "monthly_per_account_gbp": 10000,
+        "velocity_per_day": 10
+      },
+      "business_current": {
+        "label": "Business current account",
+        "per_payment_gbp": 10000,
+        "monthly_per_account_gbp": 50000,
+        "velocity_per_day": 20
+      },
+      "business_savings": {
+        "label": "Business savings account",
+        "per_payment_gbp": 25000,
+        "monthly_per_account_gbp": 100000,
+        "velocity_per_day": 5
+      }
+    },
+    "customer_classes": {
+      "individual": {
+        "label": "Private individual",
+        "default_account_type": "personal_current"
+      },
+      "micro": {
+        "label": "Micro business",
+        "default_account_type": "business_current"
+      },
+      "sme": {
+        "label": "Small or medium enterprise",
+        "default_account_type": "business_current"
+      },
+      "large": {
+        "label": "Large enterprise",
+        "default_account_type": "business_savings"
+      }
+    }
   },
   "chain_rules": [
-    {"id": "C.a", "title": "Root mandate scope is well formed", "status": "PROTOTYPE", "source": "Delegation invariant S_n ⊆ … ⊆ S_0", "data": "envelope.mandate", "on_fail": "DENY", "code": "ROOT_SCOPE_INVALID"},
-    {"id": "C.b", "title": "Delegation is a subset of the root mandate", "status": "PROTOTYPE", "source": "Delegation signed by the orchestrator key in agent_identity.cnf; beneficiaries, ceiling, actions, validity ⊆ root", "data": "delegation JWT + envelope.mandate", "on_fail": "DENY", "code": "DELEGATION_EXPANDS_SCOPE"},
-    {"id": "C.c", "title": "Action lies inside the narrowest scope", "status": "PROTOTYPE", "source": "Instruction signed by the delegated execution key named in the delegation", "data": "delegation JWT + instruction", "on_fail": "DENY", "code": "ACTION_OUTSIDE_DELEGATION"}
+    {
+      "id": "C.a",
+      "title": "Root mandate scope is well formed",
+      "status": "PROTOTYPE",
+      "source": "Delegation invariant S_n ⊆ … ⊆ S_0",
+      "data": "envelope.mandate",
+      "on_fail": "DENY",
+      "code": "ROOT_SCOPE_INVALID"
+    },
+    {
+      "id": "C.b",
+      "title": "Delegation is a subset of the root mandate",
+      "status": "PROTOTYPE",
+      "source": "Delegation signed by the orchestrator key in agent_identity.cnf; beneficiaries, ceiling, actions, validity ⊆ root",
+      "data": "delegation JWT + envelope.mandate",
+      "on_fail": "DENY",
+      "code": "DELEGATION_EXPANDS_SCOPE"
+    },
+    {
+      "id": "C.c",
+      "title": "Action lies inside the narrowest scope",
+      "status": "PROTOTYPE",
+      "source": "Instruction signed by the delegated execution key named in the delegation",
+      "data": "delegation JWT + instruction",
+      "on_fail": "DENY",
+      "code": "ACTION_OUTSIDE_DELEGATION"
+    }
   ],
   "registration_rules": [
-    {"id": "F.1", "title": "Provider resolves at Companies House", "status": "CURRENT", "source": "Companies House register", "check": "companies_house_match", "fail": "flag"},
-    {"id": "F.2", "title": "Accountable principal named, with a signed declaration", "status": "PROTOTYPE", "source": "Filing declaration, as for a Companies House filing; accountability for the filing, not a quality judgement", "check": "accountable_principal", "fail": "flag"},
-    {"id": "F.3", "title": "Insurance evidenced, cover at or above the minimum, in force", "status": "PROTOTYPE", "source": "Professional indemnity policy summary; minimum cover in the policy table", "check": "insurance", "fail": "flag"},
-    {"id": "F.4", "title": "AI product documented with a pinned model version", "status": "PROTOTYPE", "source": "Filing form: product name, identifier, release, foundation model provider and pinned version, documentation location", "check": "product_documented", "fail": "flag"},
-    {"id": "F.5", "title": "Independent Assurance Evidence attached and covering the registered use case", "status": "PROTOTYPE", "source": "Independent benchmark or audit report: issuer, reference, date, use case, report location. Presence and scope are checked; the register makes no quality judgement", "check": "assurance_evidence", "fail": "flag"},
-    {"id": "F.6", "title": "Product not already on the register", "status": "PROTOTYPE", "source": "Agent Passport Register", "check": "not_already_registered", "fail": "flag"}
+    {
+      "id": "F.1",
+      "title": "Provider resolves at Companies House",
+      "status": "CURRENT",
+      "source": "Companies House public register (live lookup, or the synthetic demo register when offline). Companies House reports what companies filed; it verifies nothing itself",
+      "check": "companies_house_match",
+      "fail": "flag"
+    },
+    {
+      "id": "F.2",
+      "title": "Accountable principal named, with a signed declaration",
+      "status": "PROTOTYPE",
+      "source": "Filing declaration, as for a Companies House filing; accountability for the filing, not a quality judgement",
+      "check": "accountable_principal",
+      "fail": "flag"
+    },
+    {
+      "id": "F.3",
+      "title": "Insurance evidenced, cover at or above the minimum, in force",
+      "status": "PROTOTYPE",
+      "source": "Professional indemnity policy summary; minimum cover in the policy table",
+      "check": "insurance",
+      "fail": "flag"
+    },
+    {
+      "id": "F.4",
+      "title": "AI product documented with a pinned model version",
+      "status": "PROTOTYPE",
+      "source": "Filing form: product name, identifier, release, foundation model provider and pinned version, documentation location",
+      "check": "product_documented",
+      "fail": "flag"
+    },
+    {
+      "id": "F.5",
+      "title": "Independent Assurance Evidence attached, with its assurance level, covering the registered use case",
+      "status": "PROTOTYPE",
+      "source": "Independent benchmark or audit report and a declared assurance level (self-declared, independently verified, independently audited). Presence, level and scope are checked; the register makes no quality judgement",
+      "check": "assurance_evidence",
+      "fail": "flag"
+    },
+    {
+      "id": "F.6",
+      "title": "Product not already on the register",
+      "status": "PROTOTYPE",
+      "source": "Agent Passport Register",
+      "check": "not_already_registered",
+      "fail": "flag"
+    }
   ],
   "runtime_rules": [
-    {"id": "R.1", "title": "Admission signature genuine (bank key)", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "envelope.admission", "on_fail": "DENY", "code": "ADMISSION_SIGNATURE_INVALID", "codes": ["PASSPORT_NOT_ISSUED", "ADMISSION_SIGNATURE_INVALID"]},
-    {"id": "R.2", "title": "Passport active and unexpired (bank's list lookup)", "status": "PROTOTYPE", "source": "The bank's passport list (real-time lookup)", "data": "passport list", "on_fail": "DENY", "code": "PASSPORT_NOT_ACTIVE"},
-    {"id": "R.3", "title": "Agent identity signature genuine (customer key), bound to this admission", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037)", "data": "envelope.agent_identity", "on_fail": "DENY", "code": "AGENT_IDENTITY_SIGNATURE_INVALID"},
-    {"id": "R.4", "title": "Instruction signed by the AI agent key inside agent_identity", "status": "PROTOTYPE", "source": "RFC 7800 cnf / DPoP-style proof-of-possession", "data": "envelope.agent_identity + instruction", "on_fail": "DENY", "code": "AGENT_SIGNATURE_INVALID"},
-    {"id": "R.5", "title": "Mandate signed by the customer and unexpired", "status": "PROTOTYPE", "source": "EdDSA / Ed25519 (RFC 8037); mandate validity", "data": "envelope.mandate", "on_fail": "DENY", "code": "MANDATE_NOT_SIGNED", "codes": ["MANDATE_NOT_SIGNED", "MANDATE_SIGNATURE_INVALID", "MANDATE_EXPIRED"]},
-    {"id": "R.6", "title": "Action permitted and payee account on the customer-signed allowlist", "status": "PROTOTYPE", "source": "authorization_details (RFC 9396 shape); Confirmation-of-Payee analogue", "data": "envelope.mandate + instruction", "on_fail": "DENY", "code": "PAYEE_NOT_ON_MANDATE", "codes": ["OUT_OF_SCOPE", "PAYEE_NOT_ON_MANDATE"]},
-    {"id": "R.7", "title": "Amount within the per-payment limit", "status": "PROTOTYPE", "source": "Mandate per_payment_limit", "data": "envelope.mandate + instruction", "on_fail": "DENY", "code": "PER_PAYMENT_LIMIT_EXCEEDED"},
-    {"id": "R.8", "title": "Amount plus 30-day total for this payee account within the monthly limit", "status": "PROTOTYPE", "source": "Mandate monthly_limit_per_account; bank-held ledger (limit in the mandate, total at the bank)", "data": "envelope.mandate + bank ledger", "on_fail": "DENY", "code": "MONTHLY_LIMIT_EXCEEDED"},
-    {"id": "R.9", "title": "Bank hold condition: amount above hold_above is held for the customer's named approver", "status": "PROTOTYPE", "source": "Admission condition set by the bank's payments risk officer", "data": "envelope.admission + instruction", "on_fail": "ESCALATE", "code": "HUMAN_CONFIRMATION_REQUIRED"}
+    {
+      "id": "R.1",
+      "title": "Admission signature genuine (bank key)",
+      "status": "PROTOTYPE",
+      "source": "EdDSA / Ed25519 (RFC 8037)",
+      "data": "envelope.admission",
+      "on_fail": "DENY",
+      "code": "ADMISSION_SIGNATURE_INVALID",
+      "codes": [
+        "PASSPORT_NOT_ISSUED",
+        "ADMISSION_SIGNATURE_INVALID"
+      ]
+    },
+    {
+      "id": "R.2",
+      "title": "Passport active and unexpired (bank's list lookup)",
+      "status": "PROTOTYPE",
+      "source": "The bank's passport list (real-time lookup)",
+      "data": "passport list",
+      "on_fail": "DENY",
+      "code": "PASSPORT_NOT_ACTIVE"
+    },
+    {
+      "id": "R.3",
+      "title": "Agent identity signature genuine (customer key), bound to this admission",
+      "status": "PROTOTYPE",
+      "source": "EdDSA / Ed25519 (RFC 8037)",
+      "data": "envelope.agent_identity",
+      "on_fail": "DENY",
+      "code": "AGENT_IDENTITY_SIGNATURE_INVALID"
+    },
+    {
+      "id": "R.4",
+      "title": "Instruction signed by the AI agent key inside agent_identity, with a nonce not seen before",
+      "status": "PROTOTYPE",
+      "source": "RFC 7800 cnf / DPoP-style proof-of-possession",
+      "data": "envelope.agent_identity + instruction",
+      "on_fail": "DENY",
+      "code": "AGENT_SIGNATURE_INVALID",
+      "codes": [
+        "AGENT_SIGNATURE_INVALID",
+        "REPLAY_DETECTED"
+      ]
+    },
+    {
+      "id": "R.5",
+      "title": "Mandate signed by the customer and unexpired",
+      "status": "PROTOTYPE",
+      "source": "EdDSA / Ed25519 (RFC 8037); mandate validity",
+      "data": "envelope.mandate",
+      "on_fail": "DENY",
+      "code": "MANDATE_NOT_SIGNED",
+      "codes": [
+        "MANDATE_NOT_SIGNED",
+        "MANDATE_SIGNATURE_INVALID",
+        "MANDATE_EXPIRED"
+      ]
+    },
+    {
+      "id": "R.6",
+      "title": "Action and currency permitted, payee account on the customer-signed allowlist",
+      "status": "PROTOTYPE",
+      "source": "authorization_details (RFC 9396 shape); Confirmation-of-Payee analogue",
+      "data": "envelope.mandate + instruction",
+      "on_fail": "DENY",
+      "code": "PAYEE_NOT_ON_MANDATE",
+      "codes": [
+        "OUT_OF_SCOPE",
+        "CURRENCY_NOT_PERMITTED",
+        "PAYEE_NOT_ON_MANDATE"
+      ]
+    },
+    {
+      "id": "R.7",
+      "title": "Amount within the per-payment limit",
+      "status": "PROTOTYPE",
+      "source": "Mandate per_payment_limit",
+      "data": "envelope.mandate + instruction",
+      "on_fail": "DENY",
+      "code": "PER_PAYMENT_LIMIT_EXCEEDED"
+    },
+    {
+      "id": "R.8",
+      "title": "Cumulative limits: 30-day total for this payee account and payments per rolling day within the mandate",
+      "status": "PROTOTYPE",
+      "source": "Mandate monthly_limit_per_account and max_payments_per_day; bank-held ledger (limits in the mandate, totals at the bank)",
+      "data": "envelope.mandate + bank ledger",
+      "on_fail": "DENY",
+      "code": "MONTHLY_LIMIT_EXCEEDED",
+      "codes": [
+        "MONTHLY_LIMIT_EXCEEDED",
+        "DAILY_COUNT_EXCEEDED"
+      ]
+    },
+    {
+      "id": "R.9",
+      "title": "Bank hold condition: amount above hold_above is held for the customer's named approver",
+      "status": "PROTOTYPE",
+      "source": "Admission condition set by the bank's payments risk officer",
+      "data": "envelope.admission + instruction",
+      "on_fail": "ESCALATE",
+      "code": "HUMAN_CONFIRMATION_REQUIRED"
+    }
+  ],
+  "failure_classes": {
+    "fraud": {
+      "label": "Fraud indicator",
+      "note": "the instruction points at a destination, key or record the customer never authorised: redirection, a copied passport, a replay, a forged claim",
+      "codes": [
+        "PAYEE_NOT_ON_MANDATE",
+        "AGENT_SIGNATURE_INVALID",
+        "REPLAY_DETECTED",
+        "ADMISSION_SIGNATURE_INVALID",
+        "AGENT_IDENTITY_SIGNATURE_INVALID",
+        "MANDATE_SIGNATURE_INVALID"
+      ]
+    },
+    "agent_error": {
+      "label": "Agent error",
+      "note": "the AI agent asked for something outside its own mandate: a wrong amount, currency, action or frequency. An operational quality event for the agent's owner, not a fraud event",
+      "codes": [
+        "OUT_OF_SCOPE",
+        "CURRENCY_NOT_PERMITTED",
+        "PER_PAYMENT_LIMIT_EXCEEDED",
+        "MONTHLY_LIMIT_EXCEEDED",
+        "DAILY_COUNT_EXCEEDED"
+      ]
+    },
+    "status": {
+      "label": "Passport status",
+      "note": "the passport or mandate was not in force when the instruction arrived",
+      "codes": [
+        "PASSPORT_NOT_ISSUED",
+        "PASSPORT_NOT_ACTIVE",
+        "MANDATE_NOT_SIGNED",
+        "MANDATE_EXPIRED"
+      ]
+    }
+  },
+  "planned_fields": [
+    {
+      "field": "delegation_chain",
+      "note": "attenuation from user to agent to sub-agent, each hop only narrowing authority (S_action ⊆ S_n ⊆ … ⊆ S_0); the demo carries an optional prototype behind a switch"
+    },
+    {
+      "field": "escalation_threshold",
+      "note": "the hold-for-a-person amount as a first-class passport field the customer can tighten, rather than only the bank's admission condition"
+    }
   ]
 }

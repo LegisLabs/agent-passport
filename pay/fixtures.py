@@ -40,6 +40,10 @@ BEATS = [
      "action_type": "refund", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": FENWICK, "amount": 3200, "invoice_ref": "FT-1042", "signer": "agent", "expect": "DENY R.6"},
     {"n": 8, "label": "Pay Ashby Ironmongery Ltd · invoice AI-3311 · £900", "hint": "lifecycle probe: run it after the bank suspends, reinstates or revokes the passport in the Bank console",
      "action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": ASHBY, "amount": 900, "invoice_ref": "AI-3311", "signer": "agent", "expect": "ALLOW · DENY R.2 after suspend or revoke"},
+    {"n": 9, "label": "Pay Fenwick Timber Ltd · invoice FT-1046 · $3,200 USD", "hint": "the mandate operates in GBP; any other currency is refused, so there is no silent foreign-exchange exposure",
+     "action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": FENWICK, "amount": 3200, "currency": "USD", "invoice_ref": "FT-1046", "signer": "agent", "expect": "DENY R.6 currency"},
+    {"n": 10, "label": "Replay the previous instruction, byte for byte", "hint": "a genuine signature presented twice: the nonce was spent the first time",
+     "replay": True, "action_type": "pay_invoice", "supplier_name": "(the last instruction)", "payee_account_ref": "", "amount": 0, "signer": "agent", "expect": "DENY R.4 replay"},
 ]
 
 
