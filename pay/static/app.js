@@ -383,26 +383,27 @@ const AP = (() => {
       const dd = decisionFor(r.id);
       const later = dd ? (dd.entry.outcome === 'RELEASED' ? ` <b>Then released by ${esc((dd.entry.approver || {}).name || dd.entry.officer || 'a person')}</b> and paid.` : ` <b>Then refused by ${esc((dd.entry.approver || {}).name || dd.entry.officer || 'a person')}</b>; nothing moved.`) : '';
       if (e.decision === 'ALLOW') return `<b>Processed.</b> All nine checks passed: the passport is active, the instruction is signed by this agent's own key, ${sup} is on the customer's mandate, and ${amt} is within the ${gbp(m.per)} per-payment limit and the ${gbp(m.monthly)} 30-day limit for that account.`;
-      if (e.decision === 'ESCALATE') {
+      if (e.decision === 'ESCALATE' && !e.failed_check && !e.failure_class) {
         if (e.code === FIRST) return `<b>Held for the customer.</b> Everything checked out, but this is the first payment under the customer's current mandate, so the customer confirms it once in its banking app before it goes.${later}`;
         return `<b>Held for a person.</b> Everything checked out, but ${amt} is above the bank's ${gbp(hold)} hold condition for this product, so a named person decides.${later}`;
       }
-      const stop = `<b>Refused at ${esc(e.rule)}.</b> `;
-      switch (e.code) {
-        case 'PAYEE_NOT_ON_MANDATE': return stop + `The account ${acct} is not on the customer's mandate. The name ${sup} matched a supplier the customer uses, but the money would have gone to an account the customer never signed for. Nothing moved; a fraud indicator for the risk team.`;
-        case 'REPLAY_DETECTED': return stop + `This exact signed instruction had already been accepted once. Presenting it again is a replay, so it was not paid twice. Nothing moved.`;
-        case 'AGENT_SIGNATURE_INVALID': return stop + `The instruction was not signed by this agent's own key. A copied passport without the key cannot pay. Nothing moved.`;
-        case 'CURRENCY_NOT_PERMITTED': return stop + `The mandate allows ${esc(m.cur)} only; this instruction was in ${esc(i.currency || '')}. Nothing moved; the agent's own error, not fraud.`;
-        case 'OUT_OF_SCOPE': return stop + `The mandate allows paying invoices only; "${esc(i.action_type || '')}" is not an action the customer granted. Nothing moved.`;
-        case 'PER_PAYMENT_LIMIT_EXCEEDED': return stop + `${amt} is above the ${gbp(m.per)} per-payment limit the customer set. Nothing moved; the agent's own error, not fraud.`;
-        case 'MONTHLY_LIMIT_EXCEEDED': return stop + `With ${amt}, the 30-day total to ${sup} would pass the ${gbp(m.monthly)} limit the customer set for that account. Nothing moved.`;
-        case 'DAILY_COUNT_EXCEEDED': return stop + `The mandate allows ${esc(String(m.perDay || ''))} payments a day and this would be one more. Nothing moved.`;
-        case 'MANDATE_REVOKED': return stop + `The customer revoked this agent's mandate; it can no longer pay. Nothing moved.`;
-        case 'MANDATE_EXPIRED': return stop + `The mandate has expired. Nothing moved.`;
-        case 'MANDATE_NOT_SIGNED': return stop + `The customer has not signed a mandate for this agent yet. Nothing moved.`;
-        case 'PASSPORT_NOT_ACTIVE': return stop + `The passport is not active on the bank's list (suspended or revoked). Nothing moved.`;
-        default: return stop + esc(e.reason || '') + '. Nothing moved.';
-      }
+      const core = (() => { switch (e.code) {
+        case 'PAYEE_NOT_ON_MANDATE': return `The account ${acct} is not on the customer's mandate. The name ${sup} matches a supplier the customer uses, but the money would go to an account the customer never signed for: a fraud indicator.`;
+        case 'REPLAY_DETECTED': return `This exact signed instruction had already been accepted once; presenting it again is a replay, so it is not paid twice.`;
+        case 'AGENT_SIGNATURE_INVALID': return `The instruction was not signed by this agent's own key; a copied passport without the key cannot pay.`;
+        case 'CURRENCY_NOT_PERMITTED': return `The mandate allows ${esc(m.cur)} only; this instruction was in ${esc(i.currency || '')}. The agent's own error, not fraud.`;
+        case 'OUT_OF_SCOPE': return `The mandate allows paying invoices only; "${esc(i.action_type || '')}" is not an action the customer granted.`;
+        case 'PER_PAYMENT_LIMIT_EXCEEDED': return `${amt} is above the ${gbp(m.per)} per-payment limit the customer set. The agent's own error, not fraud.`;
+        case 'MONTHLY_LIMIT_EXCEEDED': return `With ${amt}, the 30-day total to ${sup} would pass the ${gbp(m.monthly)} limit the customer set for that account.`;
+        case 'DAILY_COUNT_EXCEEDED': return `The mandate allows ${esc(String(m.perDay || ''))} payments a day and this would be one more.`;
+        case 'MANDATE_REVOKED': return `The customer revoked this agent's mandate; it can no longer pay.`;
+        case 'MANDATE_EXPIRED': return `The mandate has expired.`;
+        case 'MANDATE_NOT_SIGNED': return `The customer has not signed a mandate for this agent yet.`;
+        case 'PASSPORT_NOT_ACTIVE': return `The passport is not active on the bank's list (suspended or revoked).`;
+        default: return esc(e.reason || '') + '.';
+      } })();
+      if (e.decision === 'ESCALATE') return `<b>Flagged for review at ${esc(e.rule)}.</b> ${core} Held for a person to approve or decline; nothing has moved.${later}`;
+      return `<b>Refused at ${esc(e.rule)}.</b> ${core} Nothing moved.`;
     }
     function renderTrail(data) {
       const tb = $('au-table').querySelector('tbody'); tb.innerHTML = '';

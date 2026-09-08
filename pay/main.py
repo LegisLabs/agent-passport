@@ -1292,7 +1292,7 @@ def bank_extras() -> dict:
                 ledger.setdefault(sp["account_ref"], {"total": 0.0, "count": 0}); ledger[sp["account_ref"]]["total"] += float(amount); ledger[sp["account_ref"]]["count"] += 1
             else:
                 vid += 1
-                entry = {"event": "verification", "passport_id": pid, "instruction": instr, "passport_status": "active", "decision": "DENY", "rule": "R.7", "code": "PER_PAYMENT_LIMIT_EXCEEDED", "reason": f"£{amount:,.0f} exceeds the per-payment limit of £{per:,.0f}", "failure_class": "agent_error", "trace": [], "rule_pack": rules.pack()["id"], "ledger_total_before": 0.0}
+                entry = {"event": "verification", "passport_id": pid, "instruction": instr, "passport_status": "active", "decision": "ESCALATE", "failed_check": True, "rule": "R.7", "code": "PER_PAYMENT_LIMIT_EXCEEDED", "reason": f"£{amount:,.0f} exceeds the per-payment limit of £{per:,.0f}; held for a person to review", "failure_class": "agent_error", "trace": [], "rule_pack": rules.pack()["id"], "ledger_total_before": 0.0}
                 violations.append({"id": vid, "ts": ts, "passport_id": pid, "agent_id": ident["agent"]["agent_id"], "rule": "R.7", "code": "PER_PAYMENT_LIMIT_EXCEEDED", "instruction": instr, "evidence": None, "audit_id": rid, "outcome": "DENY", "status": "OPEN", "resolution": None, "failure_class": "agent_error", "synthetic": True})
             rows.append({"id": rid, "ts": ts, "kind": "verify", "subject": pid, "entry": entry, "prev_hash": "synthetic", "hash": "synthetic", "receipt": None, "synthetic": True})
         passports.append({"passport_id": pid, "registration_id": (a or {}).get("id"), "status": "active", "issued_at": f"{day}T{clock}:00Z", "expires_at": "2027-03-31", "history": [],
