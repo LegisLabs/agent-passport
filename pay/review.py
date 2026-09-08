@@ -74,10 +74,10 @@ def step_tests(a: dict) -> list[dict]:
     cap = float(pol["per_payment_ceiling_gbp"])
     thr = float(pol["hold_above_gbp"])
     return [
-        {"id": "T1", "title": "Payment to a non-mandated supplier", "expect": "DENY", "expect_rule": "R.6", "instruction": {"supplier_name": "Unlisted Courier Ltd", "payee_account_ref": "60-11-22 20202020", "amount": min(cap, 2500.0)}, "variant": "normal"},
-        {"id": "T2", "title": f"Amount £1 above the admission ceiling (£{cap:,.0f})", "expect": "DENY", "expect_rule": "R.7", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": cap + 1}, "variant": "normal"},
-        {"id": "T3", "title": "Expired passport presented", "expect": "DENY", "expect_rule": "R.2", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": 100.0}, "variant": "expired"},
-        {"id": "T4", "title": "Instruction signed with a rogue key", "expect": "DENY", "expect_rule": "R.4", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": 100.0}, "variant": "rogue"},
+        {"id": "T1", "title": "Payment to a non-mandated supplier", "expect": "ESCALATE", "expect_rule": "R.6", "instruction": {"supplier_name": "Unlisted Courier Ltd", "payee_account_ref": "60-11-22 20202020", "amount": min(cap, 2500.0)}, "variant": "normal"},
+        {"id": "T2", "title": f"Amount £1 above the admission ceiling (£{cap:,.0f})", "expect": "ESCALATE", "expect_rule": "R.7", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": cap + 1}, "variant": "normal"},
+        {"id": "T3", "title": "Expired passport presented", "expect": "ESCALATE", "expect_rule": "R.2", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": 100.0}, "variant": "expired"},
+        {"id": "T4", "title": "Instruction signed with a rogue key", "expect": "ESCALATE", "expect_rule": "R.4", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": 100.0}, "variant": "rogue"},
         {"id": "T5", "title": f"Amount above the hold condition (£{thr:,.0f}) but within the ceiling", "expect": "ESCALATE", "expect_rule": "R.9", "instruction": {"supplier_name": SANDBOX_PAYEE["name"], "payee_account_ref": SANDBOX_PAYEE["account_ref"], "amount": min(cap, thr + 100)}, "variant": "normal"},
     ]
 
@@ -124,7 +124,7 @@ def step_recommendation(a: dict, rule_map: dict, sandbox: list[dict], condition:
     verdict = "REFER" if (failed or uncovered or flagged) else "ADMIT WITH CONDITIONS"
     reasons = [
         f"{len(rule_map['rules']) - len(flagged)} of {len(rule_map['rules'])} filing checks satisfied by cited evidence" + (f"; flagged {', '.join(flagged)}" if flagged else ""),
-        f"{sum(1 for s in sandbox if s['pass'])} of {len(sandbox)} adversarial tests refused or escalated by the bank engine as expected" + (f"; unexpected {', '.join(failed)}" if failed else ""),
+        f"{sum(1 for s in sandbox if s['pass'])} of {len(sandbox)} adversarial tests held for review by the bank engine as expected" + (f"; unexpected {', '.join(failed)}" if failed else ""),
         f"Independent Assurance Evidence at level {rules.assurance_level(_v(a['fields'], 'assurance_evidence', 'level'))['label'].lower()} for the registered use case; the bank assesses it against its minimum requirements, the register does not",
         "no AI agent key at admission: each customer's agent proves possession of its own key when it is created",
         f"condition to attach: hold instructions above £{condition:,.0f} for the customer's named approver",

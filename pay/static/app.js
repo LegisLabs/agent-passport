@@ -775,7 +775,7 @@ const AP = (() => {
         const ai = x.ai; const name = ai ? (ai.supplier || 'AI agent payment') : x.desc.split(' · ')[0];
         const sub = ai ? `<span class="tx__who tx__who--ai">AI agent</span> ${esc(ai.agent)} · invoice ${esc(ai.invoice || '')}` : x.manual ? `<span class="tx__who">Manual</span> ${esc(x.desc.split(' · ').slice(1).join(' · '))}` : esc(x.desc.split(' · ').slice(1).join(' · ') || 'Account');
         const status = ai && ai.word ? `<span class="tag tag--${ai.word === 'Declined' ? 'grey' : ai.tone === 'fraud' ? 'red' : 'amber'}">${esc(ai.word)}${ai.word === 'For review' && ai.tone === 'fraud' ? ' · fraud indicator' : ai.word === 'For review' && ai.tone === 'error' ? ' · over the mandate' : ''}</span>` : '';
-        const amt = x.in ? `<span class="tx__amt in">+${gbp2(x.in)}</span>` : `<span class="tx__amt${x.blocked ? ' blocked' : ''}">${x.blocked ? gbp2(ai ? ai.amount : 0) : '−' + gbp2(x.out)}</span>`;
+        const amt = x.in ? `<span class="tx__amt in">+${gbp2(x.in)}</span>` : `<span class="tx__amt${x.blocked ? (ai && ai.word === 'Declined' ? ' blocked' : ' pending') : ''}">${x.blocked ? gbp2(ai ? ai.amount : 0) : '−' + gbp2(x.out)}</span>`;
         const li = el('li', 'tx__row' + (ai ? ' tx__row--ai' : '') + (x.blocked ? ' tx__row--blocked' : ''), `<span class="tx__avatar${ai ? ' tx__avatar--ai' : ''}">${esc(initials(name))}</span><span class="tx__main"><b>${esc(name)}</b><small>${sub}${status ? ' ' + status : ''}</small></span>${amt}`);
         if (ai && ai.audit) { li.tabIndex = 0; li.setAttribute('role', 'link'); li.dataset.event = ai.audit; li.onclick = () => { location.href = `/customer?event=${ai.audit}`; }; li.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); li.onclick(); } }; }
         ol.append(li);
@@ -896,12 +896,25 @@ const AP = (() => {
       const a = p.admission || {}, pr = a.product_ref || {}, ag = (p.agent_identity || {}).agent || {}, key = p.agent || {}, m = p.mandate || {}, ad = (m.authorization_details || [{}])[0];
       const kv = (pairs) => `<dl class="kv">${pairs.filter(x => x[1] != null && x[1] !== '').map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('')}</dl>`;
       const payees = (ad.supplier_allowlist || []).map(sp => `<span class="pp__payee">${esc(sp.name)} <span class="mono">${esc(sp.account_ref)}</span></span>`).join('');
-      box.innerHTML = `<div class="pp__strip"><span class="pp__name">Agent Passport</span><span class="mono">${esc(p.passport_id)}</span>${tag(p.status)}<span class="pp__verify">${p.first_payment_confirmed ? 'first payment confirmed' : 'first payment awaits your confirmation'}</span></div>
-        <div class="pp__cols">
-          <section class="pp__part"><span class="pp__by">Signed by ${esc(state.cast ? state.cast.bank : 'the bank')}</span><h3 class="pp__h">Admission</h3>${kv([['Product', `${esc(pr.product_name || '')} <span class="small">by ${esc(pr.provider || '')}</span>`], ['Assurance', (LEVELS[(a.assurance_evidence || {}).level] || ['not declared'])[0]], ['Holds above', gbp(((a.condition || {}).hold_above || {}).amount)], ['Valid to', d(a.valid_until)]])}</section>
-          <section class="pp__part"><span class="pp__by">Signed by you</span><h3 class="pp__h">Agent identity</h3>${kv([['Agent', esc(ag.name || '')], ['Model', `${esc(ag.model_provider || '')} <span class="mono">${esc(ag.model_version || '')}</span>`], ['Key', `<span class="mono">${esc(key.kid || '')}</span> · ${key.pop_verified ? 'possession proven' : 'possession pending'}`]])}</section>
-          <section class="pp__part"><span class="pp__by">Signed by ${esc((m.signed_by || {}).name || 'you')}</span><h3 class="pp__h">Mandate <span class="small">version ${esc(String(m.version || 1))}</span></h3>${kv([['Per payment', gbp((ad.per_payment_limit || {}).amount)], ['Per supplier, 30 days', gbp((ad.monthly_limit_per_account || {}).amount)], ['Per day', `${esc(String(ad.max_payments_per_day || ''))} payments`], ['May pay', `<span class="pp__payees">${payees}</span>`], ['Expires', d(m.valid_until)]])}</section>
-        </div>`;
+      const bankName = esc(String((state.cast || {}).bank || 'the bank').replace(/\s*\(demo\)/i, ''));
+      const mrz = (str) => String(str || '').toUpperCase().replace(/[^A-Z0-9]+/g, '<').replace(/<+/g, '<');
+      const line1 = `P<AGT${mrz(ag.name)}<<${mrz(pr.provider)}`.padEnd(44, '<').slice(0, 44), line2 = `${mrz(p.passport_id)}<${mrz((key.kid || '').slice(0, 12))}<${mrz(d(a.valid_until))}<${mrz(m.version ? 'V' + m.version : 'V1')}`.padEnd(44, '<').slice(0, 44);
+      const stamp = (who, when) => `<span class="pp__stamp"><b>Signed</b>${esc(who)}${when ? `<i>${d(when)}</i>` : ''}</span>`;
+      box.innerHTML = `<div class="pp__book">
+        <div class="pp__cover">
+          <div class="pp__cover-top"><span class="pp__wordmark">Agent Passport</span><span class="pp__issuer">${bankName}</span></div>
+          <div class="pp__photo" aria-hidden="true"><svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="16" width="30" height="22" rx="6"/><circle cx="19" cy="27" r="2.5" fill="currentColor" stroke="none"/><circle cx="29" cy="27" r="2.5" fill="currentColor" stroke="none"/><path d="M24 16v-5M19 11h10M14 22v10M34 22v10"/></svg></div>
+          <div class="pp__holder"><span class="pp__k">Holder</span><b>${esc(ag.name || '')}</b><span class="small">${esc(pr.product_name || '')} by ${esc(pr.provider || '')}</span></div>
+          <div class="pp__ids"><div><span class="pp__k">Passport no.</span><b class="mono">${esc(p.passport_id)}</b></div><div><span class="pp__k">Status</span>${tag(p.status)}</div><div><span class="pp__k">Issued</span><b>${d(p.issued_at)}</b></div><div><span class="pp__k">Valid to</span><b>${d(a.valid_until)}</b></div></div>
+          <div class="pp__mrz" aria-label="machine-readable zone"><span>${esc(line1)}</span><span>${esc(line2)}</span></div>
+        </div>
+        <div class="pp__pages">
+          <section class="pp__page"><div class="pp__page-head"><h3 class="pp__h">Admission</h3>${stamp(bankName, a.iat ? new Date(a.iat * 1000).toISOString() : p.issued_at)}</div>${kv([['Product', `${esc(pr.product_name || '')} <span class="small">by ${esc(pr.provider || '')}</span>`], ['Assurance', (LEVELS[(a.assurance_evidence || {}).level] || ['not declared'])[0]], ['Holds above', gbp(((a.condition || {}).hold_above || {}).amount)], ['Valid to', d(a.valid_until)]])}</section>
+          <section class="pp__page"><div class="pp__page-head"><h3 class="pp__h">Agent identity</h3>${stamp('you, ' + ((state.mandate_draft || {}).customer || {}).legal_name || 'you', p.issued_at)}</div>${kv([['Agent', esc(ag.name || '')], ['Model', `${esc(ag.model_provider || '')} <span class="mono">${esc(ag.model_version || '')}</span>`], ['Key', `<span class="mono">${esc(key.kid || '')}</span> · ${key.pop_verified ? 'possession proven' : 'possession pending'}`]])}</section>
+          <section class="pp__page pp__page--wide"><div class="pp__page-head"><h3 class="pp__h">Mandate <span class="small">version ${esc(String(m.version || 1))}</span></h3>${stamp((m.signed_by || {}).name || 'you', p.mandate_signed_at)}</div><div class="pp__mandate">${kv([['Per payment', gbp((ad.per_payment_limit || {}).amount)], ['Per supplier, 30 days', gbp((ad.monthly_limit_per_account || {}).amount)], ['Per day', `${esc(String(ad.max_payments_per_day || ''))} payments`], ['Expires', d(m.valid_until)]])}<div><span class="pp__k">May pay only</span><div class="pp__payees">${payees}</div></div></div></section>
+        </div>
+        <div class="pp__foot"><span>${p.first_payment_confirmed ? 'First payment under this mandate confirmed by you' : 'First payment awaits your confirmation'}</span><span class="mono">receipt chain · Ed25519 · ${esc((p.envelope || {}).admission ? 'three signatures verify' : 'not yet issued')}</span></div>
+      </div>`;
     }
     function render() {
       const products = (state.products || []).filter(m => m.admission_status === 'admitted');

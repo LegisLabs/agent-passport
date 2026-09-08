@@ -11,7 +11,7 @@ Bank-side verification of AI agent payments. Lexis Labs entry to the C:\>DIR Glo
 | 1 Register | The provider (OpenPay Ltd) | Files its AI product on an industry register: identity, accountable principal, insurance, the payment intent it is filed for, its UK data protection declaration and retention period, Independent Assurance Evidence for the use case. Completeness checks F.1 to F.7 are recorded; the register signs a receipt. Nobody reviews it. | Once |
 | 2 Admit | The bank (Meridian Bank, demo) | Decides which registered products its customers may delegate to, with ceilings and a hold condition. A commercial risk decision by a named officer, assisted by a deterministic review tool that never decides. | Once |
 | 3 Mandate | The customer (Northgate Joinery Ltd) | Inside its bank's app: picks an admitted product, a key pair is generated and possession proven, signs a mandate (payee accounts, per-payment limit, 30-day limit per account, expiry) within the bank's ceilings. The passport is issued at signing. | Once |
-| 4 Check | The bank | Verifies passport and mandate on every instruction, R.1 to R.9, deny by default, and writes a signed audit entry either way. | Every payment |
+| 4 Check | The bank | Verifies passport and mandate on every instruction, R.1 to R.9, hold by default (nothing is refused outright: a failed check holds the instruction for a person, who approves or declines it with a note), and writes a signed audit entry either way. | Every payment |
 
 The regulator appears in exactly one place: a supervisory access layer. Through normal supervisory and incident processes it can request one self-verifying evidence bundle per passport. It does not operate, approve, certify or license anything here.
 
@@ -39,7 +39,7 @@ The app self-seeds signer keys into `data/pay/keys/` and SQLite alongside. `bash
 |---|---|---|
 | `/customer` | A business inside its bank's app | My AI agents: choose a product from the bank's list, sign the mandate, see activity |
 | `/bank` | The bank's payments risk team | Bank console: live AI agents, registrations awaiting admission, admitted products, the register, flagged and blocked instructions, incidents, evidence export for supervisory access |
-| `/terminal` | Everyone | Action Terminal: one invoice, two worlds. Before the standard the AI agent pays a mule account; after it, the bank's nine checks refuse it at R.6 |
+| `/terminal` | Everyone | Action Terminal: one invoice, two worlds. Before the standard the AI agent pays a mule account; after it, the bank's nine checks hold it at R.6 for a person |
 | `/terminal?console=1` | Judges | Expert console: eight scripted instructions, the delegation chain, the raw verifier output |
 | `/bank#bd-trail` | The bank, a supervisor | Evidence trail on the bank dashboard: hash chain, signed receipts, replay |
 | `/provider` | An AI company | Register an AI product: a filing with completeness checks, not a review queue |
@@ -62,20 +62,20 @@ An envelope of three Ed25519 JWTs, each signed by the only party entitled to the
 
 Public keys: `GET /api/signers` (register, bank, customer). Every instruction is signed by the AI agent's key over canonical JSON; R.4 verifies the bytes. Flipping one byte fails it.
 
-## Rules (rule pack `payments-2026.09.6`, data not code)
+## Rules (rule pack `payments-2026.09.7`, data not code)
 
 On the register at filing: F.1 provider at Companies House · F.2 accountable principal with signed declaration · F.3 insurance in force at or above the minimum · F.4 product documented with a pinned model version · F.5 Independent Assurance Evidence attached and covering the use case · F.6 not already on the register. Completeness only; a flag is recorded, not judged.
 
-| At the bank, in order | Fails to |
+| At the bank, in order | A failed check holds for review (ESCALATE) with |
 |---|---|
-| R.1 admission signature (bank key) | DENY `ADMISSION_SIGNATURE_INVALID` / `PASSPORT_NOT_ISSUED` |
-| R.2 passport active and unexpired (bank's list) | DENY `PASSPORT_NOT_ACTIVE` |
-| R.3 agent identity signature (customer key), bound to this admission | DENY `AGENT_IDENTITY_SIGNATURE_INVALID` |
-| R.4 instruction signed by the AI agent key in `agent_identity.cnf`, nonce not seen before | DENY `AGENT_SIGNATURE_INVALID` / `REPLAY_DETECTED` |
-| R.5 mandate present, customer-signed, unexpired | DENY `MANDATE_NOT_SIGNED` / `MANDATE_SIGNATURE_INVALID` / `MANDATE_EXPIRED` |
-| R.6 action and currency permitted, payee account on the allowlist | DENY `OUT_OF_SCOPE` / `CURRENCY_NOT_PERMITTED` / `PAYEE_NOT_ON_MANDATE` |
-| R.7 amount within the per-payment limit | DENY `PER_PAYMENT_LIMIT_EXCEEDED` |
-| R.8 amount + 30-day total for this account within the limit, payments per day within the mandate (bank ledger) | DENY `MONTHLY_LIMIT_EXCEEDED` / `DAILY_COUNT_EXCEEDED` |
+| R.1 admission signature (bank key) | `ADMISSION_SIGNATURE_INVALID` / `PASSPORT_NOT_ISSUED` |
+| R.2 passport active and unexpired (bank's list) | `PASSPORT_NOT_ACTIVE` |
+| R.3 agent identity signature (customer key), bound to this admission | `AGENT_IDENTITY_SIGNATURE_INVALID` |
+| R.4 instruction signed by the AI agent key in `agent_identity.cnf`, nonce not seen before | `AGENT_SIGNATURE_INVALID` / `REPLAY_DETECTED` |
+| R.5 mandate present, customer-signed, unexpired | `MANDATE_NOT_SIGNED` / `MANDATE_SIGNATURE_INVALID` / `MANDATE_EXPIRED` |
+| R.6 action and currency permitted, payee account on the allowlist | `OUT_OF_SCOPE` / `CURRENCY_NOT_PERMITTED` / `PAYEE_NOT_ON_MANDATE` |
+| R.7 amount within the per-payment limit | `PER_PAYMENT_LIMIT_EXCEEDED` |
+| R.8 amount + 30-day total for this account within the limit, payments per day within the mandate (bank ledger) | `MONTHLY_LIMIT_EXCEEDED` / `DAILY_COUNT_EXCEEDED` |
 | R.9 amount above the bank's hold condition; or the first payment under a mandate version | ESCALATE `HUMAN_CONFIRMATION_REQUIRED` / `FIRST_PAYMENT_CONFIRMATION_REQUIRED` |
 | otherwise | ALLOW `WITHIN_MANDATE` |
 
@@ -83,7 +83,7 @@ On the register at filing: F.1 provider at Companies House · F.2 accountable pr
 
 **Fewer, more meaningful rows.** The bank console leads with what needs a person (held payments and fraud-class refusals) and with the numbers: the tiles add this session's rows to totals carried forward from before the session (`fixtures/pay/opening_stats.json`, synthetic, stated as such next to the counters); the log is a thin recent-activity strip with the full log one click away; arriving instructions show their checks ticking through before the status lands (a "paced arrivals" toggle makes it instant). The customer hears about what matters to it, in the class's tone (fraud indicator, agent error, held, mandate lifecycle); routine payments stay in Transactions and in the full trail.
 
-Every refusal carries a failure class: fraud indicator (redirection, copied passport, replay, forged claim), agent error (wrong amount, currency, action or frequency inside the agent's own remit) or passport status. Provider filings declare an assurance level (self-declared, independently verified, independently audited) that scales the bank's admission ceilings; every mandate is also capped by the account-type tier (agent-channel limit). Payees and providers are checked against Companies House (`COMPANIES_HOUSE_API_KEY`; without it, a labelled synthetic register answers).
+Every hold from a failed check carries a failure class (the reason for review): fraud indicator (redirection, copied passport, replay, forged claim), agent error (wrong amount, currency, action or frequency inside the agent's own remit) or passport status. Provider filings declare an assurance level (self-declared, independently verified, independently audited) that scales the bank's admission ceilings; every mandate is also capped by the account-type tier (agent-channel limit). Payees and providers are checked against Companies House (`COMPANIES_HOUSE_API_KEY`; without it, a labelled synthetic register answers).
 
 `fixtures/pay/oracle.json` holds 20 deterministic cases; `tests/test_pay.py` runs them all offline, plus tamper tests, cascade, containment, the grounds declaration and the evidence bundle.
 
@@ -105,7 +105,7 @@ POST /api/registrations/{id}/admission/status     {status: suspended|active|revo
 POST /api/agents                                  {registration_id, agent_name}: the customer registers its AI agent on an admitted product
 POST /api/passports/{id}/mandate/check · /mandate/sign                             ceiling containment; signing issues the passport and mints the voucher
 POST /api/passports/{id}/mandate/amend · /mandate/revoke                           a new customer-signed version supersedes the last (retained); revocation ends the mandate, own chain entry
-POST /api/audit/{id}/decide                                                        a named person releases or refuses a held payment; receipted chain entry
+POST /api/audit/{id}/decide                                                        a named person approves or declines a held payment with a note (`by: customer|bank`); receipted chain entry
 POST /api/passports/{id}/status · /investigation                                   suspend, investigate, revoke, reinstate
 GET  /api/passports/{id} · /api/status/{id} · /api/signers
 POST /api/agent/act · /api/agent/invoice · /api/agent/replay                        the simulated AI agent signs and presents an instruction, or replays the last one
@@ -130,7 +130,7 @@ bash deploy/publish.sh pay      # pay.cdir.legislabs.uk: the pre-pivot payments 
 ```
 pay/          the app: main.py · rules.py · crypto.py · review.py · vouch.py · audit.py · extraction.py · db.py · fixtures.py · templates/ · static/
 app/          the tax demonstrator (frozen, tag hmrc-v1; now prefix-aware for /tax/)
-rulepacks/    payments-2026.09.json (rule pack payments-2026.09.6) · hmrc-sa-2026.09.json
+rulepacks/    payments-2026.09.json (rule pack payments-2026.09.7) · hmrc-sa-2026.09.json
 fixtures/pay/ registration_fixture.json · register.json · registry.json · customer/ · invoices/ · oracle.json · agent_config.json · vouch_kits/
 scripts/      demo_reset.sh · vouch_kit_replay.py
 tests/        test_pay.py · test_rules.py (offline) · ui/walk_bank_first.py (Playwright)

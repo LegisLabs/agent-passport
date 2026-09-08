@@ -501,14 +501,15 @@ def test_envelope_tamper_each_signer_flips_one_byte(client):
     p, _ = issue_one(client)
     pid = p["passport_id"]
     env = client.get(f"/api/passports/{pid}").json()["envelope"]
-    req = _signed_instruction(client, pid)
     for part, rule in (("admission", "R.1"), ("agent_identity", "R.3"), ("mandate", "R.5")):
+        req = _signed_instruction(client, pid); req["nonce"] = f"tamper-{part}"; req["agent_signature"] = crypto.sign_bytes(db.get_passport(pid)["agent"]["private_pem"], rules.request_signing_input(req))
         bad = dict(env)
         header, payload, sig = env[part].split(".")
         raw = bytearray(crypto.b64u_decode(payload)); raw[5] ^= 1        # one bit inside the signed payload
         bad[part] = f"{header}.{crypto.b64u(bytes(raw))}.{sig}"
         r = client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": bad}).json()
         assert r["decision"] == "ESCALATE" and r["rule"] == rule, (part, r["rule"])
+    req = _signed_instruction(client, pid)
     assert client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": env}).json()["decision"] == "ALLOW"
 
 
@@ -575,16 +576,22 @@ def test_demo_seed_twice_gives_identical_baselines(client):
     assert client.post("/api/demo/seed?stage=nope").status_code == 400
 
 
-def test_demo_seed_history_has_one_refusal_and_one_held(client):
-    """stage=history: first payment confirmed by the customer, two payments executed, the altered invoice refused at R.6
-    (fraud indicator, the demo's only refusal), one instruction held above the hold condition."""
+def test_demo_seed_history_holds_one_payment_for_review(client):
+    """stage=history: first payment confirmed by the customer, two payments executed, one instruction over the per-payment
+    limit held for the customer's review. Nothing is refused outright."""
     r = client.post("/api/demo/seed?stage=history").json()
-    assert [h["decision"] for h in r["history"]] == ["ESCALATE", "RELEASED", "ALLOW", "ALLOW", "ESCALATE", "ESCALATE"]
-    assert r["history"][0]["code"] == "FIRST_PAYMENT_CONFIRMATION_REQUIRED" and r["history"][4]["code"] == "PAYEE_NOT_ON_MANDATE"
+    assert [h["decision"] for h in r["history"]] == ["ESCALATE", "RELEASED", "ALLOW", "ALLOW", "ESCALATE"]
+    assert r["history"][0]["code"] == "FIRST_PAYMENT_CONFIRMATION_REQUIRED" and r["history"][4]["code"] == "PER_PAYMENT_LIMIT_EXCEEDED"
     st = client.get("/api/state").json()
-    assert [v["failure_class"] for v in st["violations"]] == ["fraud"] and st["violations"][0]["evidence"]["invoice"] == "INV-9001-poisoned"
-    assert len(st["payments"]) == 3
-    assert st["passports"][0]["ledger"].keys() >= {"20-13-57 77665544", "30-98-76 22334455"} and "Fenwick" not in json.dumps(st["passports"][0]["ledger"])
+    assert [v["failure_class"] for v in st["violations"]] == ["agent_error"] and st["violations"][0]["status"] == "OPEN"
+    assert len(st["payments"]) == 3 and "Fenwick" not in json.dumps(st["passports"][0]["ledger"])
+    # the customer reviews it: a note and an approval execute it and close the flag
+    d = client.post(f"/api/audit/{r['history'][4]['audit_id']}/decide", json={"decision": "release", "reason": "Ashby quoted the larger order in writing; approved this once", "by": "customer"}).json()
+    assert d["outcome"] == "RELEASED" and d["officer"].startswith("Helen Marsh") and d["settlement"]["settled"]
+    st = client.get("/api/state").json()
+    assert len(st["payments"]) == 4 and st["violations"][0]["status"] == "RESOLVED" and "approved after review" in st["violations"][0]["resolution"]
+    row = client.get("/api/audit").json()["rows"][0]
+    assert row["kind"] == "decision" and row["entry"]["reviewed_by"] == "customer" and "approved after review" in row["entry"]["event"] and row["entry"]["reason"].startswith("Ashby quoted")
 
 
 # ── Product admission: cascade ─────────────────────────────────────────────────
@@ -691,12 +698,12 @@ def test_companies_house_falls_back_to_the_labelled_demo_register(monkeypatch):
 def test_held_payment_is_decided_by_a_named_person_and_recorded_in_the_chain(client):
     """C2: a held instruction moves nothing until a person releases it; both outcomes are chain entries with a bank receipt."""
     r = client.post("/api/demo/seed?stage=history").json()
-    held = next(h for h in r["history"] if h["event"] == "held"); pid = r["passport_id"]
+    held = next(h for h in r["history"] if h["event"] == "review"); pid = r["passport_id"]
     before = client.get(f"/api/passports/{pid}").json()["payments"]
     paid_id = next(x["id"] for x in client.get("/api/audit").json()["rows"] if x["kind"] == "verify" and x["entry"]["decision"] == "ALLOW")
     assert client.post(f"/api/audit/{paid_id}/decide", json={"decision": "release"}).status_code == 400, "only a held instruction can be decided"
     d = client.post(f"/api/audit/{held['audit_id']}/decide", json={"decision": "release"}).json()
-    assert d["outcome"] == "RELEASED" and d["officer"].startswith("A. Ferreira") and d["approver"]["name"] == "Helen Marsh" and d["settlement"]["settled"]
+    assert d["outcome"] == "RELEASED" and d["officer"].startswith("A. Ferreira") and d["approver"]["name"] == "Helen Marsh" and d["settlement"]["settled"] and "approved after review" in d and True or d["outcome"] == "RELEASED"
     assert client.get(f"/api/passports/{pid}").json()["payments"] == before + 1
     assert client.post(f"/api/audit/{held['audit_id']}/decide", json={"decision": "release"}).status_code == 400, "decided once"
     row = client.get("/api/audit").json()["rows"][0]
@@ -709,7 +716,7 @@ def test_held_payment_is_decided_by_a_named_person_and_recorded_in_the_chain(cli
     assert client.get(f"/api/passports/{pid}").json()["payments"] == before + 1
     st = client.get("/api/state").json()
     assert [x["entry"]["outcome"] for x in st["decisions"]] == ["REFUSED", "RELEASED", "RELEASED"]   # the seeded first-payment confirmation is the oldest
-    assert st["decisions"][0]["entry"]["reason"] == "held payment refused by approver"
+    assert st["decisions"][0]["entry"]["reason"] == "held payment declined by the reviewer"
 
 
 # ── Final updates: mandate amendment and revocation, company search by name ──
@@ -810,4 +817,4 @@ def test_opening_statistics_are_totals_with_a_stated_seam(client):
     # the session's rows are the real ones: the seed's history is exactly what the chain holds, no filler
     r = client.post("/api/demo/seed?stage=history").json()
     verifies = [x for x in client.get("/api/audit").json()["rows"] if x["kind"] == "verify"]
-    assert len(verifies) == 5 and len(client.get("/api/state").json()["payments"]) == 3
+    assert len(verifies) == 4 and len(client.get("/api/state").json()["payments"]) == 3

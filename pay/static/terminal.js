@@ -10,7 +10,7 @@ const AT = (() => {
 
   const SEED = {
     trace: [['R.1', true, ''], ['R.2', true, ''], ['R.3', true, ''], ['R.4', true, ''], ['R.5', true, ''], ['R.6', false, '60-11-22 99887766 is not on the customer-signed mandate']],
-    decision: 'DENY', rule: 'R.6', reason: '60-11-22 99887766 is not on the mandate.', audit_id: 17, audit_hash: '9c1e4b7d2a60', passport_id: 'AP-2026-0107',
+    decision: 'ESCALATE', failed_check: true, rule: 'R.6', reason: '60-11-22 99887766 is not on the mandate; held for a person to review.', audit_id: 17, audit_hash: '9c1e4b7d2a60', passport_id: 'AP-2026-0107',
   };
 
   const DOC_W = 640;
@@ -93,12 +93,12 @@ const AT = (() => {
       const tr = byRule[li.dataset.c];
       if (stopped || !tr) { li.dataset.state = 'skip'; await wait(90); continue; }
       li.dataset.state = 'checking'; await wait(330); if (my !== token) return;
-      li.dataset.state = tr[1] ? 'pass' : (r.decision === 'ESCALATE' ? 'hold' : 'fail');
+      li.dataset.state = tr[1] ? 'pass' : (r.failed_check ? 'fail' : 'hold');
       if (!tr[1]) { li.querySelector('em').textContent = tr[2]; stopped = true; }
       await wait(150);
     }
     await wait(500); if (my !== token) return;
-    $('after-word').textContent = r.decision === 'DENY' ? 'Denied' : r.decision === 'ESCALATE' ? 'Held for a person' : 'Allowed';
+    $('after-word').textContent = r.decision === 'ALLOW' ? 'Allowed' : 'Held for review';
     $('after-reason').textContent = r.reason; $('after-verdict').dataset.decision = r.decision;
     on($('after-verdict')); $('sc-page').dataset.state = r.decision === 'ALLOW' ? 'lost' : 'saved'; await wait(900); if (my !== token) return;
     for (const x of ['intent', 'audit']) { on($('after-conseq').querySelector(`[data-x="${x}"]`)); await wait(700); if (my !== token) return; }
@@ -124,13 +124,13 @@ const AT = (() => {
       if (!p) return;
       const r = await (await fetch('/api/agent/invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ passport_id: p.passport_id, invoice_id: 'INV-9001-poisoned' }) })).json();
       const res = r.result;
-      live = { trace: res.trace.map(t => [t.rule, t.ok, t.note]), decision: res.decision, rule: res.rule, reason: `${res.rule}: ${res.reason}.`, audit_id: res.audit_id, audit_hash: res.audit_hash, passport_id: p.passport_id };
+      live = { trace: res.trace.map(t => [t.rule, t.ok, t.note]), decision: res.decision, failed_check: !!res.failed_check, rule: res.rule, reason: `${res.rule}: ${res.reason}.`, audit_id: res.audit_id, audit_hash: res.audit_hash, passport_id: p.passport_id };
       const m = (await (await fetch(`/api/passports/${p.passport_id}`)).json()).minimal;
       if (m) {
         $('pp-model').textContent = `${m.product || m.agent} by ${m.provider}, registered and admitted by the bank`;
         $('pp-scope').textContent = `£${Number(m.scope.per_payment_limit.amount).toLocaleString('en-GB')} a payment · £${Number(m.scope.monthly_limit_per_account.amount).toLocaleString('en-GB')} an account a month`;
       }
-      $('sc-live-note').textContent = 'The refusal is the live verifier on this deployment; its record is in the Evidence trail.';
+      $('sc-live-note').textContent = 'The hold is the live verifier on this deployment; its record is in the Evidence trail.';
     } catch (e) { live = null; }
   }
   function init() {
