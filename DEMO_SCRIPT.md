@@ -40,6 +40,24 @@ Say: "Identity is not authority. Agent Passport puts the check where the money a
 
 ---
 
+## vouch.finance insert (about 20 seconds, for the sponsor prize)
+
+The integration runs on the live host: the mandate is mirrored as an AI Voucher when the customer signs, every allowed payment settles on the vouch rail, and revoking the passport or the mandate revokes the voucher. Two stops make it visible without changing the story.
+
+**At 1:15, right after the mandate is signed (customer page, the green signature block)**
+
+Say: "The signed mandate is also minted as an AI Voucher on vouch.finance, so the bank's checks and the rail's policy engine hold the same limits."
+
+Point at the line in the signature block: "the voucher is minted on the vouch rail".
+
+**At 1:50, on the bank dashboard, open the passport (`/bank?passport=AP-2026-0107`)**
+
+Say: "Here is the passport on both rails: the bank's list says active, and the voucher on vouch.finance says active. Suspend or revoke here and the voucher goes with it, so the next instruction is refused on two rails."
+
+Clicks: scroll to "Mandate on the vouch rail", press "Re-check on rail" (it queries the sandbox live and shows the voucher id and status). If time allows, press "Revoke" with a reason, then run beat 8 in the expert console: the verdict reads "two rails refuse".
+
+If the sandbox is slow on the day, the panel shows "live-fallback (fixture)" and says so; the story still holds, and the fallback is honest on screen.
+
 ## Fallbacks
 
 - If the terminal's After world shows "seeded", the passport was reset mid-take: press "Reset demo" and start again.
