@@ -434,3 +434,5 @@ body[data-actab="agent"] .fx-nav { visibility: hidden; }
 .fx .bd-att tr.bd-att__row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "agent amount" "payee payee" "status status" "act act"; }
 .fx .bd-att tr.bd-att__row td:nth-child(2) { min-width: 0; }
 .fx .bd-att tr.bd-att__row td:nth-child(6) { justify-content: flex-start; }
+/* still: nothing arrives, nothing animates */
+.fx tr.is-new > td, .fx li.is-new, .fx tr.is-landed > td:nth-child(2) .tag, .fx .live-dot { animation: none; }

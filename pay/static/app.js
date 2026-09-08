@@ -414,11 +414,8 @@ const AP = (() => {
       } catch (e) { /* the log shows what happened */ }
       await refresh();
     }
-    if (mode === 'dash') {
-      timer = setInterval(refresh, 5000);
-      simTimer = setInterval(simTick, 10000);
-      document.addEventListener('visibilitychange', () => { if (document.hidden) { clearInterval(timer); clearInterval(simTimer); } else { timer = setInterval(refresh, 5000); simTimer = setInterval(simTick, 10000); } });
-    }
+    // the bank dashboard is still: no polling, no simulated traffic; it re-renders only after an action on it
+    void timer; void simTimer; void simTick;
     function renderCase() {
       $('bk-ref').textContent = a.ref;
       $('bk-status').innerHTML = admissionTag(a);
