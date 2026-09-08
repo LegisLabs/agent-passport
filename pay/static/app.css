@@ -1781,3 +1781,10 @@ body[data-view="bank"], body[data-view="customer"], body[data-view="bank"] .main
 .bd-attention .dash-wrap { overflow-x: auto; }
 body[data-view="bank"]::before, body[data-view="customer"]::before { display: none; }
 @media (min-width: 901px) { .bd-log { min-width: 0; } .bd-col--log .bd-log th:nth-child(3), .bd-col--log .bd-log td:nth-child(3) { min-width: 10rem; } }
+/* the header stays exactly as it was before the design layer */
+.masthead, .masthead__row, .masthead__logo, .masthead__mark, .masthead__nav, .masthead__link, .masthead__menu, .masthead__tag, .menu-panel, .menu-panel__list a { font-family: "Helvetica Neue", Arial, Helvetica, sans-serif; }
+.masthead, .masthead__row, .masthead__logo, .masthead__nav, .menu-panel { font-size: 19px; line-height: 1.32; }
+.masthead__menu, .menu-panel__list a { line-height: 1.32; }
+.masthead__row { max-width: 960px; padding: 12px 0; }
+.menu-panel { border-radius: 0; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+.menu-panel__list { padding: 6px 0; max-width: 960px; }
