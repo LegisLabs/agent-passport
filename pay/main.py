@@ -312,12 +312,12 @@ def admission_decision(reg_id: int, body: AdmissionIn):
         level = rules._v(a["fields"], "assurance_evidence", "level")
         pol = rules.pack()["policy"]
         if not rules.level_meets(level, pol["min_assurance_level_for_admission"]):
-            _400(f"this bank admits products at {rules.assurance_level(pol['min_assurance_level_for_admission'])['label'].lower()} or above; this filing is {rules.assurance_level(level)['label'].lower()}")
+            _400(f"this bank approves products at {rules.assurance_level(pol['min_assurance_level_for_admission'])['label'].lower()} or above; this filing is {rules.assurance_level(level)['label'].lower()}")
         thr = float(body.hold_above if body.hold_above is not None else pol["hold_above_gbp"])
         condition = {"hold_above": {"amount": thr, "currency": "GBP"}}
         ceilings = rules.admission_ceilings(level, [rules._v(a["fields"], "intended_use", "payment_intent")])
         a = db.update_registration(reg_id, admission_status="admitted", admitted_at=db.now_iso(), officer=who, officer_note=body.note, condition=condition)
-        audit.record("admission", a["ref"], {"event": "AI product admitted to the bank's list; ceilings and hold condition set", "officer": who, "note": body.note, "condition": condition,
+        audit.record("admission", a["ref"], {"event": "AI product approved for the bank's list; ceilings and hold condition set", "officer": who, "note": body.note, "condition": condition,
                                              "product_id": rules._v(a["fields"], "product", "product_id"), "assurance_level": level, "ceilings": {"per_payment": ceilings["per_payment_ceiling"]["amount"], "monthly_per_account": ceilings["monthly_per_account_ceiling"]["amount"], "max_validity": pol["max_validity"], "ceiling_factor": ceilings["ceiling_factor"]}})
         return {"registration": public_reg(a), "product": product_summary(a)}
     if body.decision == "request_info":
@@ -326,7 +326,7 @@ def admission_decision(reg_id: int, body: AdmissionIn):
         return {"registration": public_reg(a)}
     if body.decision == "decline":
         a = db.update_registration(reg_id, admission_status="declined", admitted_at=db.now_iso(), officer=who, officer_note=body.note)
-        audit.record("admission", a["ref"], {"event": "bank declined to admit the product; it stays on the register", "officer": who, "note": body.note})
+        audit.record("admission", a["ref"], {"event": "bank declined to approve the product; it stays on the register", "officer": who, "note": body.note})
         return {"registration": public_reg(a)}
     _400("unknown decision")
 
@@ -425,13 +425,13 @@ def create_agent_on_product(a: dict, deployment: dict) -> dict:
                         "registration_receipt_sha256": crypto.sha256_hex(a.get("registration_jwt") or "")},
         "agent_id": agent_id,
         "admission": {"status": "ADMITTED", "filing_checks_passed": sum(c["result"] == "pass" for c in checks), "filing_checks_flagged": [c["id"] for c in checks if c["result"] != "pass"],
-                      "issued": "by the bank's system from its admission decision when the customer signed its mandate; no per-customer review"},
+                      "issued": "by the bank's system from its approval decision when the customer signed its mandate; no per-customer review"},
         "condition": a.get("condition") or {"hold_above": {"amount": float(pol["hold_above_gbp"]), "currency": "GBP"}},
         "ceilings": ceilings,
         "accountable_principal": {"name": rules._v(f, "principal", "name"), "role": rules._v(f, "principal", "role"), "declaration_ref": rules._v(f, "principal", "declaration_ref"), "covers": "accuracy of the filing"},
         "assurance_evidence": {"level": level, "issuer": rules._v(f, "assurance_evidence", "issuer"), "reference": rules._v(f, "assurance_evidence", "reference"), "date": rules._v(f, "assurance_evidence", "date")},
         "binds": {"agent_identity_sha256": crypto.sha256_hex(ident_jwt), "agent_kid": ag["kid"]},
-        "status": {"list": f"/api/status/{pid.replace('AG-', 'AP-')}"}, "issued_by": "the bank's system, from its admission decision",
+        "status": {"list": f"/api/status/{pid.replace('AG-', 'AP-')}"}, "issued_by": "the bank's system, from its approval decision",
     }
     mandate_proposed = {
         "typ": "mandate", "passport_id": pid.replace("AG-", "AP-"), "valid_until": valid_until, "exp": exp, "customer": None, "authorising_officer": None,
@@ -633,7 +633,7 @@ def sign_mandate(passport_id: str, body: MandateIn | None = None):
     audit.record("mandate", passport_id, {"event": "customer wrote and signed its mandate inside its bank's app; ceiling containment passed", "signer": payload["signed_by"], "customer_kid": crypto.signer("northgate")["kid"],
                                           "suppliers": len(suppliers), "payees_checked": [{"name": x["name"], "companies_house_number": x.get("companies_house_number"), "result": (x.get("register_check") or {}).get("result"), "source": (x.get("register_check") or {}).get("source")} for x in suppliers],
                                           "per_payment_limit": float(m["per_payment_limit"]), "monthly_limit_per_account": float(m["monthly_limit_per_account"]), "max_payments_per_day": payload["authorization_details"][0]["max_payments_per_day"], "currency": payload["authorization_details"][0]["currency"], "account_type": payload["account"]["type"], "valid_until": m["valid_until"]})
-    # the customer's signature gives the AI agent authority: the bank's system now issues the passport from its admission decision
+    # the customer's signature gives the AI agent authority: the bank's system now issues the passport from its approval decision
     if not p.get("admission_jwt"):
         admission = {**p["admission"], "jti": new_id, "iat": crypto.now_ts(), "nbf": crypto.now_ts()}
         atoken = crypto.sign_jwt("bank", admission, typ="admission+jwt")
@@ -641,7 +641,7 @@ def sign_mandate(passport_id: str, body: MandateIn | None = None):
         if new_id != passport_id:
             db.rename_passport(passport_id, new_id)
         p = db.set_passport_status(new_id, "active", f"{config.BANK} system", f"Issued as {new_id}: the customer signed the mandate; admission signed from the bank's decision")
-        audit.record("issue", new_id, {"event": "passport issued: admission signed by the bank's system from its admission decision; passport list ACTIVE; envelope complete; live at once",
+        audit.record("issue", new_id, {"event": "passport issued: admission signed by the bank's system from its approval decision; passport list ACTIVE; envelope complete; live at once",
                                        "agent_record": passport_id, "bank_kid": crypto.signer("bank")["kid"], "agent_kid": p["agent"]["kid"], "registration": p["admission"]["product_ref"]["registration"]})
         p = mirror_on_vouch(p)
     return public_passport(p)

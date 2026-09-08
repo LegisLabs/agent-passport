@@ -1,0 +1,17 @@
+/* Type and buttons exactly as pay.cdir.legislabs.uk on every page, including the app-card dashboards. Loaded last. */
+:root { --fx-font: "Helvetica Neue", Arial, Helvetica, sans-serif; }
+body, body[data-view="customer"], body[data-view="bank"], body[data-view="provider"], body[data-view="about"] { font-family: "Helvetica Neue", Arial, Helvetica, sans-serif; font-size: 1.1875rem; line-height: 1.32; }
+.fx, .fx *, .footer, .footer * { font-family: inherit; }
+.mono, code, pre, .num, .hash, .rule, .terminal, .t-head { font-family: var(--mono); }
+.fx-hello, .ws-h, h1, h2, h3, h4, .h1, .h2, .h3, .h4 { font-weight: 700; letter-spacing: 0; }
+.btn, .fx .btn, .fx-tools .btn, a.btn { font-family: inherit; font-size: 1.1875rem; font-weight: 400; line-height: 1.2; padding: .55rem 1rem .5rem; border: 2px solid transparent; border-radius: 0; box-shadow: 0 2px 0 var(--blue-dark); background: var(--blue); color: #fff; }
+.btn:hover, .fx .btn:hover { background: #0c585f; }
+.btn--secondary, .fx .btn--secondary { background: var(--panel); color: var(--ink); box-shadow: 0 2px 0 #929191; border-color: transparent; }
+.btn--secondary:hover, .fx .btn--secondary:hover { background: #dbdad9; }
+.btn--warning, .fx .btn--warning { background: var(--red); color: #fff; box-shadow: 0 2px 0 var(--red-dark); border-color: transparent; }
+.btn--warning:hover, .fx .btn--warning:hover { background: #aa2a16; }
+.btn--small, .fx .btn--small, .fx .ws-h .btn--small { font-size: 1rem; padding: .4rem .8rem .35rem; }
+.btn--inverse { background: #fff; color: var(--ink); box-shadow: 0 2px 0 #929191; }
+.btn:focus-visible, .fx .btn:focus-visible { background: var(--focus); color: var(--ink); box-shadow: 0 2px 0 var(--ink); outline: 0; }
+.btn:active { top: 2px; position: relative; box-shadow: none; }
+.input, .textarea, .fx .input, .fx select.input { font-family: inherit; font-size: 1.0625rem; }

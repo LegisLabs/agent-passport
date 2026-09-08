@@ -89,7 +89,7 @@ Every hold from a failed check carries a failure class (the reason for review): 
 
 ## Evidence for a supervisor
 
-`GET /api/evidence/passports/{id}` and `GET /api/evidence/violations/{id}` return one bundle: the register filing and its receipt, the bank's admission decision, the agent identity, the mandate, every verification with its inputs and bank-signed receipt, the refusals with the invoice extraction that produced them, and the hash chain segment, verifiable with the published keys. The export is read-only and is itself recorded in the chain.
+`GET /api/evidence/passports/{id}` and `GET /api/evidence/violations/{id}` return one bundle: the register filing and its receipt, the bank's approval decision, the agent identity, the mandate, every verification with its inputs and bank-signed receipt, the refusals with the invoice extraction that produced them, and the hash chain segment, verifiable with the published keys. The export is read-only and is itself recorded in the chain.
 
 ## vouch.finance
 

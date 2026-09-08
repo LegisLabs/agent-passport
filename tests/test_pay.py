@@ -309,7 +309,7 @@ def test_review_six_steps_sandbox_uses_real_engine_and_never_decides(client):
     assert [(t["decision"], t["rule"]) for t in sb] == [("ESCALATE", "R.6"), ("ESCALATE", "R.7"), ("ESCALATE", "R.2"), ("ESCALATE", "R.4"), ("ESCALATE", "R.9")]
     assert all(t["pass"] for t in sb)
     rec = rv["steps"][4]["data"]
-    assert rec["verdict"] == "ADMIT WITH CONDITIONS" and rec["decides"] is False
+    assert rec["verdict"] == "APPROVE WITH CONDITIONS" and rec["decides"] is False
     for banned in ("approve", "reject", "recommend", "admit", "decline"):
         assert banned not in rec["narrative"].lower()
     # the review issues nothing; admission puts the product on the bank's list; only the customer creates a passport
@@ -570,7 +570,7 @@ def test_demo_seed_twice_gives_identical_baselines(client):
     b1, b2 = baseline(), baseline()
     assert b1 == b2, (b1, b2)
     assert b1["passport"]["status"] == "active" and b1["passport"]["payees"] == 3 and b1["passport"]["payments"] == 0 and b1["violations"] == 0
-    assert b1["seed"]["recommendation"] == "ADMIT WITH CONDITIONS" and b1["chain_ok"]
+    assert b1["seed"]["recommendation"] == "APPROVE WITH CONDITIONS" and b1["chain_ok"]
     s = client.post("/api/demo/seed?stage=registered").json()
     assert s["stage"] == "registered" and "passport_id" not in s and client.get("/api/state").json()["registrations"][0]["status"] == "registered"
     assert client.post("/api/demo/seed?stage=nope").status_code == 400

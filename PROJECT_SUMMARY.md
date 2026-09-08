@@ -22,7 +22,7 @@ Three parties sign, one party checks, one party reads.
 4. **The bank checks every payment.** Nine ordered checks, deny by default, no model inference at execution time. Every verification writes a chain entry with a bank-signed receipt and the exact inputs it used, so the decision can be replayed later.
 5. **The evidence trail.** Every event is hashed onto the one before it. Refusals reach the bank's risk team as attention items; a supervisor can request the evidence for a passport or a refusal, and each export is itself recorded in the chain.
 
-Who answers for what: the provider for the accuracy of its filing and the insurance it declared; the bank for its admission decision and for executing without checking; the customer for the mandate it signed and its deployment of the agent. The register holds the identities that make any failure attributable. The supervisor holds none of the infrastructure and can still reconstruct any incident.
+Who answers for what: the provider for the accuracy of its filing and the insurance it declared; the bank for its approval decision and for executing without checking; the customer for the mandate it signed and its deployment of the agent. The register holds the identities that make any failure attributable. The supervisor holds none of the infrastructure and can still reconstruct any incident.
 
 # 3. The passport envelope
 
@@ -94,7 +94,7 @@ The bank's operational view, styled as a fintech app card: a greeting header wit
 - **Recent activity / full log**: every instruction with a status chip (Processed, Held, Held · first payment, Processed · released by approver, Processed · confirmed by the customer, Refused · by approver, Refused · fraud indicator, Refused · agent error), payee, amount, rule, proof. A row expands to the instruction as signed (including its nonce and hash), the nine checks with their notes, the verdict and class, the hold context and decision, and the proof (chain entry, previous hash, rule pack, receipt).
 - **Statistics**: session totals, a payment-volume chart per minute, a per-agent table (payments, value, held, refused fraud, refused error). Caption: these figures are the bank's own operational view; a supervisor sees evidence per incident, not this dashboard.
 - **Evidence trail**: every chain entry, chain status and head, "Replay every verification" with the count replayed identically, evidence bundle exports per passport.
-- **Admissions, the register and supervisory access**: admitted products with hold and agent counts; the register with assurance badges and the bank's decision per product and a "Register an AI product" button; supervisory access exports with the sentence "A regulator does not operate this dashboard and approves nothing in it."
+- **Approvals, the register and supervisory access**: admitted products with hold and agent counts; the register with assurance badges and the bank's decision per product and a "Register an AI product" button; supervisory access exports with the sentence "A regulator does not operate this dashboard and approves nothing in it."
 
 The admission page for one registration shows what the provider filed, the seven filing checks, the review assistant's six steps, the ceilings implied by the declared level and its multiplier, and the decision card, whose inputs start empty with one prefill and a context panel. The passport page shows the three-signer envelope verified live, the vouch rail status, lifecycle controls (suspend with a reason, reinstate, two-step revoke), the refusals table with classes, incidents and history.
 
@@ -137,7 +137,7 @@ Gemini is used at the edges only: the AI agent reads invoices into payment instr
 - UK Finance: £576 million authorised push payment fraud last year, up 19 percent; the sending bank reimburses most of it since 2024.
 - Technical standards: OAuth 2.0 RAR (RFC 9396) in line with NIST NCCoE 2026 guidance, W3C Verifiable Credentials JWT profile (RFC 7519), RFC 7800 key binding equivalent to SPIFFE SVID, Ed25519 (RFC 8037) compatible with did:key, FATF 2025 guidance on AI-enabled circumvention of AML/CFT identity controls, ISO 20022 pain.001 field mapping, UK Faster Payments rail semantics.
 
-What this is not: not a payments rail (it authorises; vouch.finance and the bank's rails settle); not an AML or sanctions system (it runs beside them and reports into neither); not a regulator's operating tool (supervisors read evidence, they run nothing); not model certification (the register files evidence, each bank makes its own admission decision).
+What this is not: not a payments rail (it authorises; vouch.finance and the bank's rails settle); not an AML or sanctions system (it runs beside them and reports into neither); not a regulator's operating tool (supervisors read evidence, they run nothing); not model certification (the register files evidence, each bank makes its own approval decision).
 
 # 15. Architecture and code
 

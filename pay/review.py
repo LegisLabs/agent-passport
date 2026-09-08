@@ -1,4 +1,4 @@
-"""Admission review assistant: the bank's own tool for deciding whether to admit a registered AI product.
+"""Approval review assistant: the bank's own tool for deciding whether to admit a registered AI product.
 
 Six visible steps the bank's payments risk officer runs when a registration is opened. Every step is
 deterministic over structured facts; the sandbox run uses the same rules.verify_action the bank uses at
@@ -9,7 +9,7 @@ rejected); it never scores, decides or signs. Only the officer's own POST /admis
   2 REQUIREMENT MAP         each filing check mapped to the evidence that satisfies it; uncovered items flagged
   3 ADVERSARIAL TESTS       five test instructions specific to this product
   4 SANDBOX RUN             each test through the real R.1 to R.9 engine against a provisional, sandbox-signed envelope
-  5 RECOMMENDATION          ADMIT WITH CONDITIONS / REFER, reasoning drawn from 2 to 4, labelled "recommendation, the officer decides"
+  5 RECOMMENDATION          APPROVE WITH CONDITIONS / REFER, reasoning drawn from 2 to 4, labelled "recommendation, the officer decides"
   6 OFFICER DECISION        the bank's decision; nothing here admits anything
 """
 from __future__ import annotations
@@ -121,17 +121,17 @@ def step_sandbox(a: dict, tests: list[dict], condition: float) -> list[dict]:
 def step_recommendation(a: dict, rule_map: dict, sandbox: list[dict], condition: float) -> dict:
     flagged, uncovered = rule_map["flagged"], rule_map["uncovered"]
     failed = [s["id"] for s in sandbox if not s["pass"]]
-    verdict = "REFER" if (failed or uncovered or flagged) else "ADMIT WITH CONDITIONS"
+    verdict = "REFER" if (failed or uncovered or flagged) else "APPROVE WITH CONDITIONS"
     reasons = [
         f"{len(rule_map['rules']) - len(flagged)} of {len(rule_map['rules'])} filing checks satisfied by cited evidence" + (f"; flagged {', '.join(flagged)}" if flagged else ""),
         f"{sum(1 for s in sandbox if s['pass'])} of {len(sandbox)} adversarial tests held for review by the bank engine as expected" + (f"; unexpected {', '.join(failed)}" if failed else ""),
         f"Independent Assurance Evidence at level {rules.assurance_level(_v(a['fields'], 'assurance_evidence', 'level'))['label'].lower()} for the registered use case; the bank assesses it against its minimum requirements, the register does not",
-        "no AI agent key at admission: each customer's agent proves possession of its own key when it is created",
+        "no AI agent key at approval: each customer's agent proves possession of its own key when it is created",
         f"condition to attach: hold instructions above £{condition:,.0f} for the customer's named approver",
     ]
     note, mode = extraction.draft_file_note(a["ref"], a["fields"], a.get("checks") or [])
     return {"verdict": verdict, "label": "Recommendation. The officer decides.", "condition": {"hold_above": condition}, "reasons": reasons, "narrative": note, "narrative_mode": mode,
-            "options": ["ADMIT", "ADMIT WITH CONDITIONS", "REFER"], "decides": False}
+            "options": ["APPROVE", "APPROVE WITH CONDITIONS", "REFER"], "decides": False}
 
 
 def run(a: dict, condition: float | None = None) -> dict:
@@ -143,7 +143,7 @@ def run(a: dict, condition: float | None = None) -> dict:
     tests = step_tests(a)
     sandbox = step_sandbox(a, tests, thr)
     rec = step_recommendation(a, rule_map, sandbox, thr)
-    return {"assistant": "Admission review assistant", "rule_pack": rules.pack()["id"], "condition": thr,
+    return {"assistant": "Approval review assistant", "rule_pack": rules.pack()["id"], "condition": thr,
             "steps": [
                 {"n": 1, "id": "filing", "title": "Filing read", "data": filing},
                 {"n": 2, "id": "rule_map", "title": "Requirement map", "data": rule_map},

@@ -26,7 +26,7 @@ const AP = (() => {
   const modeLabel = (m) => m === 'gemini' ? 'Gemini (live)' : m === 'fixture' ? 'fixture (deterministic stand-in)' : 'fixture after Gemini failed';
   const holdOf = (a) => (((a && a.condition) || {}).hold_above || {}).amount;
   const LEVELS = { 'self-declared': ['Self-declared', 'grey'], 'independently-verified': ['Independently verified', 'blue'], 'independently-audited': ['Independently audited', 'green'] };
-  // one assurance badge everywhere: neutral tint, the level's name; used on /provider, the bank register and admission view, the customer picker
+  // one assurance badge everywhere: neutral tint, the level's name; used on /provider, the bank register and approval view, the customer picker
   const levelTag = (id) => { const l = LEVELS[id]; return l ? `<span class="tag tag--level" title="assurance level declared by the provider with its evidence, not certified by anyone">${l[0]}</span>` : '<span class="tag tag--level">no level declared</span>'; };
   // Exactly two refusal classes (the mapping itself lives in the rule pack next to the rules). Agent error is deliberately calm: grey, never red.
   const CLASSES = { fraud: ['Fraud indicator', 'red'], agent_error: ['Agent error', 'grey'] };
@@ -64,7 +64,7 @@ const AP = (() => {
   const ENUMS = (state) => ({ payment_intent: (state.payment_intents || []).map(x => [x.id, x.label]), retention_period: (state.retention_periods || []).map(x => [x.id, x.label]), uk_gdpr_compliant: [['yes', 'Yes, declared by the accountable principal'], ['no', 'No']] });
   const SECTION_HINTS = {
     principal: 'The person who declares this filing accurate, as for a Companies House filing. Accountable for the filing, not for what any AI agent later does.',
-    intended_use: 'One payment intent per filing. The bank admits the product for that intent, and every customer mandate on it is limited to that intent; anything else is refused at R.6.',
+    intended_use: 'One payment intent per filing. The bank approves the product for that intent, and every customer mandate on it is limited to that intent; anything else is refused at R.6.',
     data_protection: 'What the provider declares about personal data the AI agent processes (invoice and payee details): compliance with UK GDPR and the Data Protection Act 2018, its ICO registration, and how long personal data is kept. The register records the declaration; it verifies nothing about compliance.',
     assurance_evidence: 'An independent benchmark or audit that the product meets the minimum assurance requirements for its use case, and the assurance level you declare with it: self-declared, independently verified, independently audited. The level describes the evidence you provide; the register does not grade it. Each bank assesses it against its own requirements.',
   };
@@ -286,7 +286,7 @@ const AP = (() => {
       rows('bk-products', [
         ...regs.filter(x => x.admission_status && x.admission_status !== 'declined' && x.admission_status !== 'info_requested').map(x => { const pr = (state.products || []).find(y => y.registration_id === x.id) || { passports: [] }; return { cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a> ${levelTag(v(x.fields, 'assurance_evidence', 'level'))}`, esc(v(x.fields, 'company', 'legal_name') || ''), holdOf(x) != null ? gbp(holdOf(x)) : '—', String(pr.passports.length), admissionTag(x)] }; }),
         ...(state.register || []).filter(m => m.bank).map(m => ({ cells: [`${esc(m.product)} ${levelTag(m.assurance_level)}`, esc(m.provider), gbp(m.bank.hold_above_gbp), '0', tag('admitted', 'Bank approved')] })),
-      ], 5, 'No product admitted yet.');
+      ], 5, 'No product approved yet.');
       rows('bk-register', [
         ...regs.map(x => ({ cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a>`, esc(v(x.fields, 'company', 'legal_name') || ''), levelTag(v(x.fields, 'assurance_evidence', 'level')), d(x.submitted_at), admissionTag(x)] })),
         ...(state.register || []).map(m => ({ cells: [esc(m.product), esc(m.provider), levelTag(m.assurance_level), d(m.registered), m.bank ? tag('admitted', 'Bank approved') : `<span class="small">${m.status === 'active' ? 'not approved' : esc(m.status)}</span>`] })),

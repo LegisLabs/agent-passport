@@ -4,7 +4,7 @@
 {% block content %}
 <div class="fx">
   <header class="fx-top">
-    <h1 class="fx-hello"><span id="fx-greet">Good morning</span>, OpenPay.<small>{{ provider }} · the register · a filing, not an approval</small></h1>
+    <h1 class="fx-hello"><span id="fx-greet">Good morning</span>, {{ officer }}.<small>{{ bank }} · the register of AI products</small></h1>
     <div class="fx-tools">
       <a class="fx-icon" href="/customer" title="Customer dashboard" aria-label="Customer dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></a>
       <a class="fx-icon" href="/bank" title="Bank dashboard" aria-label="Bank dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8"/><path d="M3 20h18"/></svg></a>
@@ -14,7 +14,7 @@
   <div class="fx-page">
   <section class="glass fx-prose">
     <h2 class="ws-h">Register an AI product</h2>
-<p class="lede">A registration is a filing, not an approval. You record who you are, who is accountable, your insurance, and Independent Assurance Evidence that the product meets the minimum assurance requirements for its use case. Nobody reviews it; it must be present, complete and declared accurate. Banks then decide for themselves whether to admit the product to their lists.</p>
+<p class="lede">The bank registers each AI product before it approves it for its customers. The entry records the provider's identity, who is accountable, its insurance, the payment intent, its UK data protection declaration, and Independent Assurance Evidence that the product meets the minimum assurance requirements for its use case. Seven completeness checks run and are recorded; the bank then approves the product for its list, with ceilings and a hold condition, or not.</p>
 
   </section>
   <section class="glass">
@@ -29,21 +29,21 @@
   </div>
   <div class="context" id="pv-context" hidden>
     <h3 class="h3">The demo, in a few sentences</h3>
-    <p><strong>OpenPay Ltd</strong> is a synthetic AI company. Its product, <strong>PayGPT 6.0</strong>, reads supplier invoices and prepares payments. OpenPay is about to file it on the register: who it is, who is accountable, its insurance, and Independent Assurance Evidence at a declared level. Nobody reviews the filing. <strong>Meridian Bank (demo)</strong> then decides whether its customers may use the product; <strong>Northgate Joinery Ltd</strong>, a small joinery business banking there, will give the agent a mandate; the bank will check every payment the agent asks for. Everything you are about to see is synthetic.</p>
+    <p><strong>OpenPay Ltd</strong> is a synthetic AI company. Its product, <strong>PayGPT 6.0</strong>, reads supplier invoices and prepares payments. Meridian Bank (demo) is about to register it: who OpenPay is, who is accountable, its insurance, its payment intent and data protection declaration, and Independent Assurance Evidence at a declared level. The bank then approves the product for its list, or not. <strong>Meridian Bank (demo)</strong> then approves it for its customers, or not; <strong>Northgate Joinery Ltd</strong>, a small joinery business banking there, will give the agent a mandate; the bank will check every payment the agent asks for. Everything you are about to see is synthetic.</p>
     <div class="actions"><button class="btn" id="btn-prefill-go">Fill the form and continue</button><button class="btn btn--secondary" id="btn-prefill-cancel">Cancel</button></div>
   </div>
   <div id="facts"></div>
   <div class="actions"><button class="btn btn--secondary" id="btn-save-fields" hidden>Save</button><span class="actions__note" id="save-note"></span></div>
 
   <div id="pv-submit" hidden>
-    <h2 class="h2">File the registration</h2>
-    <p class="hint">Filing is the accountable principal's declaration that this registration is accurate. The register runs completeness checks F.1 to F.7, records the result next to the entry and signs a receipt. No quality judgement is made here; that is each bank's decision.</p>
-    <div class="actions"><button class="btn" id="btn-submit">File the registration</button></div>
+    <h2 class="h2">Register the product</h2>
+    <p class="hint">Registering records the accountable principal's declaration that this entry is accurate. Completeness checks F.1 to F.7 run and are recorded with a signed receipt. Approval is the bank's separate decision, with ceilings and a hold condition.</p>
+    <div class="actions"><button class="btn" id="btn-submit">Register the product</button></div>
   </div>
   <div class="panel panel--confirm" id="confirm" hidden>
     <h2 class="panel__title">On the register</h2>
     <p class="panel__ref">Reference <strong id="confirm-ref"></strong></p>
-    <p>Completeness checks F.1 to F.7 have run and are recorded next to the entry. A receipt signed by the register's key is below. Any bank can now read the entry and decide whether to admit the product to its list.</p>
+    <p>Completeness checks F.1 to F.7 have run and are recorded next to the entry. A receipt signed by the register's key is below. The bank can now approve the product for its list, with ceilings and a hold condition.</p>
   </div>
   <div id="pv-checks-wrap" hidden>
     <h2 class="h2">Completeness checks <span class="h2__meta">recorded on the register · rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
