@@ -85,28 +85,20 @@ flowchart TB
 
   <section class="home__section home__section--peak">
     <h2 class="h2">The result</h2>
-    <p class="home__lede">What lands on a supervisor's desk when it asks about the invoice above: one record, produced by the bank, verifiable with published keys.</p>
+    <p class="home__lede">What lands on a supervisor's desk when it asks about the invoice above.</p>
     <div class="evd-split">
-      <article class="evd" aria-label="Evidence record for refusal 1 on passport AP-2026-0107">
+      <article class="evd" aria-label="Evidence record for the refused invoice">
         <header class="evd__head">
-          <div><span class="evd__k">Evidence record</span><b>Refusal #1 · passport AP-2026-0107</b></div>
-          <div><span class="evd__k">Produced by</span><b>Meridian Bank (demo), Payments Risk</b></div>
-          <div><span class="evd__k">Exported for</span><b>Supervisory access · 8 Sept 2026 13:28:49</b></div>
+          <div><span class="evd__k">Evidence record · Meridian Bank (demo)</span><b>Passport AP-2026-0107 · 8 September 2026</b></div>
           <span class="evd__stamp">Denied</span>
         </header>
         <table class="evd__t">
-          <tr><th>Instruction</th><td>pay_invoice · Fenwick Timber Ltd · <span class="num">60-11-22 99887766</span> · £2,500.00 · invoice INV-9001</td></tr>
-          <tr><th>Signed by</th><td>AI agent key <span class="num">X7NHSkmTpTTLm9XC</span> · PayGPT 6.0, OpenPay Ltd · signature verified (Ed25519)</td></tr>
-          <tr><th>Declared before reading</th><td>pay INV-9001 from Fenwick Timber Ltd to <span class="num">60-11-22 10101010</span>, the account the customer signed for</td></tr>
-          <tr><th>Attempted after reading</th><td><span class="num evd__bad">60-11-22 99887766</span> · the document changed the destination, not the AI agent</td></tr>
-          <tr><th>Mandate</th><td>signed by Helen Marsh, Finance Director, Northgate Joinery Ltd · 3 payee accounts · £10,000 a payment · £20,000 an account in 30 days · to 31 Mar 2027</td></tr>
-          <tr><th>Admission</th><td>PayGPT 6.0 admitted by A. Ferreira on 8 Sept 2026 · ceilings £10,000 / £50,000 · hold above £5,000</td></tr>
-          <tr><th>Register entry</th><td>REG-2026-0014 · OpenPay Ltd, Companies House 10987654 · accountable principal Daniel Okoye · insurance PI-4471-2026 · Independent Assurance Evidence IAE-2026-0412 · receipt signed by the register</td></tr>
-          <tr><th>Checks</th><td><span class="evd__chk"><i class="ok">R.1</i><i class="ok">R.2</i><i class="ok">R.3</i><i class="ok">R.4</i><i class="ok">R.5</i><i class="bad">R.6</i><i class="skip">R.7</i><i class="skip">R.8</i><i class="skip">R.9</i></span> R.6 PAYEE_NOT_ON_MANDATE: 60-11-22 99887766 is not on the customer-signed allowlist. R.7 to R.9 not evaluated, denied by default.</td></tr>
-          <tr><th>Receipt</th><td>signed by the bank · kid <span class="num">c9Qw3eVh2mKpT7Lx</span> · instruction sha256 <span class="num">4b1e…9a30</span></td></tr>
-          <tr><th>Chain</th><td>entry #17 <span class="num">9c1e4b7d2a60</span> ← #16 <span class="num">e2f0a97c11d4</span> · chain intact · replay identical</td></tr>
+          <tr><th>The AI agent asked to pay</th><td>£2,500 to Fenwick Timber Ltd, account <span class="num">60-11-22 99887766</span>, from invoice INV-9001.</td></tr>
+          <tr><th>The customer allowed</th><td>Fenwick Timber Ltd at <span class="num">60-11-22 10101010</span>, up to £10,000 a payment. Signed by Helen Marsh, Finance Director.</td></tr>
+          <tr><th>The bank decided</th><td>Refused at check R.6: the account is not on the mandate. The invoice changed the destination, not the AI agent.</td></tr>
+          <tr><th>Proof</th><td>Receipt signed by the bank. Entry #17 in the chain, replayed with the same result.</td></tr>
         </table>
-        <footer class="evd__foot">Synthetic record. The live version of this bundle is one call on the deployment: <a href="/api/evidence/passports/AP-2026-0107">/api/evidence/passports/AP-2026-0107</a>.</footer>
+        <footer class="evd__foot">Synthetic record. <a href="/api/evidence/passports/AP-2026-0107">The live bundle</a> carries every signature and hash behind it.</footer>
       </article>
       <ul class="evd__points">
         <li><b>The fraud fails.</b> The payee check stops invoice redirection and prompt injection whatever the invoice says. The mandate names accounts, not names.</li>

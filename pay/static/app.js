@@ -593,28 +593,49 @@ const AP = (() => {
   }
 
   // ───────────── Evidence trail ─────────────
+  function plainEvent(r) {
+    const e = r.entry || {}, i = e.instruction || {};
+    const acct = (x) => x ? `<span class="mono">${esc(x)}</span>` : '';
+    switch (r.kind) {
+      case 'verify': return e.decision === 'ALLOW' ? `<b class="ok">Payment allowed</b> · ${esc(i.supplier_name || '')} · ${gbp(i.amount)}` : e.decision === 'ESCALATE' ? `<b class="hold">Payment held</b> at ${esc(e.rule)} · ${esc(i.supplier_name || '')} · ${gbp(i.amount)}` : `<b class="bad">Payment refused</b> at ${esc(e.rule)} ${esc(e.code)} · ${esc(i.supplier_name || '')} ${acct(i.payee_account_ref)} · ${gbp(i.amount)}`;
+      case 'intent': return `Intent declared before reading: pay ${esc(e.supplier_name || '')} to ${acct(e.declared_payee)}`;
+      case 'agent': return e.attempted_payee ? (e.matches_intent ? `AI agent read the invoice: ${acct(e.attempted_payee)}, as declared` : `AI agent read the invoice: ${acct(e.attempted_payee)}, not the declared ${acct(e.declared_payee)}`) : 'Customer registered its AI agent: key generated, possession proven';
+      case 'incident': return `<b class="bad">Incident raised</b> · ${e.denies} refusals`;
+      case 'issue': return 'Passport issued: admission signed by the bank, list active';
+      case 'mandate': return `Mandate signed by ${esc((e.signer || {}).name || 'the customer')} · ${e.suppliers} payees · ${gbp(e.per_payment_limit)} a payment`;
+      case 'admission': return e.condition ? `Product admitted by ${esc(e.officer || 'the bank')} · hold above ${gbp(e.condition.hold_above.amount)}` : esc(e.event);
+      case 'check': return `Product filed on the register · ${e.passed} of 6 checks pass · receipt signed`;
+      case 'registration': return 'Registration started by the provider';
+      case 'review': return `Admission review run · sandbox ${e.sandbox_passed} of ${e.sandbox_total} · ${esc(e.recommendation)}`;
+      case 'vouch': return e.event.includes('revoked') ? 'Voucher revoked on the vouch rail' : `Voucher minted on the vouch rail (${esc(e.mode)})`;
+      case 'lifecycle': return `${esc(e.event)} · ${esc(e.officer || '')}${e.reason ? ' · ' + esc(e.reason) : ''}`;
+      case 'exception': return esc(e.event) + (e.outcome ? ' · ' + esc(e.outcome) : '');
+      case 'evidence': return 'Evidence bundle exported for supervisory access';
+      case 'draft': return 'File note drafted for the officer';
+      case 'system': return esc(e.event);
+      default: return esc(e.event || r.kind);
+    }
+  }
   async function audit() {
     const data = await api('GET', '/api/audit');
-    $('au-count').textContent = data.rows.length;
-    $('au-chain').innerHTML = data.chain.ok ? '<span class="tag tag--green">Intact</span>' : `<span class="tag tag--red">Broken at #${data.chain.broken_at}</span>`;
-    $('au-head').textContent = (data.chain.head || '').slice(0, 16);
+    const verifies = data.rows.filter(x => x.kind === 'verify');
     const tb = $('au-table').querySelector('tbody'); tb.innerHTML = '';
     let run = 0, same = 0;
+    const summary = () => { $('au-summary').innerHTML = `<b>${data.rows.length}</b> entries · chain ${data.chain.ok ? '<b class="ok">intact</b>' : `<b class="bad">broken at #${data.chain.broken_at}</b>`} · head <span class="mono">${esc((data.chain.head || '').slice(0, 12))}</span>${run ? ` · <b class="${same === run ? 'ok' : 'bad'}">${same} of ${run}</b> verifications replay identically` : ''}`; };
+    summary();
     const subjects = [...new Set(data.rows.filter(r => r.subject && r.subject.startsWith('AP-')).map(r => r.subject))];
-    if (subjects.length) $('au-evidence').innerHTML = 'Supervisory access: ' + subjects.map(s => `<a href="/api/evidence/passports/${esc(s)}" target="_blank" rel="noopener">evidence bundle for ${esc(s)}</a>`).join(' · ');
+    if (subjects.length) $('au-evidence').innerHTML = subjects.map(s => `<a href="/api/evidence/passports/${esc(s)}" target="_blank" rel="noopener">Export the evidence bundle for ${esc(s)}</a>`).join(' · ');
     for (const r of data.rows) {
-      const e = { ...r.entry }; delete e.ts; delete e.presented_envelope; if (e.instruction) { e.instruction = { ...e.instruction }; delete e.instruction.agent_signature; } delete e.trace;
-      const extra = r.kind === 'verify' ? ` → <strong>${esc(e.decision)}</strong> ${esc(e.rule)} ${esc(e.code)}${e.ledger_total_before ? ` (ledger before ${gbp(e.ledger_total_before)})` : ''}` : '';
-      tb.append(el('tr', null, `<td>${r.id}</td><td class="mono small">${t(r.ts)}</td><td>${esc(r.kind)}</td><td class="mono small">${esc(r.subject || '')}</td><td class="small">${esc(e.event || '')}${extra}${e.reason ? ` · ${esc(e.reason)}` : ''}${e.note ? ` · “${esc(e.note)}”` : ''}${e.detail ? ` · ${esc(e.detail)}` : ''}</td><td class="hash">${esc(r.hash.slice(0, 12))}<br>← ${esc(r.prev_hash.slice(0, 12))}</td><td class="small" id="au-r-${r.id}">${r.receipt ? '<span class="tag tag--green">receipt</span> ' : ''}${r.kind === 'verify' ? `<button class="link" data-replay="${r.id}" type="button">replay</button>` : ''}</td>`));
+      tb.append(el('tr', null, `<td class="mono small">${t(r.ts)}</td><td>${plainEvent(r)}</td><td class="mono small">${esc(r.subject || '')}</td><td class="small" id="au-r-${r.id}"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}${r.kind === 'verify' ? ` · <button class="link" data-replay="${r.id}" type="button">replay</button>` : ''}</td>`));
     }
     async function replay(id) {
       const rp = await api('POST', `/api/audit/${id}/replay`);
       run++; if (rp.identical) same++;
-      $(`au-r-${id}`).innerHTML = `<span class="${rp.identical ? 'ok' : 'bad'}">${rp.identical ? 'identical' : 'DIFFERS'}</span> <span class="small">${esc(rp.replay.decision)} ${esc(rp.replay.rule)}</span>`;
-      $('au-replays').textContent = `${run} run · ${same} identical`;
+      const cell = $(`au-r-${id}`); const b = cell.querySelector('[data-replay]'); if (b) b.outerHTML = `<span class="${rp.identical ? 'ok' : 'bad'}">${rp.identical ? 'replayed identically' : 'REPLAY DIFFERS'}</span>`;
+      summary();
     }
     tb.addEventListener('click', e => { const b = e.target.closest('[data-replay]'); if (b) replay(+b.dataset.replay); });
-    const replayAll = async () => { run = 0; same = 0; for (const r of data.rows.filter(x => x.kind === 'verify')) await replay(r.id); $('replay-note').textContent = run ? `${same} of ${run} verifications replayed identically` : 'no verifications yet'; };
+    const replayAll = async () => { for (const r of verifies) if ($(`au-r-${r.id}`).querySelector('[data-replay]')) await replay(r.id); $('replay-note').textContent = run ? `${same} of ${run} replayed identically` : 'no verifications yet'; };
     $('btn-replay-all').onclick = replayAll;
     replayAll();
   }
