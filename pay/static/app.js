@@ -37,11 +37,17 @@ const AP = (() => {
   const classTag = (c) => { const id = classId(c); return chip(CLASSES[id][1], CLASSES[id][0], CLASS_LEGEND[id]); };
   // every instruction resolves to one status: Processed, Held, or Refused with its class; a decided hold shows what the person decided
   let lastDecisions = [];
+  const FIRST = 'FIRST_PAYMENT_CONFIRMATION_REQUIRED';
   const decisionFor = (auditId) => lastDecisions.find(x => x.entry.held_audit_id === auditId);
   const statusChip = (r) => {
     const e = r.entry || {};
     if (e.decision === 'ALLOW') return chip('green', 'Processed', 'all nine checks passed; money moved');
-    if (e.decision === 'ESCALATE') { const dd = decisionFor(r.id); if (!dd) return chip('amber', 'Held', 'inside the mandate, above the bank\'s hold condition; a named person decides'); return dd.entry.outcome === 'RELEASED' ? chip('green', 'Processed · released by approver', 'held, then released by a named person; recorded in the chain') : chip('grey', 'Refused · by approver', 'held, then refused by a named person; recorded in the chain'); }
+    if (e.decision === 'ESCALATE') {
+      const dd = decisionFor(r.id), first = e.code === FIRST;
+      if (!dd) return first ? chip('amber', 'Held · first payment', 'the first payment under this mandate version waits for the customer to review and confirm it once') : chip('amber', 'Held', 'inside the mandate, above the bank\'s hold condition; a named person decides');
+      if (dd.entry.outcome === 'RELEASED') return chip('green', first ? 'Processed · confirmed by the customer' : 'Processed · released by approver', first ? 'the customer reviewed and confirmed its first payment under this mandate; recorded in the chain' : 'held, then released by a named person; recorded in the chain');
+      return chip('grey', first ? 'Refused · by the customer' : 'Refused · by approver', first ? 'the customer refused the first payment under this mandate; recorded in the chain' : 'held, then refused by a named person; recorded in the chain');
+    }
     const id = classId(e.failure_class); return chip(CLASSES[id][1], 'Refused · ' + CLASSES[id][0].toLowerCase(), CLASS_LEGEND[id]);
   };
 
@@ -181,36 +187,71 @@ const AP = (() => {
       renderIncidents();
       renderHistory();
     }
-    let auditRows = [], seenIds = null, expandedId = null, expandedAtt = null, timer = null, simTimer = null, logFilter = 'all';
+    let auditRows = [], seenIds = null, expandedId = null, expandedAtt = null, timer = null, simTimer = null, logFilter = 'all', logAll = false, pendingDecide = null;
+    const pause = (ms) => new Promise(res => setTimeout(res, ms));
+    const num = (n) => Number(n || 0).toLocaleString('en-GB');
+    const agentName = (pid) => { const x = issued().find(y => y.passport_id === pid); return x ? (((x.agent_identity || {}).agent || {}).name || pid) : pid; };
+    // arrivals are paced: a new instruction shows its checks ticking through, rule by rule, before the status lands
+    const arriving = new Map();   // audit id → { step }
+    const revealQueue = []; let revealing = false;
+    const paced = () => $('bd-pace') && $('bd-pace').checked && !(window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches);
+    function tickHtml(r) { const st = arriving.get(r.id) || { step: 0 }; const trace = r.entry.trace || []; return `<span class="bd-tick" data-tick="${r.id}">${trace.slice(0, st.step).map(x => `<i class="${x.ok ? 'ok' : (r.entry.decision === 'ESCALATE' ? 'hold' : 'fail')}">${esc(x.rule)}</i>`).join('')}<em>verifying</em></span>`; }
+    const ruleHtml = (e) => e.decision === 'ALLOW' ? '<span class="small">all nine</span>' : `<b class="rule">${esc(e.rule)}</b> <span class="small">${esc((e.code || '').toLowerCase().replace(/_/g, ' '))}</span>`;
+    function queueReveal(r) { revealQueue.push(r); if (!revealing) runReveals(); }
+    async function runReveals() {
+      revealing = true;
+      while (revealQueue.length) {
+        const r = revealQueue.shift(); const st = arriving.get(r.id); if (!st) continue;
+        const trace = r.entry.trace || []; const beat = Math.max(70, Math.min(150, Math.round(1100 / Math.max(1, trace.length))));
+        await pause(350);
+        for (let i = 0; i < trace.length; i++) { st.step = i + 1; document.querySelectorAll(`[data-tick="${r.id}"]`).forEach(c => { c.outerHTML = tickHtml(r); }); await pause(beat); }
+        await pause(260);
+        arriving.delete(r.id);
+        document.querySelectorAll(`[data-tick="${r.id}"]`).forEach(c => { c.outerHTML = statusChip(r); });
+        document.querySelectorAll(`[data-tickrule="${r.id}"]`).forEach(c => { c.innerHTML = ruleHtml(r.entry); });
+        document.querySelectorAll(`tr[data-arrive="${r.id}"]`).forEach(tr => tr.classList.add('is-landed'));
+      }
+      revealing = false;
+    }
+    const statusCell = (r) => arriving.has(r.id) ? tickHtml(r) : statusChip(r);
+    const ruleCell = (r) => `<span data-tickrule="${r.id}">${arriving.has(r.id) ? '<span class="small bd-tick__wait">checking</span>' : ruleHtml(r.entry)}</span>`;
+    const isFirst = (e) => e.decision === 'ESCALATE' && e.code === FIRST;
+
     async function renderDash() {
       const data = await api('GET', '/api/audit'); auditRows = data.rows;
-      const regs = state.registrations.filter(x => x.status !== 'draft'), live = issued(), viol = state.violations || [], inc = state.incidents || [];
+      const regs = state.registrations.filter(x => x.status !== 'draft'), live = issued(), viol = state.violations || [];
       const todo = regs.filter(x => !x.admission_status || x.admission_status === 'info_requested');
       const verifies = auditRows.filter(r => r.kind === 'verify');
-      const paid = (state.payments || []).reduce((s, x) => s + Number(x.amount || 0), 0);
+      // anything that arrived since the last render is revealed check by check (oldest first)
+      if (seenIds && paced()) verifies.filter(r => !seenIds.has('a' + r.id)).reverse().forEach(r => { if (!arriving.has(r.id)) { arriving.set(r.id, { step: 0 }); queueReveal(r); } });
       const vById = {}; viol.forEach(x => { if (x.audit_id) vById[x.audit_id] = x; });
-      const dayAgo = new Date(Date.now() - 864e5).toISOString();
       const heldOpen = verifies.filter(r => r.entry.decision === 'ESCALATE' && !decisionFor(r.id));
       const nFraud = viol.filter(x => x.failure_class === 'fraud').length, nErr = viol.filter(x => x.failure_class !== 'fraud').length;
-      $('bk-stats').innerHTML = [[(state.payments || []).filter(x => x.ts >= dayAgo).length, 'Payments today'], [heldOpen.length, 'Held'], [nFraud, 'Refused (fraud)'], [nErr, 'Refused (agent error)'], [gbp(paid), 'Total value processed']].map(([n, l]) => `<li><b class="mono">${n}</b><span>${l}</span></li>`).join('');
+      const pays = state.payments || [], value = pays.reduce((s, x) => s + Number(x.amount || 0), 0);
+      // at a glance: the bank's whole agent channel. Totals carried forward from before the session plus this session's rows; the seam is stated
+      const o = state.opening || {};
+      $('bk-stats').innerHTML = [[num((o.processed || 0) + pays.length), 'Payments processed'], [gbp((o.value_gbp || 0) + value), 'Value moved'], [num(heldOpen.length), 'Awaiting a person'], [num((o.refused_fraud || 0) + nFraud), 'Refused · fraud indicator'], [num((o.refused_agent_error || 0) + nErr), 'Refused · agent error'], [num((o.agents_on_list || 0) + live.filter(x => x.status === 'active').length), 'AI agents on the list']].map(([n, l]) => `<li><b class="mono">${n}</b><span>${l}</span></li>`).join('');
+      $('bd-seam').innerHTML = o.processed ? `Totals for ${esc(o.label || 'the agent channel before this session')}: <b class="mono">${num(o.processed)}</b> payments and <b class="mono">${gbp(o.value_gbp)}</b> carried forward as figures, <b class="mono">${num(pays.length)}</b> processed in this session. Every row on this console is this session's; nothing carried forward is shown as a row.` : '';
       $('bk-todo').hidden = !todo.length;
       $('bk-todo').innerHTML = todo.map(x => `<span><strong>${esc(v(x.fields, 'product', 'product_name') || x.ref)}</strong> by ${esc(v(x.fields, 'company', 'legal_name') || '')} is on the register and awaits your admission decision.</span><a class="btn btn--small" href="/bank?ref=${x.ref}">Open ${esc(x.ref)}</a>`).join('');
       // needs attention: every held instruction awaiting a person and every fraud-class refusal, newest first; agent errors never appear here
-      const agentName = (pid) => { const x = live.find(y => y.passport_id === pid); return x ? (((x.agent_identity || {}).agent || {}).name || pid) : pid; };
       const fraudRows = viol.filter(x => x.failure_class === 'fraud').map(x => auditRows.find(r => r.id === x.audit_id)).filter(Boolean);
       const attention = [...heldOpen, ...fraudRows].sort((a, b) => (a.ts < b.ts ? 1 : -1));
       const at = $('bd-attention-list').querySelector('tbody'); at.innerHTML = '';
       attention.slice(0, 5).forEach(r => {
-        const e = r.entry, i = e.instruction || {}; const held = e.decision === 'ESCALATE';
-        const tr = el('tr', 'bd-log__row bd-att__row' + (held ? ' bd-att__row--held' : ' bd-att__row--fraud'), `<td class="mono small">${t(r.ts)}</td><td>${esc(agentName(r.subject))}<br><span class="mono small">${esc(r.subject || '')}</span></td><td>${esc(i.supplier_name || '')} <span class="mono small">${esc(i.payee_account_ref || '')}</span></td><td class="num mono">${gbp(i.amount)}</td><td>${statusChip(r)}</td><td class="bd-att__act">${held ? `<button class="btn btn--small" type="button" data-decide="release" data-audit="${r.id}">Approve and release</button> <button class="btn btn--small btn--warning" type="button" data-decide="refuse" data-audit="${r.id}">Refuse and record</button>` : `<span class="small">${esc(e.rule)} ${esc((e.code || '').toLowerCase().replace(/_/g, ' '))}</span> · <a href="/api/evidence/violations/${esc(String((vById[r.id] || {}).id || ''))}" target="_blank" rel="noopener">evidence</a>`}</td>`);
-        tr.tabIndex = 0; tr.setAttribute('role', 'button'); tr.setAttribute('aria-expanded', String(expandedAtt === r.id));
+        const e = r.entry, i = e.instruction || {}; const held = e.decision === 'ESCALATE', firstPay = isFirst(e);
+        const action = !held ? `<span class="small">${esc(e.rule)} ${esc((e.code || '').toLowerCase().replace(/_/g, ' '))}</span> · <a href="/api/evidence/violations/${esc(String((vById[r.id] || {}).id || ''))}" target="_blank" rel="noopener">evidence</a>`
+          : firstPay ? `<span class="small">first payment under the mandate: the customer confirms it in its app</span> · <a href="/customer?ref=${esc(r.subject)}">Customer dashboard</a>`
+          : `<button class="btn btn--small" type="button" data-decide="release" data-audit="${r.id}">Approve and release</button> <button class="btn btn--small btn--warning" type="button" data-decide="refuse" data-audit="${r.id}">Refuse and record</button>`;
+        const tr = el('tr', 'bd-log__row bd-att__row' + (held ? ' bd-att__row--held' : ' bd-att__row--fraud'), `<td class="mono small">${t(r.ts)}</td><td>${esc(agentName(r.subject))}<br><span class="mono small">${esc(r.subject || '')}</span></td><td>${esc(i.supplier_name || '')} <span class="mono small">${esc(i.payee_account_ref || '')}</span></td><td class="num mono">${gbp(i.amount)}</td><td>${statusCell(r)}</td><td class="bd-att__act">${action}</td>`);
+        tr.tabIndex = 0; tr.setAttribute('role', 'button'); tr.setAttribute('aria-expanded', String(expandedAtt === r.id)); tr.dataset.arrive = r.id;
         if (seenIds && !seenIds.has('a' + r.id)) tr.classList.add('is-new');
-        const open = () => { expandedAtt = expandedAtt === r.id ? null : r.id; renderDash(); };
+        const open = () => { expandedAtt = expandedAtt === r.id ? null : r.id; if (expandedAtt !== r.id) pendingDecide = null; renderDash(); };
         tr.onclick = (ev) => { if (ev.target.closest('a, button')) return; open(); }; tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } };
         at.append(tr);
         if (expandedAtt === r.id) at.append(el('tr', 'bd-detail', `<td colspan="6">${detailHtml(r, vById[r.id])}</td>`));
       });
-      $('bd-attention-more').textContent = attention.length > 5 ? `and ${attention.length - 5} more in the transaction log` : '';
+      $('bd-attention-more').textContent = attention.length > 5 ? `and ${attention.length - 5} more in the full log` : '';
       $('bd-attention-meta').textContent = attention.length ? `${heldOpen.length} held · ${fraudRows.length} fraud indicator${fraudRows.length === 1 ? '' : 's'}` : '';
       $('bd-attention-list').hidden = !attention.length; $('bd-attention-empty').hidden = !!attention.length;
       // active agents: the bank's access dashboard for AI agents
@@ -220,16 +261,15 @@ const AP = (() => {
       live.forEach(x => {
         const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}, m = x.mandate || {}, ad = ((m.authorization_details || mp.authorization_details) || [{}])[0];
         const per = Number((ad.per_payment_limit || {}).amount || 0), monthly = Number((ad.monthly_limit_per_account || {}).amount || 0);
-        const nv = viol.filter(y => y.passport_id === x.passport_id), open = nv.filter(y => y.status === 'OPEN').length; const last = lastBy[x.passport_id];
-        const meters = (ad.supplier_allowlist || []).map(sp => { const used = ((x.ledger || {})[sp.account_ref] || {}).total || 0; const pct = monthly ? Math.min(100, Math.round(used / monthly * 100)) : 0; return `<div><span class="meters__k">${esc(sp.name)} <span class="mono small">${esc(sp.account_ref)}</span></span><span class="meters__v">${gbp(used)} of ${gbp(monthly)}</span><span class="meter"><span class="meter__fill${pct >= 100 ? ' over' : pct >= 75 ? ' warn' : ''}" style="transform: scaleX(${pct / 100})"></span></span></div>`; }).join('');
+        const nv = viol.filter(y => y.passport_id === x.passport_id); const last = lastBy[x.passport_id];
         const card = el('div', 'agent-row', `<div class="agent-row__head"><a href="/bank?passport=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a>${tag(x.status)}</div>
           <div class="small">${esc((mp.customer || {}).legal_name || '')} · signed by ${esc((m.signed_by || mp.authorising_officer || {}).name || '')} · ${esc(ag.product_name || '')} by ${esc(ag.provider || '')} ${levelTag(((x.admission || {}).assurance_evidence || {}).level)} · <span class="mono">${esc(x.passport_id)}</span></div>
-          <div class="small">up to ${gbp(per)} a payment · ${gbp(monthly)} an account in 30 days · ${(ad.supplier_allowlist || []).length} payee accounts · valid to ${esc(mp.valid_until || '')}</div>
+          <div class="small">up to ${gbp(per)} a payment · ${gbp(monthly)} an account in 30 days · ${(ad.supplier_allowlist || []).length} payee accounts · valid to ${esc(mp.valid_until || '')}${x.mandate_signed ? (x.first_payment_confirmed ? ' · first payment confirmed by the customer' : ' · <span class="hold">first payment under this mandate not yet confirmed</span>') : ''}</div>
           <div class="small agent-row__counts">processed <b class="mono">${x.payments || 0}</b> · held <b class="mono">${verifies.filter(r => r.subject === x.passport_id && r.entry.decision === 'ESCALATE' && !decisionFor(r.id)).length}</b> · refused <b class="mono">${nv.length}</b> (<span class="${nv.filter(y => y.failure_class === 'fraud').length ? 'bad' : ''}">${nv.filter(y => y.failure_class === 'fraud').length} fraud</span>, ${nv.filter(y => y.failure_class !== 'fraud').length} agent error) · paid ${gbp(Object.values(x.ledger || {}).reduce((s2, y) => s2 + y.total, 0))} in 30 days · last ${last ? `${t(last.ts)} ${last.entry.decision === 'ALLOW' ? 'processed' : last.entry.decision === 'ESCALATE' ? 'held' : 'refused ' + esc(last.entry.rule)}` : 'none'} · <a href="/bank?passport=${esc(x.passport_id)}">manage</a></div>`);
         box.append(card);
       });
       if (!live.length) box.append(el('p', 'small', 'No AI agent holds a passport on this bank yet.'));
-      // transaction log
+      // recent activity (the full log one click away)
       renderLog(verifies, viol);
       // admissions, register, supervisory access
       rows('bk-products', regs.filter(x => x.admission_status && x.admission_status !== 'declined' && x.admission_status !== 'info_requested').map(x => { const pr = (state.products || []).find(y => y.registration_id === x.id) || { passports: [] }; return { cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a> ${levelTag(v(x.fields, 'assurance_evidence', 'level'))}`, esc(v(x.fields, 'company', 'legal_name') || ''), holdOf(x) != null ? gbp(holdOf(x)) : '—', String(pr.passports.length), admissionTag(x)] }; }), 5, 'No product admitted yet.');
@@ -246,12 +286,13 @@ const AP = (() => {
       renderStats(verifies, viol, live);
       $('bd-live-label').textContent = 'Live · ' + t(new Date().toISOString());
     }
-    // statistics: the bank's own operational view of the session
+    // statistics: this session's instructions per agent, and the carried-forward totals as one clearly separate line
     let volChart = null;
     function renderStats(verifies, viol, live) {
-      const pays = state.payments || []; const value = pays.reduce((s, x) => s + Number(x.amount || 0), 0);
+      const pays = state.payments || []; const value = pays.reduce((s, x) => s + Number(x.amount || 0), 0); const o = state.opening || {};
       const held = verifies.filter(r => r.entry.decision === 'ESCALATE').length, nFraud = viol.filter(x => x.failure_class === 'fraud').length, nErr = viol.filter(x => x.failure_class !== 'fraud').length;
-      $('bd-stats-totals').innerHTML = [[pays.length, 'Payments'], [gbp(value), 'Value processed'], [held, 'Held'], [nFraud, 'Refused, fraud indicator'], [nErr, 'Refused, agent error']].map(([n, l]) => `<li><b class="mono">${n}</b><span>${l}</span></li>`).join('');
+      $('bd-stats-meta').textContent = `this session · ${verifies.length} instruction${verifies.length === 1 ? '' : 's'}, every one a row below`;
+      $('bd-stats-totals').innerHTML = [[num(verifies.length), 'Instructions'], [num(pays.length), 'Processed'], [gbp(value), 'Value processed'], [num(held), 'Held'], [num(nFraud), 'Refused, fraud indicator'], [num(nErr), 'Refused, agent error']].map(([n, l]) => `<li><b class="mono">${n}</b><span>${l}</span></li>`).join('');
       // volume per minute across the session, from the first instruction to now
       const minute = (iso) => iso.slice(0, 16);
       const first = verifies.length ? verifies[verifies.length - 1].ts : (pays.length ? pays[pays.length - 1].ts : new Date().toISOString());
@@ -269,19 +310,24 @@ const AP = (() => {
       const tb = $('bd-stats-agents').querySelector('tbody'); tb.innerHTML = '';
       live.forEach(x => {
         const ag = (x.agent_identity || {}).agent || {}; const mine = pays.filter(y => y.passport_id === x.passport_id); const nv = viol.filter(y => y.passport_id === x.passport_id);
-        tb.append(el('tr', null, `<td>${esc(ag.name || x.passport_id)}<br><span class="mono small">${esc(x.passport_id)}</span></td><td class="num mono">${mine.length}</td><td class="num mono">${gbp(mine.reduce((s, y) => s + Number(y.amount || 0), 0))}</td><td class="num mono">${verifies.filter(r => r.subject === x.passport_id && r.entry.decision === 'ESCALATE').length}</td><td class="num mono">${nv.filter(y => y.failure_class === 'fraud').length}</td><td class="num mono">${nv.filter(y => y.failure_class !== 'fraud').length}</td>`));
+        tb.append(el('tr', null, `<td>${esc(ag.name || x.passport_id)}<br><span class="mono small">${esc(x.passport_id)} · this session</span></td><td class="num mono">${mine.length}</td><td class="num mono">${gbp(mine.reduce((s, y) => s + Number(y.amount || 0), 0))}</td><td class="num mono">${verifies.filter(r => r.subject === x.passport_id && r.entry.decision === 'ESCALATE').length}</td><td class="num mono">${nv.filter(y => y.failure_class === 'fraud').length}</td><td class="num mono">${nv.filter(y => y.failure_class !== 'fraud').length}</td>`));
       });
       if (!live.length) tb.append(el('tr', null, '<td colspan="6" class="empty-row">No AI agent holds a passport on this bank yet.</td>'));
+      if (o.processed) tb.append(el('tr', 'bd-stats__carry', `<td>Other AI agents on the bank's list, ${num(o.agents_on_list)} of them<br><span class="small">carried forward as totals, ${esc((o.period || {}).from || '')} to the start of this session · no rows</span></td><td class="num mono">${num(o.processed)}</td><td class="num mono">${gbp(o.value_gbp)}</td><td class="num mono">${num(o.held)}</td><td class="num mono">${num(o.refused_fraud)}</td><td class="num mono">${num(o.refused_agent_error)}</td>`));
     }
     function renderLog(verifies, viol) {
       const tb = $('bd-log').querySelector('tbody'); tb.innerHTML = '';
       const vById = {}; viol.forEach(x => { if (x.audit_id) vById[x.audit_id] = x; });
       const shown = verifies.filter(r => logFilter === 'all' || r.entry.decision === logFilter);
+      const limit = logAll ? 200 : 6;
       $('bd-log-meta').textContent = `${verifies.length} instructions`;
-      shown.slice(0, 40).forEach(r => {
-        const e = r.entry, i = e.instruction || {}; const dec = e.decision;
-        const tr = el('tr', 'bd-log__row', `<td class="mono small">${t(r.ts)}</td><td>${statusChip(r)}</td><td>${esc(i.supplier_name || '')} <span class="mono small">${esc(i.payee_account_ref || '')}</span><br><span class="mono small">${esc(r.subject || '')}</span></td><td class="num mono">${gbp(i.amount)}</td><td>${dec === 'ALLOW' ? '<span class="small">all nine</span>' : `<b class="rule">${esc(e.rule)}</b> <span class="small">${esc((e.code || '').toLowerCase().replace(/_/g, ' '))}</span>`}</td><td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`);
-        tr.tabIndex = 0; tr.setAttribute('role', 'button'); tr.setAttribute('aria-expanded', String(expandedId === r.id));
+      $('bd-log-title').textContent = logAll ? 'Transaction log' : 'Recent activity';
+      $('bd-log-toggle').textContent = logAll ? 'Recent activity only' : `Full log (${verifies.length})`;
+      $('bd-log-hint').hidden = logAll; $('bd-recent').classList.toggle('bd-col--full', logAll);
+      shown.slice(0, limit).forEach(r => {
+        const e = r.entry, i = e.instruction || {};
+        const tr = el('tr', 'bd-log__row', `<td class="mono small">${t(r.ts)}</td><td>${statusCell(r)}</td><td>${esc(i.supplier_name || '')} <span class="mono small">${esc(i.payee_account_ref || '')}</span><br><span class="mono small">${esc(r.subject || '')}</span></td><td class="num mono">${gbp(i.amount)}</td><td>${ruleCell(r)}</td><td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`);
+        tr.tabIndex = 0; tr.setAttribute('role', 'button'); tr.setAttribute('aria-expanded', String(expandedId === r.id)); tr.dataset.arrive = r.id;
         if (seenIds && !seenIds.has('a' + r.id)) tr.classList.add('is-new');
         const open = () => { expandedId = expandedId === r.id ? null : r.id; renderLog(verifies, viol); };
         tr.onclick = open; tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } };
@@ -289,19 +335,36 @@ const AP = (() => {
         if (expandedId === r.id) tb.append(el('tr', 'bd-detail', `<td colspan="6">${detailHtml(r, vById[r.id])}</td>`));
       });
       if (!shown.length) tb.append(el('tr', null, `<td colspan="6" class="empty-row">${verifies.length ? 'Nothing in this filter.' : 'No instruction yet. Turn on simulated traffic or run the Action Terminal.'}</td>`));
+      else if (!logAll && shown.length > limit) tb.append(el('tr', 'bd-log__more', `<td colspan="6" class="small">${shown.length - limit} earlier instruction${shown.length - limit === 1 ? '' : 's'} in the <button class="link" type="button" data-log-all>full log</button></td>`));
     }
+    $('bd-log-toggle').onclick = () => { logAll = !logAll; renderLog(auditRows.filter(r => r.kind === 'verify'), state.violations || []); };
     function heldHtml(r) {
       const e = r.entry, i = e.instruction || {}; const x = issued().find(y => y.passport_id === r.subject) || {};
       const ad = (((x.mandate || x.mandate_proposed || {}).authorization_details) || [{}])[0]; const hold = (((x.admission || {}).condition || {}).hold_above || {}).amount;
-      const ap = (x.mandate || {}).signed_by || (x.mandate_proposed || {}).authorising_officer || {}; const dd = decisionFor(r.id);
+      const ap = (x.mandate || {}).signed_by || (x.mandate_proposed || {}).authorising_officer || {}; const dd = decisionFor(r.id); const firstPay = isFirst(e);
       const kv = (pairs) => `<dl class="kv">${pairs.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('')}</dl>`;
-      return `<div class="bd-hold"><h3 class="h4">Held for a person</h3>${kv([['Why', `${gbp(i.amount)} is inside the mandate (up to ${gbp((ad.per_payment_limit || {}).amount)} a payment) and above the bank's hold condition of ${gbp(hold)}; the verifier returned ESCALATE at R.9`], ['Who decides', `${esc(ap.name || '')}, ${esc(ap.role || '')} (the customer's named approver), recorded by ${esc(who())}`], ['Decision', dd ? `<b>${dd.entry.outcome === 'RELEASED' ? 'Released' : 'Refused'}</b> at ${t(dd.ts)} by ${esc(dd.entry.officer)} · ${esc(dd.entry.reason)} · chain entry <span class="mono small">#${dd.id} ${esc(dd.hash.slice(0, 10))}</span>${dd.receipt ? ' · receipt signed by the bank' : ''}` : `<span class="bd-hold__act"><button class="btn btn--small" type="button" data-decide="release" data-audit="${r.id}">Approve and release</button> <button class="btn btn--small btn--warning" type="button" data-decide="refuse" data-audit="${r.id}">Refuse and record</button> <span class="small">either way the chain records who decided, when, and on what</span></span>`]])}</div>`;
+      const armed = pendingDecide && pendingDecide.audit === r.id ? pendingDecide.decision : null;
+      const confirmBox = armed ? `<div class="bd-confirm" role="group" aria-label="Confirm the decision"><p><strong>${armed === 'release' ? 'Release' : 'Refuse'} ${gbp(i.amount)} to ${esc(i.supplier_name || '')}</strong> <span class="mono small">${esc(i.payee_account_ref || '')}</span>${i.invoice_ref ? ` · invoice <span class="mono">${esc(i.invoice_ref)}</span>` : ''}.<br>Decided for ${esc(ap.name || '')}, ${esc(ap.role || '')}, the customer's named approver. Recorded as <strong>${esc(who())}</strong> at ${t(new Date().toISOString())}, signed by the bank into the evidence chain${armed === 'release' ? '; the payment executes' : '; nothing moves'}.</p><div class="actions"><button class="btn btn--small${armed === 'refuse' ? ' btn--warning' : ''}" type="button" data-confirm="${armed}" data-audit="${r.id}">${armed === 'release' ? 'Confirm and release the payment' : 'Confirm and record the refusal'}</button><button class="btn btn--secondary btn--small" type="button" data-cancel-decide="${r.id}">Cancel</button></div></div>` : '';
+      const why = firstPay ? `${gbp(i.amount)} is inside the mandate and the hold condition; it is the first payment under mandate version ${esc(String((x.mandate || {}).version || 1))}, so the verifier returned ESCALATE at R.9 for the customer's own confirmation` : `${gbp(i.amount)} is inside the mandate (up to ${gbp((ad.per_payment_limit || {}).amount)} a payment) and above the bank's hold condition of ${gbp(hold)}; the verifier returned ESCALATE at R.9`;
+      const whoDecides = firstPay ? `${esc(ap.name || '')}, ${esc(ap.role || '')}, in the customer's own banking app. The bank does not decide this one.` : `${esc(ap.name || '')}, ${esc(ap.role || '')} (the customer's named approver), recorded by ${esc(who())}`;
+      const decision = dd ? `<b>${dd.entry.outcome === 'RELEASED' ? (firstPay ? 'Confirmed' : 'Released') : 'Refused'}</b> at ${t(dd.ts)} by ${esc(dd.entry.officer)} · ${esc(dd.entry.reason)} · chain entry <span class="mono small">#${dd.id} ${esc(dd.hash.slice(0, 10))}</span>${dd.receipt ? ' · receipt signed by the bank' : ''}`
+        : firstPay ? `<span class="small">awaiting the customer · <a href="/customer?ref=${esc(r.subject)}">open the customer dashboard</a></span>`
+        : armed ? '<span class="small">confirm below</span>' : `<span class="bd-hold__act"><button class="btn btn--small" type="button" data-decide="release" data-audit="${r.id}">Approve and release</button> <button class="btn btn--small btn--warning" type="button" data-decide="refuse" data-audit="${r.id}">Refuse and record</button> <span class="small">either way the chain records who decided, when, and on what</span></span>`;
+      return `<div class="bd-hold"><h3 class="h4">${firstPay ? 'Held for the customer: first payment under the mandate' : 'Held for a person'}</h3>${kv([['Why', why], ['Mandate', `${esc(ap.name || '')} signed version ${esc(String((x.mandate || {}).version || 1))} · up to ${gbp((ad.per_payment_limit || {}).amount)} a payment · ${gbp((ad.monthly_limit_per_account || {}).amount)} per account in 30 days · ${(ad.supplier_allowlist || []).length} payee accounts`], ['Who decides', whoDecides], ['Decision', decision]])}${confirmBox}</div>`;
     }
     async function decideHeld(auditId, decision) {
-      try { await api('POST', `/api/audit/${auditId}/decide`, { decision }); } catch (e) { alert(e.message); }
+      let out = null;
+      try { out = await api('POST', `/api/audit/${auditId}/decide`, { decision }); } catch (e) { alert(e.message); }
+      pendingDecide = null; expandedAtt = null;
+      if (out) { const done = $('bd-attention-done'); done.hidden = false; done.innerHTML = `<b>${out.outcome === 'RELEASED' ? 'Released' : 'Refused'}</b> by ${esc(out.officer)} for ${esc((out.approver || {}).name || '')} · chain entry <span class="mono">#${out.audit_id} ${esc(out.hash.slice(0, 10))}</span>, receipt signed by the bank${out.settlement ? ` · ${esc(out.settlement.rail_reason || 'executed')}` : ' · nothing moved'}. Now in recent activity, the statistics and the evidence trail.`; setTimeout(() => { done.hidden = true; }, 12000); }
       await refresh();
     }
-    document.addEventListener('click', (ev) => { const b = ev.target.closest('[data-decide]'); if (!b || b.disabled) return; ev.stopPropagation(); b.disabled = true; decideHeld(+b.dataset.audit, b.dataset.decide); });
+    document.addEventListener('click', (ev) => {
+      const arm = ev.target.closest('[data-decide]'); if (arm) { ev.stopPropagation(); pendingDecide = { audit: +arm.dataset.audit, decision: arm.dataset.decide }; expandedAtt = +arm.dataset.audit; renderDash().then(() => { const c = document.querySelector('.bd-confirm'); if (c) c.scrollIntoView({ behavior: 'smooth', block: 'center' }); }); return; }
+      const go = ev.target.closest('[data-confirm]'); if (go && !go.disabled) { ev.stopPropagation(); go.disabled = true; decideHeld(+go.dataset.audit, go.dataset.confirm); return; }
+      const cancel = ev.target.closest('[data-cancel-decide]'); if (cancel) { ev.stopPropagation(); pendingDecide = null; renderDash(); return; }
+      const all = ev.target.closest('[data-log-all]'); if (all) { ev.stopPropagation(); logAll = true; renderLog(auditRows.filter(r => r.kind === 'verify'), state.violations || []); }
+    });
     function detailHtml(r, vio) {
       const e = r.entry, i = e.instruction || {}; const env = e.presented_envelope || {};
       const trace = (e.trace || []).map(s => `<li class="${s.ok ? 'ok' : (e.decision === 'ESCALATE' && s.rule === e.rule ? 'hold' : 'fail')}"><b>${esc(s.rule)}</b> ${esc(s.title)}<span>${esc(s.note)}</span></li>`).join('');
@@ -315,7 +378,8 @@ const AP = (() => {
     }
     document.querySelectorAll('.bd-filter').forEach(bt => { bt.onclick = () => { logFilter = bt.dataset.filter; document.querySelectorAll('.bd-filter').forEach(x => x.setAttribute('aria-pressed', String(x === bt))); renderLog(auditRows.filter(r => r.kind === 'verify'), state.violations || []); }; });
     $('bd-log').addEventListener('click', async (ev) => { const b = ev.target.closest('[data-replay]'); if (!b) return; ev.stopPropagation(); const id = +b.dataset.replay; const rp = await api('POST', `/api/audit/${id}/replay`); $(`bd-replay-${id}`).innerHTML = rp.identical ? '<b class="ok">Replayed identically</b> from the stored inputs' : '<b class="bad">Replay differs</b>'; });
-    // simulated traffic: the customer's AI agent keeps paying invoices; most are fine, some are not
+    // simulated traffic: the customer's AI agent keeps paying invoices; most are fine, a few are not. Every instruction is a real
+    // verification with a chain entry; the mix is deliberately quiet so the rows on screen stay few
     async function simTick() {
       if (!$('bd-sim').checked) return;
       const pass = issued().find(x => x.status === 'active' && x.mandate_signed); if (!pass) return;
@@ -323,18 +387,18 @@ const AP = (() => {
       const roll = Math.random(); const pick = sup[Math.floor(Math.random() * sup.length)];
       const inv = () => 'INV-' + (9100 + Math.floor(Math.random() * 800));
       try {
-        if (roll < 0.62) await api('POST', '/api/agent/act', { passport_id: pass.passport_id, supplier_name: pick.name, payee_account_ref: pick.account_ref, amount: 150 + Math.floor(Math.random() * 38) * 100, invoice_ref: inv() });
-        else if (roll < 0.78) await api('POST', '/api/agent/invoice', { passport_id: pass.passport_id, invoice_id: 'INV-9001-poisoned' });
-        else if (roll < 0.88) await api('POST', '/api/agent/act', { passport_id: pass.passport_id, supplier_name: pick.name, payee_account_ref: pick.account_ref, amount: 5200 + Math.floor(Math.random() * 30) * 100, invoice_ref: inv() });
-        else if (roll < 0.95) await api('POST', '/api/agent/act', { passport_id: pass.passport_id, supplier_name: pick.name, payee_account_ref: pick.account_ref, amount: 10500 + Math.floor(Math.random() * 20) * 100, invoice_ref: inv() });
+        if (roll < 0.72) await api('POST', '/api/agent/act', { passport_id: pass.passport_id, supplier_name: pick.name, payee_account_ref: pick.account_ref, amount: 150 + Math.floor(Math.random() * 38) * 100, invoice_ref: inv() });
+        else if (roll < 0.84) await api('POST', '/api/agent/act', { passport_id: pass.passport_id, supplier_name: pick.name, payee_account_ref: pick.account_ref, amount: 10500 + Math.floor(Math.random() * 20) * 100, invoice_ref: inv() });
+        else if (roll < 0.90) await api('POST', '/api/agent/act', { passport_id: pass.passport_id, supplier_name: pick.name, payee_account_ref: pick.account_ref, amount: 5200 + Math.floor(Math.random() * 30) * 100, invoice_ref: inv() });
+        else if (roll < 0.96) await api('POST', '/api/agent/invoice', { passport_id: pass.passport_id, invoice_id: 'INV-9001-poisoned' });
         else await api('POST', '/api/agent/act', { passport_id: pass.passport_id, supplier_name: pick.name, payee_account_ref: pick.account_ref, amount: 900, invoice_ref: inv(), signer: 'rogue' });
       } catch (e) { /* the log shows what happened */ }
       await refresh();
     }
     if (mode === 'dash') {
       timer = setInterval(refresh, 5000);
-      simTimer = setInterval(simTick, 9000);
-      document.addEventListener('visibilitychange', () => { if (document.hidden) { clearInterval(timer); clearInterval(simTimer); } else { timer = setInterval(refresh, 5000); simTimer = setInterval(simTick, 9000); } });
+      simTimer = setInterval(simTick, 10000);
+      document.addEventListener('visibilitychange', () => { if (document.hidden) { clearInterval(timer); clearInterval(simTimer); } else { timer = setInterval(refresh, 5000); simTimer = setInterval(simTick, 10000); } });
     }
     function renderCase() {
       $('bk-ref').textContent = a.ref;
@@ -530,7 +594,15 @@ const AP = (() => {
     const draft = emptyDraft(); let checkTimer = null, searchTimer = null, searchSeq = 0;
     let amending = new URLSearchParams(location.search).get('amend') === '1';
     const fromMandate = (m) => { const ad = (m.authorization_details || [{}])[0]; return { per_payment_limit: (ad.per_payment_limit || {}).amount, monthly_limit_per_account: (ad.monthly_limit_per_account || {}).amount, max_payments_per_day: ad.max_payments_per_day, valid_until: m.valid_until, supplier_allowlist: (ad.supplier_allowlist || []).map(s => ({ supplier_id: s.supplier_id, name: s.name, account_ref: s.account_ref, companies_house_number: s.companies_house_number || '' })) }; };
-    let acRows = [];
+    let acRows = [], trailAll = false, knownIds = null, pendingConfirm = null, toastTimer = null;
+    let dismissed = new Set(); try { dismissed = new Set(JSON.parse(sessionStorage.getItem('ap-dismissed') || '[]')); } catch (e) { /* no storage */ }
+    const remember = () => { try { sessionStorage.setItem('ap-dismissed', JSON.stringify([...dismissed])); } catch (e) { /* no storage */ } };
+    // what matters to the customer: refusals, holds, decisions by a person, the mandate; never a routine processed payment
+    const SIG_KINDS = new Set(['decision', 'mandate', 'incident', 'lifecycle', 'issue', 'exception']);
+    const significant = (r) => r.kind === 'verify' ? (r.entry || {}).decision !== 'ALLOW' : SIG_KINDS.has(r.kind);
+    const passOf = (subject) => state.passports.find(x => x.passport_id === subject || x.passport_id === String(subject || '').replace('AG-', 'AP-')) || null;
+    const agentOf = (subject) => { const x = passOf(subject); return x ? (((x.agent_identity || {}).agent || {}).name || subject) : subject; };
+    const approverOf = (subject) => { const x = passOf(subject) || {}; return (x.mandate || {}).signed_by || (x.mandate_proposed || {}).authorising_officer || (d0.authorising_officer || {}); };
     render(); renderAccount();
     // tabs: the split view on desktop, one section at a time below 900px
     const wide = () => window.innerWidth >= 900;
@@ -538,13 +610,13 @@ const AP = (() => {
     document.querySelectorAll('.acct__tab').forEach(bt => { bt.onclick = () => setTab(bt.dataset.tab); });
     setTab(wide() ? 'live' : 'agents');
     window.addEventListener('resize', () => { const cur = document.body.dataset.actab; if (wide() && (cur === 'agents' || cur === 'trail')) setTab('live'); if (!wide() && cur === 'live') setTab('agents'); });
-    // live: the trail and the agents refresh while the page is open
-    let acTimer = setInterval(async () => { if (document.hidden) return; state = await api('GET', '/api/state'); if (p) p = state.passports.find(x => x.passport_id === p.passport_id) || p; await renderAccount(); renderCards(); }, 5000);
+    // live: the trail, the notifications and the agents refresh while the page is open
+    let acTimer = setInterval(async () => { if (document.hidden) return; state = await api('GET', '/api/state'); if (p) p = state.passports.find(x => x.passport_id === p.passport_id) || p; await renderAccount(); renderCards(); }, 3000);
 
     async function renderAccount() {
       const data = await api('GET', '/api/audit');
       const mine = data.rows.filter(r => r.subject && (r.subject.startsWith('AP-') || r.subject.startsWith('AG-'))); acRows = mine;
-      const live = mine.filter(r => r.kind === 'verify').map(r => { const e = r.entry, i = e.instruction || {}; const dd = e.decision === 'ESCALATE' ? decisionFor(r.id) : null; const moved = e.decision === 'ALLOW' || (dd && dd.entry.outcome === 'RELEASED'); const word = moved ? '' : (e.decision === 'ESCALATE' ? (dd ? 'Refused' : 'Held') : 'Refused'); return { d: r.ts, desc: `${word ? `<b class="txn-blocked">${word}</b> · ` : ''}<b class="txn-ai">AI agent</b> PayGPT 6.0 · ${esc(i.supplier_name || '')} · <span class="mono">${esc(i.payee_account_ref || '')}</span> · invoice ${esc(i.invoice_ref || '')}${word ? ` · <span class="small">${e.decision === 'ESCALATE' ? (dd ? 'by your approver' : 'for your approver') : 'Agent Passport ' + esc(e.rule)}</span>` : (dd ? ' · <span class="small">released by your approver</span>' : '')}`, out: moved ? Number(i.amount || 0) : null, blocked: !moved, ts: r.ts }; });
+      const live = mine.filter(r => r.kind === 'verify').map(r => { const e = r.entry, i = e.instruction || {}; const dd = e.decision === 'ESCALATE' ? decisionFor(r.id) : null; const moved = e.decision === 'ALLOW' || (dd && dd.entry.outcome === 'RELEASED'); const word = moved ? '' : (e.decision === 'ESCALATE' ? (dd ? 'Refused' : 'Held') : 'Refused'); const byWhom = e.code === FIRST ? 'you' : 'your approver'; return { d: r.ts, desc: `${word ? `<b class="txn-blocked">${word}</b> · ` : ''}<b class="txn-ai">AI agent</b> ${esc(agentOf(r.subject))} · ${esc(i.supplier_name || '')} · <span class="mono">${esc(i.payee_account_ref || '')}</span> · invoice ${esc(i.invoice_ref || '')}${word ? ` · <span class="small">${e.decision === 'ESCALATE' ? (dd ? 'by ' + byWhom : 'for ' + byWhom) : 'Agent Passport ' + esc(e.rule)}</span>` : (dd ? ` · <span class="small">${e.code === FIRST ? 'first payment, confirmed by you' : 'released by your approver'}</span>` : '')}`, out: moved ? Number(i.amount || 0) : null, blocked: !moved, ts: r.ts }; });
       const all = [...live, ...STATIC_TXNS.map(x => ({ ...x, ts: x.d + 'T12:00:00Z' }))].sort((a, b) => (a.ts < b.ts ? 1 : -1));
       // running balance from the opening figure, newest first
       let bal = ACCOUNT_OPENING; const spent = live.reduce((s, x) => s + (x.out || 0), 0); bal -= spent;
@@ -555,19 +627,105 @@ const AP = (() => {
         tb.append(el('tr', x.blocked ? 'txn--blocked' : null, `<td class="small">${d(x.ts)}</td><td>${x.desc.includes('<b') ? x.desc : esc(x.desc)}</td><td class="num">${x.out ? gbp2(x.out) : ''}</td><td class="num">${x.in ? gbp2(x.in) : ''}</td><td class="num small">${x.blocked ? '' : gbp2(running)}</td>`));
         if (!x.blocked) running = running + (x.out || 0) - (x.in || 0);
       }
-      trailRows($('ac-audit').querySelector('tbody'), mine.slice(0, 12));
+      const fresh = knownIds ? new Set(mine.filter(r => !knownIds.has(r.id)).map(r => r.id)) : new Set();
+      const shown = trailAll ? mine.slice(0, 60) : mine.filter(significant).slice(0, 25);
+      trailRows($('ac-audit').querySelector('tbody'), shown, { newIds: fresh });
+      $('cu-trail-toggle').textContent = trailAll ? 'Significant only' : `Show full trail (${mine.length})`;
+      $('cu-trail-hint').hidden = trailAll;
+      renderNotes(fresh);
+      knownIds = new Set(mine.map(r => r.id));
     }
     const gbp2 = (n) => '£' + Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    $('cu-trail-toggle').onclick = () => { trailAll = !trailAll; renderAccount(); };
+
+    // notifications: one sentence in the class's tone, the evidence one click away
+    function noteFor(r) {
+      const e = r.entry || {}, i = e.instruction || {}; const ag = esc(agentOf(r.subject)), sup = esc(i.supplier_name || 'a payee'), amt = gbp(i.amount); const ap = approverOf(r.subject);
+      const base = { id: 'n' + r.id, audit: r.id, subject: r.subject, ts: r.ts, vio: null };
+      if (r.kind === 'verify' && e.decision === 'DENY') {
+        const vio = (state.violations || []).find(x => x.audit_id === r.id); base.vio = vio ? vio.id : null;
+        if (classId(e.failure_class) === 'fraud') {
+          const text = e.code === 'PAYEE_NOT_ON_MANDATE' ? `${ag} tried to pay ${sup} ${amt} to an account not on your mandate. The payment was refused. Nothing left your account.`
+            : e.code === 'REPLAY_DETECTED' ? `A payment ${ag} had already made, ${sup} ${amt}, was presented again. The repeat was refused. Nothing left your account.`
+            : e.code === 'AGENT_SIGNATURE_INVALID' ? `Something presented the passport of ${ag} without its key, to pay ${sup} ${amt}. The payment was refused. Nothing left your account.`
+            : `An instruction for ${sup} ${amt} on the passport of ${ag} failed the bank's check at ${esc(e.rule)}. The payment was refused. Nothing left your account.`;
+          return { ...base, tone: 'red', label: 'Refused · fraud indicator', text, sub: 'Stopped by the bank. Recorded for its risk team; a supervisor can request the evidence.' };
+        }
+        const how = e.code === 'CURRENCY_NOT_PERMITTED' ? 'in the wrong currency' : e.code === 'OUT_OF_SCOPE' ? 'for an action it is not permitted' : e.code === 'DAILY_COUNT_EXCEEDED' ? 'past its daily count' : ['MANDATE_EXPIRED', 'MANDATE_REVOKED', 'MANDATE_NOT_SIGNED'].includes(e.code) ? 'without a mandate in force' : 'outside its limits';
+        return { ...base, tone: 'slate', label: 'Refused · agent error', text: `${ag} sent a payment ${how} (${sup}, ${amt}). It was refused. This may point to an agent quality issue worth raising with your provider.`, sub: 'Nothing left your account. A quality signal for you, not a report to anyone.' };
+      }
+      if (r.kind === 'verify' && e.decision === 'ESCALATE') {
+        if (decisionFor(r.id)) return null;   // the decision entry tells the story
+        if (e.code === FIRST) return { ...base, tone: 'amber', label: 'Your confirmation needed', first: true, text: `${ag} is about to make its first payment under mandate version ${esc(String(e.instruction ? ((passOf(r.subject) || {}).mandate || {}).version || 1 : 1))}: ${sup} ${amt}. Review and confirm it before it goes.`, sub: 'One confirmation for the first payment; after it, payments inside the mandate flow on their own.' };
+        return { ...base, tone: 'amber', label: 'Held', text: `A payment above your approval threshold is waiting for ${esc(ap.name || 'your approver')}.`, sub: `${sup}, ${amt}, held at the bank. Nothing moves until ${esc(ap.name || 'your approver')} decides.` };
+      }
+      if (r.kind === 'decision') {
+        const name = esc(((e.decided_by || e.approver) || {}).name || 'your approver'); const released = e.outcome === 'RELEASED';
+        if (e.first_payment) return { ...base, tone: 'slate', label: released ? 'First payment confirmed' : 'First payment refused', text: released ? `${name} confirmed the first payment under mandate version ${esc(String(e.mandate_version || 1))}: ${sup} ${amt} was paid. Payments inside the mandate now flow without confirmation.` : `${name} refused the first payment under this mandate (${sup} ${amt}). Nothing left your account; the next attempt will ask again.`, sub: 'Recorded in the evidence chain with a receipt signed by the bank.' };
+        return { ...base, tone: 'slate', label: released ? 'Released by approver' : 'Refused by approver', text: released ? `${name} released the held payment of ${amt} to ${sup}.` : `${name} refused the held payment of ${amt} to ${sup}. Nothing left your account.`, sub: `Recorded as ${esc(e.officer || '')} in the evidence chain.` };
+      }
+      if (r.kind === 'mandate') {
+        if (e.revoked) return { ...base, tone: 'amber', label: 'Mandate revoked', text: `You revoked the mandate for ${ag}. It can no longer pay; the bank refuses from the next instruction.`, sub: 'The signed versions stay on record.' };
+        if ((e.version || 1) > 1) return { ...base, tone: 'slate', label: 'Mandate amended', text: `You amended the mandate for ${ag}: version ${esc(String(e.version))} is in force. Its first payment under this version will wait for your confirmation.`, sub: (e.changes || []).map(c => c.added ? `added ${esc(c.added.name)}` : c.removed ? `removed ${esc(c.removed.name)}` : `${esc(c.field.replace(/_/g, ' '))} ${esc(String(c.from))} to ${esc(String(c.to))}`).join(', ') || 'no field changed' };
+        return null;
+      }
+      if (r.kind === 'incident') return { ...base, tone: 'red', label: 'Incident', text: `The bank raised an incident on ${ag} after ${esc(String(e.denies))} refused instructions.`, sub: 'Its payments risk team is looking. Nothing left your account.' };
+      if (r.kind === 'lifecycle') return { ...base, tone: 'amber', label: 'Passport status', text: `${esc(e.event)}${e.reason ? ': ' + esc(e.reason) : ''}.`, sub: `By ${esc(e.officer || 'the bank')}.` };
+      return null;
+    }
+    function allNotes() {
+      const notes = acRows.filter(significant).map(noteFor).filter(Boolean);
+      // expiring soon is a state, not an event: read off the passport
+      const soon = new Date(Date.now() + 14 * 864e5).toISOString().slice(0, 10);
+      state.passports.filter(x => x.mandate_signed && !x.mandate_revoked_at && (x.mandate_proposed || {}).valid_until && x.mandate_proposed.valid_until <= soon).forEach(x => notes.push({ id: 'exp' + x.passport_id, subject: x.passport_id, ts: new Date().toISOString(), tone: 'amber', label: 'Mandate expiring', text: `The mandate for ${esc(agentOf(x.passport_id))} expires on ${d(x.mandate_proposed.valid_until)}.`, sub: 'Amend it to extend; nothing changes until you do.' }));
+      return notes.sort((a, b) => (a.ts < b.ts ? 1 : -1));
+    }
+    function renderNotes(fresh) {
+      const visible = allNotes().filter(n => !dismissed.has(n.id));
+      const box = $('cu-notify'); box.hidden = !visible.length;
+      $('cu-notify-meta').textContent = visible.length ? `${visible.length} item${visible.length === 1 ? '' : 's'}` : '';
+      const ol = $('cu-notes'); ol.innerHTML = '';
+      visible.slice(0, 4).forEach(n => {
+        const li = el('li', `cu-note cu-note--${n.tone}${fresh && fresh.has(n.audit) ? ' is-new' : ''}`, `<div class="cu-note__head"><span class="tag tag--${n.tone === 'red' ? 'red' : n.tone === 'amber' ? 'amber' : 'grey'}">${esc(n.label)}</span><span class="mono small">${t(n.ts)}</span></div><p class="cu-note__text">${n.text}</p><p class="small cu-note__sub">${n.sub || ''}</p><div class="cu-note__links">${n.first ? `<button class="btn btn--small" type="button" data-review="${n.audit}">${pendingConfirm === n.audit ? 'Hide the review' : 'Review and confirm'}</button>` : ''}${n.audit ? `<a href="#ev-${n.audit}" data-ev="${n.audit}">See the evidence</a>` : ''}${n.vio ? ` · <a href="/api/evidence/violations/${n.vio}" target="_blank" rel="noopener">evidence bundle</a>` : ''}${n.first ? '' : ` · <button class="link" type="button" data-dismiss="${esc(n.id)}">Dismiss</button>`}</div>${n.first && pendingConfirm === n.audit ? confirmHtml(n) : ''}`);
+        li.dataset.subject = n.subject || ''; ol.append(li);
+      });
+      $('cu-notify-more').textContent = visible.length > 4 ? `and ${visible.length - 4} more in the evidence trail` : '';
+      // a toast for what just arrived, the newest one
+      const arrived = fresh && fresh.size ? visible.find(n => fresh.has(n.audit)) : null;
+      if (arrived) { const tst = $('cu-toast'); tst.className = `cu-toast cu-toast--${arrived.tone}`; tst.innerHTML = `<b>${esc(arrived.label)}</b> ${arrived.text}`; tst.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { tst.hidden = true; }, 8000); }
+    }
+    function confirmHtml(n) {
+      const r = acRows.find(x => x.id === n.audit); if (!r) return ''; const i = r.entry.instruction || {}; const x = passOf(r.subject) || {}; const m = x.mandate || {}; const ap = approverOf(r.subject);
+      const sup = ((m.authorization_details || [{}])[0].supplier_allowlist || []).find(sp => sp.account_ref === i.payee_account_ref) || {};
+      const kv = (pairs) => `<dl class="kv">${pairs.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('')}</dl>`;
+      return `<div class="cu-confirm" role="group" aria-label="Review and confirm the first payment"><h3 class="h4">Review and confirm the first payment under this mandate</h3>${kv([['AI agent', `${esc(agentOf(r.subject))} · <span class="mono">${esc(r.subject)}</span>`], ['Payee', `${esc(i.supplier_name || '')} · <span class="mono">${esc(i.payee_account_ref || '')}</span>${sup.register_check && sup.register_check.found ? ` · ${esc(sup.register_check.legal_name)}, checked against the public register` : ''}`], ['Amount', `<b>${gbp(i.amount)}</b> ${esc(i.currency || 'GBP')}${i.invoice_ref ? ` · invoice <span class="mono">${esc(i.invoice_ref)}</span>` : ''}`], ['Mandate', `version ${esc(String(m.version || 1))}, signed by ${esc(ap.name || '')} · up to ${gbp(((m.authorization_details || [{}])[0].per_payment_limit || {}).amount)} a payment`], ['Checks', 'passed R.1 to R.8 at the bank; held at R.9 for this confirmation only']])}<div class="actions"><button class="btn" type="button" data-first="confirm" data-audit="${r.id}">Confirm and pay</button><button class="btn btn--secondary" type="button" data-first="refuse" data-audit="${r.id}">Not this one</button><span class="actions__note">Recorded in the evidence chain as ${esc(ap.name || '')}, ${esc(ap.role || '')}. After this, payments inside the mandate need no confirmation.</span></div><p class="error" id="cu-first-error" hidden></p></div>`;
+    }
+    $('cu-notes').addEventListener('click', async (ev) => {
+      const rv = ev.target.closest('[data-review]'); if (rv) { pendingConfirm = pendingConfirm === +rv.dataset.review ? null : +rv.dataset.review; renderNotes(); return; }
+      const dm = ev.target.closest('[data-dismiss]'); if (dm) { dismissed.add(dm.dataset.dismiss); remember(); renderNotes(); renderCards(); return; }
+      const evl = ev.target.closest('[data-ev]'); if (evl) { ev.preventDefault(); if (!wide()) setTab('trail'); let row = document.getElementById('ev-' + evl.dataset.ev); if (!row) { trailAll = true; await renderAccount(); row = document.getElementById('ev-' + evl.dataset.ev); } if (row) { row.scrollIntoView({ behavior: 'smooth', block: 'center' }); row.classList.add('is-spot'); setTimeout(() => row.classList.remove('is-spot'), 2500); } return; }
+      const fp = ev.target.closest('[data-first]'); if (fp && !fp.disabled) {
+        fp.disabled = true;
+        try { const out = await api('POST', `/api/audit/${fp.dataset.audit}/confirm-first`, { decision: fp.dataset.first }); pendingConfirm = null; const tst = $('cu-toast'); tst.className = 'cu-toast cu-toast--slate'; tst.innerHTML = out.outcome === 'RELEASED' ? `<b>Confirmed.</b> ${gbp((out.settlement || {}).amount || (acRows.find(x => x.id === +fp.dataset.audit) || { entry: { instruction: {} } }).entry.instruction.amount)} is on its way. Payments inside the mandate now flow without confirmation; you hear about anything that matters.` : '<b>Refused.</b> Nothing left your account. The next attempt will ask again.'; tst.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { tst.hidden = true; }, 9000); }
+        catch (e) { const er = $('cu-first-error'); if (er) { er.textContent = e.message; er.hidden = false; } fp.disabled = false; return; }
+        state = await api('GET', '/api/state'); if (p) p = state.passports.find(x => x.passport_id === p.passport_id) || p; await renderAccount(); renderCards();
+      }
+    });
 
     function renderCards() {
       const box = $('cu-agents'); box.innerHTML = '';
+      const notes = allNotes().filter(n => !dismissed.has(n.id));
       state.passports.forEach(x => {
         const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}, ad = (((x.mandate || mp).authorization_details) || [{}])[0];
         const tot = Object.values(x.ledger || {}).reduce((s, y) => s + y.total, 0);
         const summary = x.mandate_signed ? `up to ${gbp((ad.per_payment_limit || {}).amount)} a payment · ${gbp((ad.monthly_limit_per_account || {}).amount)} per supplier account in 30 days · ${ad.max_payments_per_day || '?'} payments a day · ${esc(ad.currency || 'GBP')} only · valid to ${esc(mp.valid_until || '')} · ${(ad.supplier_allowlist || []).length} permitted supplier accounts` : 'mandate not signed yet';
         const vio = (state.violations || []).filter(y => y.passport_id === x.passport_id); const errs = vio.filter(y => y.failure_class !== 'fraud').length, fr = vio.filter(y => y.failure_class === 'fraud').length;
         const held = acRows.filter(r => r.kind === 'verify' && r.subject === x.passport_id && r.entry.decision === 'ESCALATE' && !decisionFor(r.id)).length;
-        box.append(el('div', 'cu-card' + (x.passport_id === (p || {}).passport_id ? ' cu-card--current' : ''), `<div class="cu-card__head"><a href="/customer?ref=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a>${x.status === 'pending' ? tag('unsigned', 'awaiting your signature') : tag(x.status, x.status)}</div><div class="cu-card__line">${esc(ag.product_name || '')} by ${esc(ag.provider || '')} ${levelTag(((x.admission || {}).assurance_evidence || {}).level)} · <span class="mono">${esc(x.passport_id)}</span> · paid ${gbp(tot)} in 30 days</div><div class="cu-card__line small">${summary}</div><div class="cu-card__line small">${x.mandate_revoked_at ? `${tag('revoked', 'mandate revoked')} ${t(x.mandate_revoked_at)}` : x.mandate_signed ? `mandate version ${x.mandate_version || 1} · <a href="/customer?ref=${esc(x.passport_id)}&amend=1">Amend mandate</a> · <button class="link" type="button" data-revoke="${esc(x.passport_id)}">Revoke mandate</button>` : ''}</div><div class="cu-card__line small cu-card__counts">paid this month <b class="mono">${gbp(tot)}</b> in <b class="mono">${x.payments || 0}</b> payments · held <b class="mono">${held}</b> · refused <b class="mono">${vio.length}</b>${vio.length ? ` (${errs} your agent's error${errs === 1 ? '' : 's'}${fr ? `, ${fr} fraud indicator${fr === 1 ? '' : 's'} stopped by the bank` : ''})` : ''}</div>`));
+        const mine = notes.filter(n => n.subject === x.passport_id || String(n.subject || '').replace('AG-', 'AP-') === x.passport_id);
+        const tone = mine.some(n => n.tone === 'red') ? 'red' : mine.some(n => n.tone === 'amber') ? 'amber' : 'slate';
+        const badge = mine.length ? `<span class="cu-badge cu-badge--${tone}" title="${mine.length} notification${mine.length === 1 ? '' : 's'} for this agent">${mine.length}</span>` : '';
+        const trust = x.mandate_signed && !x.mandate_revoked_at ? (x.first_payment_confirmed ? `<span class="tag tag--green">first payment confirmed</span>` : `<span class="tag tag--amber">first payment awaits your confirmation</span>`) : '';
+        box.append(el('div', 'cu-card' + (x.passport_id === (p || {}).passport_id ? ' cu-card--current' : ''), `<div class="cu-card__head"><span>${badge}<a href="/customer?ref=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a></span>${x.status === 'pending' ? tag('unsigned', 'awaiting your signature') : tag(x.status, x.status)}</div><div class="cu-card__line">${esc(ag.product_name || '')} by ${esc(ag.provider || '')} ${levelTag(((x.admission || {}).assurance_evidence || {}).level)} · <span class="mono">${esc(x.passport_id)}</span> · paid ${gbp(tot)} in 30 days</div><div class="cu-card__line small">${summary}</div><div class="cu-card__line small">${x.mandate_revoked_at ? `${tag('revoked', 'mandate revoked')} ${t(x.mandate_revoked_at)}` : x.mandate_signed ? `mandate version ${x.mandate_version || 1} ${trust} · <a href="/customer?ref=${esc(x.passport_id)}&amend=1">Amend mandate</a> · <button class="link" type="button" data-revoke="${esc(x.passport_id)}">Revoke mandate</button>` : ''}</div><div class="cu-card__line small cu-card__counts">paid this month <b class="mono">${gbp(tot)}</b> in <b class="mono">${x.payments || 0}</b> payments · held <b class="mono">${held}</b> · refused <b class="mono">${vio.length}</b>${vio.length ? ` (${errs} your agent's error${errs === 1 ? '' : 's'}${fr ? `, ${fr} fraud indicator${fr === 1 ? '' : 's'} stopped by the bank` : ''})` : ''}</div>`));
       });
       if (!state.passports.length) box.append(el('p', 'small', 'No AI agent yet.'));
     }
@@ -760,9 +918,10 @@ const AP = (() => {
       const rails = r.rails && (reg !== 'active' || (rv && rv.status === 'REVOKED')) ? `<span>passport list <b class="${reg !== 'active' ? 'fail' : ''}">${esc(reg)}</b> · vouch rail <b class="${rv.status === 'REVOKED' ? 'fail' : ''}">${esc(rv.status || 'none')}</b>${reg !== 'active' && rv.status === 'REVOKED' ? ' · one action by the bank, two rails refuse' : ''}</span>` : '';
       const settle = r.settlement ? `<span class="ok">${esc(r.settlement.rail_reason)}</span>` : '';
       const vio = r.violation ? `<span>violation #${r.violation.id} recorded ${esc(r.violation.status)} · ${classTag(r.failure_class)} <a href="/bank">→ Bank dashboard</a></span>` : '';
+      const held = r.decision === 'ESCALATE' ? (r.code === FIRST ? `<span class="hold">held for the customer: the first payment under this mandate version is confirmed once, in its banking app <a href="/customer?ref=${esc(r.passport_id || (p || {}).passport_id || '')}">→ Customer dashboard</a></span>` : `<span class="hold">held for the customer's named approver; the bank's officer records the decision <a href="/bank">→ Bank dashboard</a></span>`) : '';
       const inc = r.incident ? `<span class="fail"><b>INCIDENT</b> raised to the payments risk team · ${r.incident.denies} refused instructions <a href="/bank">→ Bank console</a></span>` : '';
       gVerdict.className = 'g__verdict g__verdict--' + r.decision; gWrap.dataset.decision = r.decision;
-      gVerdict.innerHTML = `<span class="g-word">${r.decision}</span><span class="g-cite">${cite}</span><span class="g-reason">${esc(r.reason)}</span><span class="g-notes">${settle}${rails}${vio}${inc}<span class="tm-dim">${sig}receipt signed by the bank · evidence #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> <a href="/audit">→ Evidence trail</a></span></span>`;
+      gVerdict.innerHTML = `<span class="g-word">${r.decision}</span><span class="g-cite">${cite}</span><span class="g-reason">${esc(r.reason)}</span><span class="g-notes">${settle}${held}${rails}${vio}${inc}<span class="tm-dim">${sig}receipt signed by the bank · evidence #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> <a href="/audit">→ Evidence trail</a></span></span>`;
       judgment.classList.remove('is-live');
     }
     function logLine(b, r, k) {
@@ -867,7 +1026,7 @@ const AP = (() => {
     const acct = (x) => x ? `<span class="mono">${esc(x)}</span>` : '';
     switch (r.kind) {
       case 'verify': return e.decision === 'ALLOW' ? `${statusChip(r)} ${esc(i.supplier_name || '')} · <span class="mono">${gbp(i.amount)}</span>` : e.decision === 'ESCALATE' ? `${statusChip(r)} at ${esc(e.rule)} · ${esc(i.supplier_name || '')} · <span class="mono">${gbp(i.amount)}</span>` : `${statusChip(r)} at ${esc(e.rule)} ${esc(e.code)} · ${esc(i.supplier_name || '')} ${acct(i.payee_account_ref)} · <span class="mono">${gbp(i.amount)}</span>`;
-      case 'decision': return `<b class="${e.outcome === 'RELEASED' ? 'ok' : 'hold'}">Held payment ${e.outcome === 'RELEASED' ? 'released' : 'refused'} by approver</b> · ${esc(i.supplier_name || '')} · <span class="mono">${gbp(i.amount)}</span> · ${esc(e.officer || '')} · ${esc(e.reason || '')}`;
+      case 'decision': return e.first_payment ? `<b class="${e.outcome === 'RELEASED' ? 'ok' : 'hold'}">First payment under mandate version ${esc(String(e.mandate_version || 1))} ${e.outcome === 'RELEASED' ? 'confirmed' : 'refused'} by the customer</b> · ${esc(i.supplier_name || '')} · <span class="mono">${gbp(i.amount)}</span> · ${esc(e.officer || '')}` : `<b class="${e.outcome === 'RELEASED' ? 'ok' : 'hold'}">Held payment ${e.outcome === 'RELEASED' ? 'released' : 'refused'} by approver</b> · ${esc(i.supplier_name || '')} · <span class="mono">${gbp(i.amount)}</span> · ${esc(e.officer || '')} · ${esc(e.reason || '')}`;
       case 'intent': return `Intent declared before reading: pay ${esc(e.supplier_name || '')} to ${acct(e.declared_payee)}`;
       case 'agent': return e.attempted_payee ? (e.matches_intent ? `AI agent read the invoice: ${acct(e.attempted_payee)}, as declared` : `AI agent read the invoice: ${acct(e.attempted_payee)}, not the declared ${acct(e.declared_payee)}`) : 'Customer registered its AI agent: key generated, possession proven';
       case 'incident': return `<b class="bad">Incident raised</b> · ${e.denies} refusals`;
@@ -888,7 +1047,7 @@ const AP = (() => {
   }
   function trailRows(tbody, rows, opts = {}) {
     tbody.innerHTML = '';
-    rows.forEach(r => tbody.append(el('tr', null, `<td class="mono small">${t(r.ts)}</td><td>${plainEvent(r)}</td>${opts.subject ? `<td class="mono small">${esc(r.subject || '')}</td>` : ''}<td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`)));
+    rows.forEach(r => { const tr = el('tr', opts.newIds && opts.newIds.has(r.id) ? 'is-new' : null, `<td class="mono small">${t(r.ts)}</td><td>${plainEvent(r)}</td>${opts.subject ? `<td class="mono small">${esc(r.subject || '')}</td>` : ''}<td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`); tr.id = 'ev-' + r.id; tbody.append(tr); });
     if (!rows.length) tbody.append(el('tr', null, `<td colspan="${opts.subject ? 4 : 3}" class="empty-row">Nothing recorded yet.</td>`));
   }
   async function audit() {
@@ -949,7 +1108,7 @@ const AP = (() => {
       document.addEventListener('click', (e) => { if (!mp.hidden && !e.target.closest('#menu-panel, #menu-toggle')) close(); });
     }
     const rb = $('demo-reset');
-    if (rb) rb.onclick = async () => { if (confirm('Reset the demo to its baseline? Everything is deleted, then one AI product is filed on the register, admitted by the bank, and the customer mandate signed, so one passport is ACTIVE with a three-line history: one payment made, its replay refused, one wrong-currency instruction refused.')) { rb.disabled = true; rb.textContent = 'seeding…'; await api('POST', '/api/demo/seed?stage=history'); location.href = '/terminal'; } };
+    if (rb) rb.onclick = async () => { if (confirm('Reset the demo to its baseline? Everything is deleted, then one AI product is filed on the register, admitted by the bank, and the customer mandate signed, so one passport is ACTIVE with a short history: the first payment confirmed by the customer, one payment made, its replay refused, one wrong-currency instruction refused, one payment held for the approver.')) { rb.disabled = true; rb.textContent = 'seeding…'; await api('POST', '/api/demo/seed?stage=history'); location.href = '/terminal'; } };
   });
 
   return { home, provider, bank, customer, console: console_, audit };

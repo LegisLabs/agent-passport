@@ -26,8 +26,9 @@ def client():
         yield c
 
 
-def issue_one(client, sign_mandate=True):
-    """Drive the whole path: the provider files an AI product → the bank admits it → the customer registers its AI agent (→ signs the mandate)."""
+def issue_one(client, sign_mandate=True, prime=True):
+    """Drive the whole path: the provider files an AI product → the bank admits it → the customer registers its AI agent (→ signs the mandate
+    → confirms the first payment under it, so the rest of the test exercises the autonomous path)."""
     a = client.post("/api/registrations").json()
     assert a["ref"].startswith("REG-2026-") and a["entry_mode"] == "form"
     a = client.post(f"/api/registrations/{a['id']}/prefill").json()
@@ -43,7 +44,19 @@ def issue_one(client, sign_mandate=True):
     if sign_mandate:
         p = client.post(f"/api/passports/{p['passport_id']}/mandate/sign").json()
         assert p["passport_id"].startswith("AP-2026-") and p["status"] == "active" and p["envelope"]["admission"] and p["vouch_voucher_id"]   # signing issues the passport and mints the voucher
+        if prime:
+            prime_first_payment(client, p["passport_id"])
     return p, a
+
+
+def prime_first_payment(client, pid, supplier=("Coastline Glass Ltd", "20-13-57 77665544"), amount=10):
+    """Graduated trust: the first in-mandate payment under a mandate version is held at R.9 until the customer reviews and
+    confirms it in its bank app. Confirm a small one so later payments in the test flow without a person."""
+    r = act(client, pid, {"action_type": "pay_invoice", "supplier_name": supplier[0], "payee_account_ref": supplier[1], "amount": amount, "invoice_ref": "FIRST"})
+    assert r["decision"] == "ESCALATE" and r["rule"] == "R.9" and r["code"] == "FIRST_PAYMENT_CONFIRMATION_REQUIRED", r
+    c = client.post(f"/api/audit/{r['audit_id']}/confirm-first", json={"decision": "confirm"}).json()
+    assert c["outcome"] == "RELEASED" and c["settlement"]["settled"], c
+    return c
 
 
 @pytest.fixture(scope="module")
@@ -124,7 +137,7 @@ def test_ledger_limit_in_mandate_total_at_bank(client):
     decisions = [act(client, pid, fen)["decision"] for _ in range(5)]
     assert decisions == ["ALLOW", "ALLOW", "ALLOW", "ALLOW", "DENY"]  # 19,600 allowed, 24,500 refused
     full = client.get(f"/api/passports/{pid}").json()
-    assert full["ledger"]["60-11-22 10101010"]["total"] == 19600 and full["payments"] == 4
+    assert full["ledger"]["60-11-22 10101010"]["total"] == 19600 and full["payments"] == 5   # four to Fenwick plus the confirmed first payment
     # another account is unaffected
     assert act(client, pid, {**fen, "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455"})["decision"] == "ALLOW"
 
@@ -148,6 +161,8 @@ def test_customer_signature_completes_envelope(client):
     r = act(client, pid, fen); assert r["rule"] == "R.1" and r["code"] == "PASSPORT_NOT_ISSUED"
     pid = client.post(f"/api/passports/{pid}/mandate/sign").json()["passport_id"]
     assert pid.startswith("AP-2026-") and client.get(f"/api/passports/{pid}").json()["verification"]["ok"] is True
+    first = act(client, pid, fen); assert first["decision"] == "ESCALATE" and first["code"] == "FIRST_PAYMENT_CONFIRMATION_REQUIRED"   # the first payment waits for the customer
+    assert client.post(f"/api/audit/{first['audit_id']}/confirm-first", json={"decision": "confirm"}).json()["outcome"] == "RELEASED"
     assert act(client, pid, fen)["decision"] == "ALLOW"
     assert client.post(f"/api/passports/{pid}/mandate/sign").status_code == 400
 
@@ -534,6 +549,7 @@ def test_customer_mandate_is_gated_only_by_ceiling_containment(client):
     # the bank enforces the customer's tighter limit, not the ceiling
     r = act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 8000})
     assert r["rule"] == "R.7"
+    prime_first_payment(client, pid)
     assert act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Delta Fixings Ltd", "payee_account_ref": "40-40-40 12121212", "amount": 900})["decision"] == "ALLOW"
     # the register never had the mandate content in the registration
     a = client.get("/api/state").json()["registrations"][0]
@@ -563,8 +579,8 @@ def test_demo_seed_history_puts_both_refusal_classes_on_the_log(client):
     """stage=history: one payment executed, its byte-for-byte replay refused at R.4 (fraud indicator), one USD instruction
     refused at R.6 (agent error). The nonce is recorded with the refusal so the evidence names what was replayed."""
     r = client.post("/api/demo/seed?stage=history").json()
-    assert [h["decision"] for h in r["history"]] == ["ALLOW", "DENY", "DENY", "ESCALATE"]
-    assert r["history"][1]["code"] == "REPLAY_DETECTED" and r["history"][2]["code"] == "CURRENCY_NOT_PERMITTED"
+    assert [h["decision"] for h in r["history"]] == ["ESCALATE", "RELEASED", "ALLOW", "DENY", "DENY", "ESCALATE"]
+    assert r["history"][0]["code"] == "FIRST_PAYMENT_CONFIRMATION_REQUIRED" and r["history"][3]["code"] == "REPLAY_DETECTED" and r["history"][4]["code"] == "CURRENCY_NOT_PERMITTED"
     st = client.get("/api/state").json()
     classes = sorted(v["failure_class"] for v in st["violations"])
     assert classes == ["agent_error", "fraud"], classes
@@ -582,7 +598,7 @@ def test_demo_seed_history_puts_both_refusal_classes_on_the_log(client):
 def test_product_revoke_cascades_to_passports_and_passport_revoke_is_unchanged(client):
     p1, a = issue_one(client)
     p2 = client.post("/api/agents", json={"registration_id": a["id"]}).json()
-    p2 = client.post(f"/api/passports/{p2['passport_id']}/mandate/sign").json()
+    p2 = client.post(f"/api/passports/{p2['passport_id']}/mandate/sign").json(); prime_first_payment(client, p2["passport_id"])
     ok = {"action_type": "pay_invoice", "supplier_name": "Ashby Ironmongery Ltd", "payee_account_ref": "30-98-76 22334455", "amount": 900}
     assert act(client, p1["passport_id"], ok)["decision"] == "ALLOW" and act(client, p2["passport_id"], ok)["decision"] == "ALLOW"
     r = client.post(f"/api/registrations/{a['id']}/admission/status", json={"status": "suspended", "reason": "model card inaccurate"}).json()
@@ -699,7 +715,7 @@ def test_held_payment_is_decided_by_a_named_person_and_recorded_in_the_chain(cli
     assert d2["outcome"] == "REFUSED" and d2["settlement"] is None
     assert client.get(f"/api/passports/{pid}").json()["payments"] == before + 1
     st = client.get("/api/state").json()
-    assert [x["entry"]["outcome"] for x in st["decisions"]] == ["REFUSED", "RELEASED"]
+    assert [x["entry"]["outcome"] for x in st["decisions"]] == ["REFUSED", "RELEASED", "RELEASED"]   # the seeded first-payment confirmation is the oldest
     assert st["decisions"][0]["entry"]["reason"] == "held payment refused by approver"
 
 
@@ -713,7 +729,8 @@ def _current_mandate_body(p: dict) -> dict:
 def test_mandate_amendment_is_a_new_version_enforced_at_once(client):
     r = client.post("/api/demo/seed?stage=issued").json(); pid = r["passport_id"]
     p = client.get(f"/api/passports/{pid}").json()
-    assert p["mandate_version"] == 1 and p["mandate_versions"] == []
+    assert p["mandate_version"] == 1 and p["mandate_versions"] == [] and p["first_payment_confirmed"] is False
+    prime_first_payment(client, pid)
     ok = client.post("/api/agent/act", json={"passport_id": pid, "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 3200, "invoice_ref": "FT-1042"}).json()
     assert ok["decision"] == "ALLOW"
     body = _current_mandate_body(p); body["per_payment_limit"] = 3000
@@ -725,6 +742,7 @@ def test_mandate_amendment_is_a_new_version_enforced_at_once(client):
     assert {"field": "per_payment_limit", "from": 10000.0, "to": 3000.0} in row["entry"]["changes"]
     deny = client.post("/api/agent/act", json={"passport_id": pid, "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 3200, "invoice_ref": "FT-1043"}).json()
     assert deny["decision"] == "DENY" and deny["rule"] == "R.7", "the newest version is enforced immediately"
+    assert client.get(f"/api/passports/{pid}").json()["first_payment_confirmed"] is False, "an amended mandate asks for its first payment to be confirmed again"
     assert client.get("/api/audit").json()["chain"]["ok"]
     # over-ceiling amendment refused with the problems named
     bad = dict(body); bad["per_payment_limit"] = 12000
@@ -751,3 +769,52 @@ def test_company_search_by_name_returns_number_name_and_status(client):
     assert r["mode"] in ("demo", "live") and r["items"] and r["items"][0]["number"] == "04471982" and r["items"][0]["legal_name"] and r["items"][0]["status"]
     assert "synthetic" in r["items"][0]["source"] or "live" in r["items"][0]["source"], "the source is always labelled"
     assert client.get("/api/companies/search?q=").json()["items"] == []
+
+
+# ── The human in the loop: the first payment under a mandate, and the bank's statistics seam ──
+def test_first_payment_under_a_mandate_is_confirmed_once_by_the_customer(client):
+    """Graduated trust: a person at the mandate, a person at the first payment, a person at the threshold, autonomy in between."""
+    p, _ = issue_one(client, prime=False); pid = p["passport_id"]
+    assert client.get(f"/api/passports/{pid}").json()["first_payment_confirmed"] is False
+    fen = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 3200, "invoice_ref": "FT-F1"}
+    held = act(client, pid, fen)
+    assert held["decision"] == "ESCALATE" and held["rule"] == "R.9" and held["code"] == "FIRST_PAYMENT_CONFIRMATION_REQUIRED" and held["settlement"] is None
+    assert [s["ok"] for s in held["trace"]][:8] == [True] * 8, "the eight checks before it all pass; only the first-payment hold stops it"
+    assert client.get(f"/api/passports/{pid}").json()["payments"] == 0, "nothing moved"
+    # the bank's officer cannot decide it; the customer can refuse it, and the next attempt asks again
+    assert client.post(f"/api/audit/{held['audit_id']}/decide", json={"decision": "release"}).status_code == 400
+    d = client.post(f"/api/audit/{held['audit_id']}/confirm-first", json={"decision": "refuse"}).json()
+    assert d["outcome"] == "REFUSED" and d["settlement"] is None and d["decided_by"]["name"] == "Helen Marsh"
+    assert client.post(f"/api/audit/{held['audit_id']}/confirm-first", json={"decision": "confirm"}).status_code == 400, "decided once"
+    again = act(client, pid, {**fen, "invoice_ref": "FT-F2"}); assert again["code"] == "FIRST_PAYMENT_CONFIRMATION_REQUIRED"
+    c = client.post(f"/api/audit/{again['audit_id']}/confirm-first", json={"decision": "confirm"}).json()
+    assert c["outcome"] == "RELEASED" and c["settlement"]["settled"] and c["mandate_version"] == 1 and c["receipt"]
+    row = client.get("/api/audit").json()["rows"][0]
+    assert row["kind"] == "decision" and row["entry"]["first_payment"] is True and row["entry"]["held_audit_id"] == again["audit_id"] and "Helen Marsh" in row["entry"]["officer"]
+    assert client.get(f"/api/passports/{pid}").json()["first_payment_confirmed"] is True and client.get(f"/api/passports/{pid}").json()["payments"] == 1
+    # from here, in-mandate payments flow without a person; the replay of the held instruction is still refused (its nonce was spent)
+    assert act(client, pid, {**fen, "invoice_ref": "FT-F3"})["decision"] == "ALLOW"
+    assert client.post("/api/agent/replay", json={"passport_id": pid}).json()["code"] == "REPLAY_DETECTED"
+    # the held decision replays identically from its stored inputs
+    assert client.post(f"/api/audit/{held['audit_id']}/replay").json()["identical"] is True
+    assert client.get("/api/audit").json()["chain"]["ok"]
+
+
+def test_release_by_the_named_approver_counts_as_the_first_confirmation(client):
+    p, _ = issue_one(client, prime=False); pid = p["passport_id"]
+    big = act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Coastline Glass Ltd", "payee_account_ref": "20-13-57 77665544", "amount": 5600, "invoice_ref": "CG-F"})
+    assert big["code"] == "HUMAN_CONFIRMATION_REQUIRED", "above the hold condition takes precedence: the named approver decides"
+    assert client.post(f"/api/audit/{big['audit_id']}/decide", json={"decision": "release"}).json()["outcome"] == "RELEASED"
+    assert client.get(f"/api/passports/{pid}").json()["first_payment_confirmed"] is True
+    assert act(client, pid, {"action_type": "pay_invoice", "supplier_name": "Coastline Glass Ltd", "payee_account_ref": "20-13-57 77665544", "amount": 200, "invoice_ref": "CG-G"})["decision"] == "ALLOW"
+
+
+def test_opening_statistics_are_totals_with_a_stated_seam(client):
+    st = client.get("/api/state").json(); o = st["opening"]
+    assert o["processed"] >= 1000 and o["value_gbp"] > o["processed"] and o["label"].startswith("the bank's agent channel")
+    assert set(o) >= {"processed", "value_gbp", "held", "refused_fraud", "refused_agent_error", "agents_on_list", "period"}
+    assert "_comment" not in o
+    # the session's rows are the real ones: the seed's history is exactly what the chain holds, no filler
+    r = client.post("/api/demo/seed?stage=history").json()
+    verifies = [x for x in client.get("/api/audit").json()["rows"] if x["kind"] == "verify"]
+    assert len(verifies) == 5 and len(client.get("/api/state").json()["payments"]) == 2

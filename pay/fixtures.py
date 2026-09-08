@@ -10,6 +10,15 @@ def register_entries() -> list[dict]:
     return json.loads((config.FIXTURES_DIR / "register.json").read_text())["products"]
 
 
+def opening_stats() -> dict:
+    """Totals carried forward from before the session (synthetic), for the bank's statistics. Numbers, never rows: the
+    console shows only this session's instructions and says so next to the counters."""
+    import json
+    d = json.loads((config.FIXTURES_DIR / "opening_stats.json").read_text())
+    d.pop("_comment", None)
+    return d
+
+
 FENWICK = "60-11-22 10101010"
 ASHBY = "30-98-76 22334455"
 COASTLINE = "20-13-57 77665544"
@@ -24,8 +33,8 @@ INVOICE_TASKS = {
 # The expert console beats, in demo order. `signer` = agent (bound key) or rogue (copied passport).
 # `repeat` fires the same instruction up to N times and stops at the first non-ALLOW.
 BEATS = [
-    {"n": 1, "label": "Pay Fenwick Timber Ltd · invoice FT-1042 · £3,200", "hint": "on the allowlist, within every limit",
-     "action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": FENWICK, "amount": 3200, "invoice_ref": "FT-1042", "signer": "agent", "expect": "ALLOW"},
+    {"n": 1, "label": "Pay Fenwick Timber Ltd · invoice FT-1042 · £3,200", "hint": "on the allowlist, within every limit; the first payment under a new mandate version is held once for the customer's confirmation",
+     "action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": FENWICK, "amount": 3200, "invoice_ref": "FT-1042", "signer": "agent", "expect": "ALLOW · ESCALATE R.9 once, the first payment under a new mandate"},
     {"n": 2, "label": "Pay Fenwick Timber Ltd · invoice FT-1043 · £2,750 · account 60-11-22 99887766", "hint": "same supplier name, different account: invoice redirection fraud",
      "action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 99887766", "amount": 2750, "invoice_ref": "FT-1043", "signer": "agent", "expect": "DENY R.6"},
     {"n": 3, "label": "Pay Ashby Ironmongery Ltd · invoice AI-3310 · £12,000", "hint": "above the £10,000 per-payment limit",

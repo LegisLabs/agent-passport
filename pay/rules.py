@@ -178,7 +178,8 @@ def request_signing_input(req: dict) -> bytes:
     return crypto.canonical(body).encode()
 
 
-def verify_action(envelope: dict, passport_status: str, req: dict, ledger_total: float = 0.0, today: date | None = None, nonce_seen: bool = False, daily_count: int = 0) -> dict:
+def verify_action(envelope: dict, passport_status: str, req: dict, ledger_total: float = 0.0, today: date | None = None, nonce_seen: bool = False, daily_count: int = 0,
+                  first_under_mandate: bool = False) -> dict:
     """Ordered checks at the bank, deny by default.
 
     envelope         {admission, agent_identity, mandate} compact JWTs (mandate may be null)
@@ -187,6 +188,7 @@ def verify_action(envelope: dict, passport_status: str, req: dict, ledger_total:
     ledger_total     the bank's executed total for this payee account in the trailing 30 days
     nonce_seen       whether the bank has already accepted an instruction with this nonce on this passport
     daily_count      the bank's count of executed payments on this passport in the trailing 24 hours
+    first_under_mandate  the bank has not yet executed a customer-confirmed payment under this mandate version
     """
     today = today or date.today()
     trace: list[dict] = []
@@ -297,6 +299,10 @@ def verify_action(envelope: dict, passport_status: str, req: dict, ledger_total:
     if thr is not None and amount > float(thr):
         step("R.9", False, f"£{amount:,.0f} above the £{float(thr):,.0f} hold condition")
         return _result("R.9", "ESCALATE", _rule("R.9")["code"], f"£{amount:,.0f} exceeds the bank's £{float(thr):,.0f} hold condition; held for the customer's named approver", trace)
+    if first_under_mandate:
+        ver = int((mandate or {}).get("version", 1) or 1)
+        step("R.9", False, f"£{amount:,.0f} within the hold condition; first payment under mandate version {ver}, held for the customer's confirmation")
+        return _result("R.9", "ESCALATE", "FIRST_PAYMENT_CONFIRMATION_REQUIRED", f"first payment under mandate version {ver}: the customer reviews and confirms it once; later payments inside the mandate flow without a person", trace)
     step("R.9", True, f"£{amount:,.0f} within the hold condition")
     out = _result("R.9", "ALLOW", "WITHIN_MANDATE", "within the customer-signed mandate and the bank's admission conditions", trace)
     out["chain"] = chain

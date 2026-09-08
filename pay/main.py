@@ -125,6 +125,7 @@ def state():
             "vouch_mode": vouch.mode(), "payment_rail": vouch.rail(),
             "mandate_draft": mandate_draft(), "agent_draft": agent_draft(), "policy": {k: pol[k] for k in ("per_payment_ceiling_gbp", "monthly_per_account_ceiling_gbp", "max_validity", "action_types", "currency", "hold_above_gbp", "min_insurance_cover_gbp", "velocity_ceiling_per_day", "assurance_levels", "min_assurance_level_for_admission", "account_tiers", "customer_classes")},
             "failure_classes": rules.pack().get("failure_classes", {}), "planned_fields": rules.pack().get("planned_fields", []), "companies_house_mode": companies_house.mode(),
+            "opening": fixtures.opening_stats(),
             "cast": {"bank": config.BANK, "officer": config.BANK_OFFICER, "team": config.BANK_TEAM, "customer": config.CUSTOMER, "provider": config.PROVIDER, "register": config.REGISTER_NAME, "supervisor": config.SUPERVISOR},
             "delegation_chain": config.DELEGATION_CHAIN == "on", "delegation_max_gbp": config.DELEGATION_MAX_GBP, "chain_beats": fixtures.CHAIN_BEATS, "chain_rules": rules.pack().get("chain_rules", [])}
 
@@ -166,6 +167,7 @@ def public_passport(p: dict) -> dict:
     p["envelope"] = envelope_of(p)
     p["mandate_signed"] = bool(p.get("mandate_jwt")) and not p.get("mandate_revoked_at")
     p["mandate_version"] = (p.get("mandate") or {}).get("version", 1) if p.get("mandate_jwt") else None
+    p["first_payment_confirmed"] = bool(p.get("mandate_jwt")) and p.get("first_confirmed_version") == p["mandate_version"]
     p["payments"] = db.count_payments(p["passport_id"])
     p["ledger"] = db.ledger_totals(p["passport_id"])
     return p
@@ -906,6 +908,13 @@ class VerifyIn(BaseModel):
         return {k: v for k, v in flat.items() if v is not None}
 
 
+def first_under_mandate(p: dict | None) -> bool:
+    """Graduated trust: the bank has not yet executed a customer-confirmed payment under the current mandate version."""
+    if not p or not p.get("mandate_jwt") or p.get("mandate_revoked_at"):
+        return False
+    return p.get("first_confirmed_version") != int((p.get("mandate") or {}).get("version", 1) or 1)
+
+
 @app.post("/api/verify")
 def verify(body: VerifyIn):
     """The bank's gateway. Envelope (presented or fetched by id) + signed instruction + passport status +
@@ -919,10 +928,11 @@ def verify(body: VerifyIn):
     ledger_total = db.ledger_total(body.passport_id, str(req.get("payee_account_ref") or ""))
     seen = db.nonce_seen(body.passport_id, req.get("nonce"))
     daily = db.daily_count(body.passport_id)
-    res = rules.verify_action(env, pp_status, req, ledger_total, nonce_seen=seen, daily_count=daily)
+    first = first_under_mandate(p)
+    res = rules.verify_action(env, pp_status, req, ledger_total, nonce_seen=seen, daily_count=daily, first_under_mandate=first)
     fclass = rules.classify_refusal(res["code"]) if res["decision"] == "DENY" else None
     entry = {"event": "verification", "passport_id": body.passport_id, "instruction": req, "passport_status": pp_status, "presented_envelope": env,
-             "ledger_total_before": ledger_total, "daily_count_before": daily, "nonce_seen_before": seen, "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req)),
+             "ledger_total_before": ledger_total, "daily_count_before": daily, "nonce_seen_before": seen, "first_under_mandate_before": first, "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req)),
              "decision": res["decision"], "rule": res["rule"], "code": res["code"], "reason": res["reason"], "failure_class": fclass["id"] if fclass else None, "trace": res["trace"], "rule_pack": res["rule_pack"]}
     rec = audit.record("verify", body.passport_id, entry, receipt_for={"passport_id": body.passport_id, "decision": res["decision"], "rule": res["rule"], "code": res["code"], "instruction_hash": entry["instruction_hash"]})
     r4 = next((t for t in res["trace"] if t["rule"] == "R.4"), None)
@@ -985,6 +995,8 @@ def decide_held(audit_id: int, body: DecideIn):
         _400("only a held instruction can be decided")
     if held_decision(audit_id):
         _400("this held instruction has already been decided")
+    if e["entry"].get("code") == "FIRST_PAYMENT_CONFIRMATION_REQUIRED":
+        _400("the first payment under a mandate is confirmed by the customer in its bank app, not decided here")
     if body.decision not in ("release", "refuse"):
         _400("decision must be release or refuse")
     p = db.get_passport(e["subject"]) or _404()
@@ -1001,9 +1013,54 @@ def decide_held(audit_id: int, body: DecideIn):
     rec = audit.record("decision", e["subject"], entry, receipt_for={"passport_id": e["subject"], "decision": outcome, "held_audit_id": audit_id, "instruction_hash": entry["instruction_hash"]})
     out = {"audit_id": rec["id"], "hash": rec["hash"], "receipt": rec["receipt"], "outcome": outcome, "held_audit_id": audit_id, "officer": entry["officer"], "approver": entry["approver"], "settlement": None}
     if outcome == "RELEASED":
-        s = vouch.settle_payment(req)
-        pay = db.insert_payment(e["subject"], str(req.get("payee_account_ref")), float(req.get("amount") or 0), str(req.get("currency") or "GBP"), req.get("invoice_ref"), rec["id"], s["rail"], s.get("ref"))
-        out["settlement"] = {**s, "payment_id": pay["id"]}
+        out["settlement"] = _execute_held(e["subject"], req, rec["id"])
+        if first_under_mandate(p):   # a named approver releasing the first payment is the customer's confirmation of it
+            db.set_first_confirmed(e["subject"], int((p.get("mandate") or {}).get("version", 1) or 1))
+    return out
+
+
+def _execute_held(passport_id: str, req: dict, decision_audit_id: int) -> dict:
+    """A held instruction, now decided by a person, moves the money: settled on the rail and written to the bank's ledger."""
+    s = vouch.settle_payment(req)
+    pay = db.insert_payment(passport_id, str(req.get("payee_account_ref")), float(req.get("amount") or 0), str(req.get("currency") or "GBP"), req.get("invoice_ref"), decision_audit_id, s["rail"], s.get("ref"))
+    return {**s, "payment_id": pay["id"]}
+
+
+class ConfirmFirstIn(BaseModel):
+    decision: str            # confirm | refuse
+    note: str | None = None
+
+
+@app.post("/api/audit/{audit_id}/confirm-first")
+def confirm_first(audit_id: int, body: ConfirmFirstIn):
+    """Graduated trust, the second person. The first instruction under a freshly signed or amended mandate is held at R.9
+    (FIRST_PAYMENT_CONFIRMATION_REQUIRED) until the customer reviews it in its bank app: the agent, the payee, the amount.
+    Confirming executes it and records the mandate version as confirmed, so later in-mandate payments flow without a
+    person. Refusing records the refusal; the next attempt asks again. Either way a chain entry names who decided."""
+    e = db.get_audit(audit_id) or _404()
+    if e["kind"] != "verify" or e["entry"].get("decision") != "ESCALATE" or e["entry"].get("code") != "FIRST_PAYMENT_CONFIRMATION_REQUIRED":
+        _400("only the first payment under a mandate can be confirmed here")
+    if held_decision(audit_id):
+        _400("this first payment has already been decided")
+    if body.decision not in ("confirm", "refuse"):
+        _400("decision must be confirm or refuse")
+    p = db.get_passport(e["subject"]) or _404()
+    if p["status"] != "active" or not p.get("mandate_jwt") or p.get("mandate_revoked_at"):
+        _400("the passport or its mandate is no longer in force")
+    req = e["entry"]["instruction"]
+    version = int((p.get("mandate") or {}).get("version", 1) or 1)
+    signer = (p.get("mandate") or {}).get("signed_by") or (p.get("mandate_proposed") or {}).get("authorising_officer") or {}
+    outcome = "RELEASED" if body.decision == "confirm" else "REFUSED"
+    entry = {"event": f"first payment under mandate version {version} {'confirmed' if outcome == 'RELEASED' else 'refused'} by the customer",
+             "first_payment": True, "mandate_version": version, "held_audit_id": audit_id, "outcome": outcome, "instruction": req, "instruction_hash": e["entry"].get("instruction_hash"),
+             "rule": e["entry"].get("rule"), "code": e["entry"].get("code"), "decided_by": {"name": signer.get("name"), "role": signer.get("role"), "party": config.CUSTOMER},
+             "officer": f"{signer.get('name')}, {signer.get('role')} ({config.CUSTOMER})", "approver": {"name": signer.get("name"), "role": signer.get("role")},
+             "reason": body.note or ("first payment under this mandate reviewed and confirmed by the customer" if outcome == "RELEASED" else "first payment under this mandate refused by the customer")}
+    rec = audit.record("decision", e["subject"], entry, receipt_for={"passport_id": e["subject"], "decision": outcome, "held_audit_id": audit_id, "instruction_hash": entry["instruction_hash"], "first_payment": True})
+    out = {"audit_id": rec["id"], "hash": rec["hash"], "receipt": rec["receipt"], "outcome": outcome, "held_audit_id": audit_id, "mandate_version": version, "decided_by": entry["decided_by"], "settlement": None}
+    if outcome == "RELEASED":
+        out["settlement"] = _execute_held(e["subject"], req, rec["id"])
+        db.set_first_confirmed(e["subject"], version)
     return out
 
 
@@ -1016,7 +1073,7 @@ def replay(audit_id: int):
     e = r["entry"]
     day = date.fromisoformat(e["ts"][:10])
     res = rules.verify_action(e["presented_envelope"], e.get("passport_status", e.get("registry_status", "unknown")), e["instruction"], e.get("ledger_total_before", 0.0), today=day,
-                              nonce_seen=bool(e.get("nonce_seen_before")), daily_count=int(e.get("daily_count_before") or 0))
+                              nonce_seen=bool(e.get("nonce_seen_before")), daily_count=int(e.get("daily_count_before") or 0), first_under_mandate=bool(e.get("first_under_mandate_before")))
     same = res["decision"] == e["decision"] and res["rule"] == e["rule"] and res["code"] == e["code"]
     return {"audit_id": audit_id, "original": {"decision": e["decision"], "rule": e["rule"], "code": e["code"]}, "replay": {"decision": res["decision"], "rule": res["rule"], "code": res["code"]}, "identical": same, "rule_pack": res["rule_pack"]}
 
@@ -1088,8 +1145,9 @@ def reset():
 def demo_seed(stage: str = "issued"):
     """Restore the exact pre-demo baseline between takes. stage=registered: the product is filed on the register and the bank's
     review has run, ready for the officer. stage=issued (default): admitted, customer mandate signed, passport ACTIVE,
-    no payments, no violations. stage=history: issued, then one payment, its replay refused, one wrong-currency instruction
-    refused, one instruction held above the hold condition, so both refusal classes and a held payment are on the log.
+    no payments, no violations. stage=history: issued, then the first payment held and confirmed by the customer, one payment
+    executed, its replay refused, one wrong-currency instruction refused, one instruction held above the hold condition, so
+    both refusal classes, the customer's first-payment confirmation and a held payment are on the log.
     Deterministic: fixture values, the customer's draft mandate, the default hold condition."""
     if stage not in ("registered", "issued", "history"):
         _400("stage must be registered, issued or history")
@@ -1114,10 +1172,14 @@ def demo_seed(stage: str = "issued"):
         # currency (refused at R.6, an agent error). Coastline Glass, £600, so the terminal's Fenwick totals are untouched.
         coastline = next(s for s in p["mandate"]["authorization_details"][0]["supplier_allowlist"] if "Coastline" in s["name"])
         first = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=600, invoice_ref="CG-0860"))
+        confirmed = confirm_first(first["audit_id"], ConfirmFirstIn(decision="confirm"))   # the customer reviews and confirms the first payment under the mandate
+        paid = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=450, invoice_ref="CG-0862"))
         replayed = agent_replay(ReplayIn(passport_id=pid))
         usd = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=600, currency="USD", invoice_ref="CG-0861"))
         held = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=5600, invoice_ref="CG-0871"))
-        out["history"] = [{"event": "paid", "decision": first["decision"]}, {"event": "replayed", "decision": replayed["decision"], "rule": replayed["rule"], "code": replayed["code"]},
+        out["history"] = [{"event": "first_held", "decision": first["decision"], "rule": first["rule"], "code": first["code"], "audit_id": first["audit_id"]},
+                          {"event": "first_confirmed", "decision": confirmed["outcome"], "audit_id": confirmed["audit_id"]},
+                          {"event": "paid", "decision": paid["decision"]}, {"event": "replayed", "decision": replayed["decision"], "rule": replayed["rule"], "code": replayed["code"]},
                           {"event": "usd", "decision": usd["decision"], "rule": usd["rule"], "code": usd["code"]}, {"event": "held", "decision": held["decision"], "rule": held["rule"], "audit_id": held["audit_id"]}]
     out["audit_entries"] = len(db.list_audit())
     return out

@@ -17,6 +17,13 @@
   </nav>
 </div>
 
+<section class="cu-notify" id="cu-notify" hidden aria-label="Notifications" aria-live="polite">
+  <h2 class="ws-h">Needs your attention <span class="ws-h__meta" id="cu-notify-meta"></span></h2>
+  <ol class="cu-notes" id="cu-notes"></ol>
+  <p class="small" id="cu-notify-more"></p>
+</section>
+<div class="cu-toast" id="cu-toast" hidden role="status"></div>
+
 <div class="cu-split" id="ac-live">
   <div class="cu-split__agents glass" id="ac-agents">
     <h2 class="ws-h">AI agents</h2>
@@ -34,8 +41,9 @@
     </div>
   </div>
   <div class="cu-split__trail glass" id="ac-trail">
-    <h2 class="ws-h">Evidence trail <span class="ws-h__meta"><a href="/audit">full trail</a></span></h2>
+    <h2 class="ws-h">Evidence trail <span class="ws-h__meta"><button class="link" type="button" id="cu-trail-toggle">Show full trail</button> · <a href="/audit">chain</a></span></h2>
     <p class="small bd-legend" id="cu-legend"></p>
+    <p class="small bd-legend" id="cu-trail-hint">What mattered, most recent first: refusals, holds, decisions by a person, the mandate. Routine payments sit in Transactions and in the full trail.</p>
     <div class="cu-trail-wrap"><table class="checks audit" id="ac-audit"><thead><tr><th>Time</th><th>What happened</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
   </div>
 </div>
@@ -90,7 +98,7 @@
   </div>
   <p class="error" id="cu-error" hidden></p>
   <div id="cu-versions" hidden></div>
-  <div class="notice" id="cu-after" hidden><p>Your AI agent is live. Watch it pay, and watch an altered invoice get refused, in the <a href="/terminal">Action Terminal</a>.</p></div>
+  <div class="notice" id="cu-after" hidden><p>Your AI agent is live. Its first payment under this mandate will wait here for you to review and confirm; after that, payments inside the mandate need nobody. Watch it pay, and watch an altered invoice get refused, in the <a href="/terminal">Action Terminal</a>.</p></div>
   <details class="jwt" id="cu-jwt-wrap" hidden>
     <summary>Signed mandate (JWT, EdDSA / Ed25519, {{ customer }} key; OAuth 2.0 RFC 9396 authorization_details)</summary>
     <pre class="code" id="cu-jwt-payload"></pre>

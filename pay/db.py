@@ -106,6 +106,7 @@ _MIGRATIONS = [
     "ALTER TABLE violations ADD COLUMN failure_class TEXT",   # fraud | agent_error
     "ALTER TABLE passports ADD COLUMN mandate_versions_json TEXT",   # superseded and revoked mandate versions, retained
     "ALTER TABLE passports ADD COLUMN mandate_revoked_at TEXT",
+    "ALTER TABLE passports ADD COLUMN first_confirmed_version INTEGER",   # the mandate version whose first payment the customer has confirmed
 ]
 
 
@@ -311,6 +312,13 @@ def revoke_mandate(passport_id: str) -> dict:
         prev = {"version": (p.get("mandate") or {}).get("version", 1), "jwt": p.get("mandate_jwt"), "mandate": p.get("mandate"), "signed_at": p.get("mandate_signed_at"), "revoked_at": now_iso()}
         con.execute("UPDATE passports SET mandate_revoked_at=?, mandate_versions_json=? WHERE passport_id=?",
                     (now_iso(), json.dumps((p.get("mandate_versions") or []) + [prev]), passport_id))
+        return get_passport(passport_id, con)
+
+
+def set_first_confirmed(passport_id: str, version: int) -> dict:
+    """The customer confirmed the first payment under this mandate version; later payments inside it need no person."""
+    with tx() as con:
+        con.execute("UPDATE passports SET first_confirmed_version=? WHERE passport_id=?", (int(version), passport_id))
         return get_passport(passport_id, con)
 
 

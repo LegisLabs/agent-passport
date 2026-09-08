@@ -6,7 +6,7 @@
 <div id="bk-dash" hidden>
   <div class="bd-head">
     <h1 class="h1 h1--ws">Bank dashboard</h1>
-    <div class="bd-live"><span class="live-dot" aria-hidden="true"></span><span id="bd-live-label">Live</span><label class="bd-sim"><input type="checkbox" id="bd-sim" checked> simulated traffic</label></div>
+    <div class="bd-live"><span class="live-dot" aria-hidden="true"></span><span id="bd-live-label">Live</span><label class="bd-sim"><input type="checkbox" id="bd-sim" checked> simulated traffic</label><label class="bd-sim" title="each arriving instruction shows its checks ticking through before the status lands; untick for instant"><input type="checkbox" id="bd-pace" checked> paced arrivals</label></div>
   </div>
   <div class="todo" id="bk-todo" hidden></div>
   <section class="bd-panel bd-attention" id="bd-attention" role="region" aria-label="Needs attention">
@@ -14,30 +14,34 @@
     <p class="small bd-legend" id="bd-legend"></p>
     <div class="dash-wrap"><table class="dash bd-att" id="bd-attention-list"><thead><tr><th>Time</th><th>AI agent</th><th>Payee</th><th class="num">Amount</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
     <p class="small bd-attention__empty" id="bd-attention-empty" hidden>Nothing needs attention. All AI agent payments inside mandate.</p>
+    <p class="small bd-done" id="bd-attention-done" hidden></p>
     <p class="small" id="bd-attention-more"></p>
   </section>
   <section class="bd-panel bd-summary" aria-labelledby="bd-summary-h">
-    <h2 class="ws-h" id="bd-summary-h">Today at a glance</h2>
+    <h2 class="ws-h" id="bd-summary-h">At a glance <span class="ws-h__meta">the agent channel, all customers</span></h2>
     <ul class="stats bd-tiles" id="bk-stats"></ul>
+    <p class="small bd-seam" id="bd-seam"></p>
   </section>
+
+  <section class="bd-panel bd-stats" id="bd-stats" aria-labelledby="bd-stats-h">
+    <h2 class="ws-h" id="bd-stats-h">Statistics <span class="ws-h__meta" id="bd-stats-meta">this session</span></h2>
+    <ul class="stats bd-tiles bd-tiles--small" id="bd-stats-totals"></ul>
+    <div class="chartbox chartbox--stats"><h3 class="chart__title">Payment volume this session, £ per minute</h3><div class="chartbox__canvas"><canvas id="chart-volume" aria-label="Payment volume over the session"></canvas></div></div>
+    <div class="dash-wrap"><table class="dash bd-stats__agents" id="bd-stats-agents"><thead><tr><th>AI agent</th><th class="num">Payments</th><th class="num">Value</th><th class="num">Held</th><th class="num">Refused, fraud</th><th class="num">Refused, error</th></tr></thead><tbody></tbody></table></div>
+    <p class="small bd-stats__note">These figures are the bank's own operational view. A supervisor sees evidence per incident on request, not this dashboard.</p>
+  </section>
+
   <div class="bd-cols">
     <div class="bd-col glass">
       <h2 class="ws-h">Active AI agents</h2>
       <div id="bk-agents"></div>
     </div>
-    <div class="bd-col bd-col--log glass">
-      <h2 class="ws-h">Transaction log</h2>
+    <div class="bd-col bd-col--log glass" id="bd-recent">
+      <h2 class="ws-h"><span id="bd-log-title">Recent activity</span> <span class="ws-h__meta"><button class="link" type="button" id="bd-log-toggle">Full log</button></span></h2>
+      <p class="small bd-legend" id="bd-log-hint">The last few instructions, every one of them real. Volume lives in the numbers above; anything that needs a person is in Needs attention.</p>
       <div class="dash-wrap"><table class="dash bd-log" id="bd-log"><thead><tr><th>Time</th><th>Status</th><th>Payee</th><th class="num">Amount</th><th>Rule</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
     </div>
   </div>
-
-  <section class="bd-panel bd-stats" id="bd-stats" aria-labelledby="bd-stats-h">
-    <h2 class="ws-h" id="bd-stats-h">Statistics <span class="ws-h__meta">this demo session</span></h2>
-    <ul class="stats bd-tiles" id="bd-stats-totals"></ul>
-    <div class="chartbox chartbox--stats"><h3 class="chart__title">Payment volume over the session, £ per minute</h3><div class="chartbox__canvas"><canvas id="chart-volume" aria-label="Payment volume over the session"></canvas></div></div>
-    <div class="dash-wrap"><table class="dash bd-stats__agents" id="bd-stats-agents"><thead><tr><th>AI agent</th><th class="num">Payments</th><th class="num">Value</th><th class="num">Held</th><th class="num">Refused, fraud</th><th class="num">Refused, error</th></tr></thead><tbody></tbody></table></div>
-    <p class="small bd-stats__note">These figures are the bank's own operational view. A supervisor sees evidence per incident on request, not this dashboard.</p>
-  </section>
 
   <details class="bd-more">
     <summary>Admissions, the register and supervisory access</summary>

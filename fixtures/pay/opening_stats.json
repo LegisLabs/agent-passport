@@ -1,0 +1,13 @@
+{
+ "_comment": "The bank's agent channel before this demo session: totals carried forward, never rows. Synthetic. Shown on the bank statistics with the seam stated: these are totals across every AI agent on the bank's list from the start of the month to the moment the demo was seeded; the rows on the console are this session's only.",
+ "label": "the bank's agent channel, all customers, 1 September to the start of this session",
+ "period": {"from": "2026-09-01", "to": "session start"},
+ "agents_on_list": 38,
+ "processed": 1846,
+ "value_gbp": 2418300,
+ "held": 23,
+ "held_released": 19,
+ "held_refused": 4,
+ "refused_fraud": 7,
+ "refused_agent_error": 41
+}

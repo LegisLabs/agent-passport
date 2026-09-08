@@ -1,5 +1,5 @@
 {
-  "id": "payments-2026.09.5",
+  "id": "payments-2026.09.6",
   "title": "Agent Passport rule pack, B2B payment initiation (APS 1001 revision 3, bank-first)",
   "jurisdiction": "United Kingdom (proposed industry standard; no current legal requirement)",
   "register": "agent-passport-register-demo",
@@ -265,12 +265,16 @@
     },
     {
       "id": "R.9",
-      "title": "Bank hold condition: amount above hold_above is held for the customer's named approver",
+      "title": "Bank hold conditions: an amount above hold_above is held for the customer's named approver; the first payment under a mandate version is held for the customer's own confirmation",
       "status": "PROTOTYPE",
-      "source": "Admission condition set by the bank's payments risk officer",
-      "data": "envelope.admission + instruction",
+      "source": "Admission condition set by the bank's payments risk officer; graduated trust: a person at the mandate, at the first payment, at the threshold, autonomy in between",
+      "data": "envelope.admission + instruction + the bank's record of confirmed mandate versions",
       "on_fail": "ESCALATE",
-      "code": "HUMAN_CONFIRMATION_REQUIRED"
+      "code": "HUMAN_CONFIRMATION_REQUIRED",
+      "codes": [
+        "HUMAN_CONFIRMATION_REQUIRED",
+        "FIRST_PAYMENT_CONFIRMATION_REQUIRED"
+      ]
     }
   ],
   "failure_classes": {
