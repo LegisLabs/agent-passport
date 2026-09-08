@@ -369,7 +369,6 @@ body[data-view="customer"] ::-webkit-scrollbar-track, body[data-view="bank"] ::-
   .fx-hello { font-size: 1.375rem; }
   .fx .acct__tab--desktop { display: none; }
   .fx .acct__tab--mobile { display: inline-block; }
-  body[data-actab="agents"] .fx-col--right, body[data-actab="agents"] .fx-col--mid, body[data-actab="trail"] .fx-col--left, body[data-actab="trail"] .fx-col--mid { display: none; }
   body[data-view="customer"] .shell, body[data-view="bank"] .shell { padding: 14px 0 24px; }
 }
 @media (max-width: 640px) {
@@ -413,3 +412,64 @@ body[data-view="customer"] ::-webkit-scrollbar-track, body[data-view="bank"] ::-
 .fx #bk-supervisory > p { display: none; }
 .fx .fx-channel .bd-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); }
 @media (max-width: 899px) { .fx { min-height: 0; } .fx-col { display: grid; } }
+
+/* ── more concise still ── */
+.fx #fx-stats-range, .fx #bd-stats-totals li:nth-child(1), .fx #bk-supervisory > p, .fx #au-evidence { display: none; }
+.fx .bd-log tr.bd-log__row > td:nth-child(3) .mono.small, .fx .bd-att tr.bd-att__row td:nth-child(3) .mono.small { display: none; }
+.fx #au-table tbody tr:nth-child(n+11) { display: none; }
+.fx .bd-trail__wrap { max-height: none; }
+.fx .cu-note__text { font-size: .8125rem; }
+.fx .fx-channel .bd-tiles li:nth-child(2) { min-height: 110px; }
+.fx .bd-stats .chartbox { height: 170px; } .fx .bd-stats .chartbox__canvas { height: 140px; }
+.fx .fx-chart { height: 170px; }
+.fx .ws-h__meta { font-size: .75rem; }
+
+/* ── structure pass: the bank's at-a-glance without the dark card; tidy tables; the expanded record as a readable stack ── */
+.fx .fx-channel .bd-tiles li:nth-child(2), .fx .fx-channel .bd-tiles li:nth-child(2)::before { background: var(--fx-tint); color: var(--fx-ink); box-shadow: none; min-height: 0; padding: 14px 16px; }
+.fx .fx-channel .bd-tiles li:nth-child(2)::before, .fx .fx-channel .bd-tiles li:nth-child(2)::after { content: none; display: none; }
+.fx .fx-channel .bd-tiles li:nth-child(2) b { font-size: 1.75rem; color: var(--fx-ink); }
+.fx .fx-channel .bd-tiles li:nth-child(2) span { color: var(--fx-ink-2); }
+/* tables: one line per row, ellipsis where a cell would wrap */
+.fx .bd-log tr.bd-log__row > td:nth-child(2) { white-space: nowrap; }
+.fx .bd-log tr.bd-log__row > td:nth-child(3), .fx .bd-att tr.bd-att__row td:nth-child(2), .fx .bd-att tr.bd-att__row td:nth-child(3) { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 16rem; }
+.fx .bd-att tr.bd-att__row td:nth-child(2) { max-width: 14rem; }
+.fx .bd-log tr.bd-log__row > td:nth-child(5) { color: var(--fx-ink-2); }
+.fx .bd-log tr.bd-log__row > td:nth-child(5) .rule { color: var(--fx-ink); }
+.fx .bd-log tr.bd-log__row > td, .fx .bd-att tr.bd-att__row td { vertical-align: middle; }
+/* the expanded record: three stacked sections, labels in a fixed column, every value wraps */
+.fx .bd-detail td { padding: 16px 18px 18px; }
+.fx .bd-detail__grid { display: grid; grid-template-columns: minmax(0, 1fr); gap: 18px; }
+.fx .bd-detail__grid > div { min-width: 0; }
+.fx .bd-detail__grid .h4 { font-size: .7rem; font-weight: 700; letter-spacing: .05em; text-transform: uppercase; color: var(--fx-ink-3); margin: 0 0 6px; }
+.fx .bd-detail__grid .kv { margin: 0; }
+.fx .bd-detail__grid .kv div { display: grid; grid-template-columns: 9rem minmax(0, 1fr); gap: 0 12px; padding: 5px 0; border-bottom: 1px solid var(--fx-line); font-size: .8125rem; }
+.fx .bd-detail__grid .kv dt { color: var(--fx-ink-2); }
+.fx .bd-detail__grid .kv dd { margin: 0; overflow-wrap: anywhere; min-width: 0; }
+.fx .bd-detail__grid .kv .mono { font-size: .78rem; }
+.fx .bd-trace { margin: 0; padding: 0; list-style: none; }
+.fx .bd-trace li { display: grid; grid-template-columns: 3.2rem minmax(0, 1fr); gap: 0 8px; padding: 6px 0; border-bottom: 1px solid var(--fx-line); font-size: .8125rem; line-height: 1.4; color: var(--fx-ink); }
+.fx .bd-trace li b { font-weight: 700; color: var(--fx-ink-2); white-space: nowrap; }
+.fx .bd-trace li.ok b::after { content: " ✓"; color: var(--fx-green); } .fx .bd-trace li.fail b::after { content: " ✗"; color: var(--fx-red); } .fx .bd-trace li.hold b::after { content: " ⏸"; color: var(--fx-amber); }
+.fx .bd-trace li span { grid-column: 2; display: block; color: var(--fx-ink-2); font-size: .78rem; overflow-wrap: anywhere; }
+.fx .bd-trace li.fail, .fx .bd-trace li.fail span { color: var(--fx-red); } .fx .bd-trace li.hold, .fx .bd-trace li.hold span { color: var(--fx-amber); }
+.fx .bd-verdict { margin: 12px 0 0; padding: 10px 14px; border-radius: 12px; border: 1px solid var(--fx-line-2); background: #fff; font-size: .8125rem; }
+.fx .bd-verdict b { letter-spacing: .04em; }
+.fx .bd-verdict span { display: block; margin-top: 3px; color: var(--fx-ink-2); font-size: .78rem; overflow-wrap: anywhere; }
+.fx .bd-hold { margin-top: 12px; padding-top: 10px; }
+.fx .bd-hold .h4 { text-transform: none; letter-spacing: 0; font-size: .875rem; color: var(--fx-ink); }
+.fx .bd-hold .kv div { grid-template-columns: 7rem minmax(0, 1fr); }
+.fx .bd-detail .actions { margin-top: 12px; }
+.fx .bd-detail .actions .btn { flex: 0 0 auto; }
+.fx .bd-log .bd-detail > td, .fx .bd-att .bd-detail > td { white-space: normal; }
+.fx .bd-detail__grid .kv dd .mono, .fx .bd-detail__grid .kv dd .small { white-space: normal; }
+/* needs attention: name and amount on the first line, payee on the second, status and action on the third */
+.fx .bd-att tr.bd-att__row { grid-template-columns: minmax(0, 1fr) auto; grid-template-areas: "agent amount" "payee payee" "status act"; }
+.fx .bd-att tr.bd-att__row td:nth-child(2), .fx .bd-att tr.bd-att__row td:nth-child(3) { max-width: none; }
+.fx .bd-att tr.bd-att__row td:nth-child(5) { text-align: left; margin-top: 6px; }
+.fx .bd-att tr.bd-att__row td:nth-child(6) { justify-content: flex-end; margin-top: 6px; }
+.fx .bd-att tr.bd-att__row td:nth-child(6) .small { display: none; }
+/* still: no simulated traffic by default, no pulse */
+.fx .live-dot, .fx-icon .live-dot { animation: none; box-shadow: none; }
+.fx-icon .live-dot { display: none; }
+/* no section bar on the customer dashboard either: one overview, every column shown at every width */
+.fx .fx-nav.acct__tabs { display: none; }

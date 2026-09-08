@@ -264,7 +264,7 @@ const AP = (() => {
         const nv = viol.filter(y => y.passport_id === x.passport_id); const last = lastBy[x.passport_id];
         const first = x.mandate_signed && !x.first_payment_confirmed ? ' · <span class="hold">first payment awaits the customer</span>' : '';
         const card = el('div', 'agent-row', `<div class="agent-row__head"><a href="/bank?passport=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a>${tag(x.status)}</div>
-          <div class="small">${esc((mp.customer || {}).legal_name || '')} · ${esc(ag.product_name || '')} by ${esc(ag.provider || '')} · up to ${gbp(per)} a payment</div>
+          <div class="small">${esc((mp.customer || {}).legal_name || '')} · up to ${gbp(per)} a payment</div>
           <div class="small agent-row__counts">processed <b class="mono">${x.payments || 0}</b> · held <b class="mono">${verifies.filter(r => r.subject === x.passport_id && r.entry.decision === 'ESCALATE' && !decisionFor(r.id)).length}</b> · refused <b class="mono">${nv.length}</b>${nv.filter(y => y.failure_class === 'fraud').length ? ` (<span class="bad">${nv.filter(y => y.failure_class === 'fraud').length} fraud</span>)` : ''}${first} · <a href="/bank?passport=${esc(x.passport_id)}">manage</a></div>`);
         box.append(card);
       });
@@ -295,7 +295,7 @@ const AP = (() => {
     function renderStats(verifies, viol, live) {
       const pays = state.payments || []; const value = pays.reduce((s, x) => s + Number(x.amount || 0), 0); const o = state.opening || {};
       const held = verifies.filter(r => r.entry.decision === 'ESCALATE').length, nFraud = viol.filter(x => x.failure_class === 'fraud').length, nErr = viol.filter(x => x.failure_class !== 'fraud').length;
-      $('bd-stats-meta').textContent = `this session · ${verifies.length} instruction${verifies.length === 1 ? '' : 's'}, every one a row below`;
+      $('bd-stats-meta').textContent = `this session · ${verifies.length} instruction${verifies.length === 1 ? '' : 's'}`;
       $('bd-stats-totals').innerHTML = [[num(verifies.length), 'Instructions'], [num(pays.length), 'Processed'], [gbp(value), 'Value processed'], [num(held), 'Held'], [num(nFraud), 'Refused, fraud indicator'], [num(nErr), 'Refused, agent error']].map(([n, l]) => `<li><b class="mono">${n}</b><span>${l}</span></li>`).join('');
       // volume per minute across the session, from the first instruction to now
       const minute = (iso) => iso.slice(0, 16);
@@ -647,7 +647,7 @@ const AP = (() => {
         if (!x.blocked) running = running + (x.out || 0) - (x.in || 0);
       }
       const fresh = knownIds ? new Set(mine.filter(r => !knownIds.has(r.id)).map(r => r.id)) : new Set();
-      const shown = trailAll ? mine.slice(0, 60) : mine.filter(significant).slice(0, 25);
+      const shown = trailAll ? mine.slice(0, 60) : mine.filter(significant).slice(0, 12);
       trailRows($('ac-audit').querySelector('tbody'), shown, { newIds: fresh });
       $('cu-trail-toggle').textContent = trailAll ? 'Significant only' : `Show full trail (${mine.length})`;
       $('cu-trail-hint').hidden = trailAll;
@@ -706,7 +706,7 @@ const AP = (() => {
       $('cu-notify-meta').textContent = visible.length ? `${visible.length} item${visible.length === 1 ? '' : 's'}` : '';
       const ol = $('cu-notes'); ol.innerHTML = '';
       visible.slice(0, 6).forEach(n => {
-        const li = el('li', `cu-note cu-note--${n.tone}${fresh && fresh.has(n.audit) ? ' is-new' : ''}`, `<div class="cu-note__head"><span class="tag tag--${n.tone === 'red' ? 'red' : n.tone === 'amber' ? 'amber' : 'grey'}">${esc(n.label)}</span><span class="mono small">${t(n.ts)}</span></div><p class="cu-note__text">${n.text}</p><p class="small cu-note__sub">${n.sub || ''}</p><div class="cu-note__links">${n.first ? `<button class="btn btn--small" type="button" data-review="${n.audit}">${pendingConfirm === n.audit ? 'Hide the review' : 'Review and confirm'}</button>` : ''}${n.audit ? `<a href="#ev-${n.audit}" data-ev="${n.audit}">See the evidence</a>` : ''}${n.vio ? ` · <a href="/api/evidence/violations/${n.vio}" target="_blank" rel="noopener">evidence bundle</a>` : ''}${n.first ? '' : ` · <button class="link" type="button" data-dismiss="${esc(n.id)}">Dismiss</button>`}</div>${n.first && pendingConfirm === n.audit ? confirmHtml(n) : ''}`);
+        const li = el('li', `cu-note cu-note--${n.tone}${fresh && fresh.has(n.audit) ? ' is-new' : ''}`, `<div class="cu-note__head"><span class="tag tag--${n.tone === 'red' ? 'red' : n.tone === 'amber' ? 'amber' : 'grey'}">${esc(n.label)}</span><span class="mono small">${t(n.ts)}</span></div><p class="cu-note__text">${n.text}</p><p class="small cu-note__sub">${n.sub || ''}</p><div class="cu-note__links">${n.first ? `<button class="btn btn--small" type="button" data-review="${n.audit}">${pendingConfirm === n.audit ? 'Hide the review' : 'Review and confirm'}</button>` : `${n.audit ? `<a href="#ev-${n.audit}" data-ev="${n.audit}">Evidence</a> · ` : ''}<button class="link" type="button" data-dismiss="${esc(n.id)}">Dismiss</button>`}</div>${n.first && pendingConfirm === n.audit ? confirmHtml(n) : ''}`);
         li.dataset.subject = n.subject || ''; ol.append(li);
       });
       $('cu-notify-more').textContent = visible.length > 6 ? `and ${visible.length - 6} more in the evidence trail` : '';
@@ -745,7 +745,7 @@ const AP = (() => {
         const tone = mine.some(n => n.tone === 'red') ? 'red' : mine.some(n => n.tone === 'amber') ? 'amber' : 'slate';
         const badge = mine.length ? `<span class="cu-badge cu-badge--${tone}" title="${mine.length} notification${mine.length === 1 ? '' : 's'} for this agent">${mine.length}</span>` : '';
         const trust = x.mandate_signed && !x.mandate_revoked_at ? (x.first_payment_confirmed ? `<span class="tag tag--green">first payment confirmed</span>` : `<span class="tag tag--amber">first payment awaits your confirmation</span>`) : '';
-        box.append(el('div', 'cu-card' + (x.passport_id === (p || {}).passport_id ? ' cu-card--current' : ''), `<div class="cu-card__head"><span>${badge}<a href="/customer?ref=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a></span>${x.status === 'pending' ? tag('unsigned', 'awaiting your signature') : tag(x.status, x.status)}</div><div class="cu-card__line small">${esc(ag.product_name || '')} by ${esc(ag.provider || '')}${x.mandate_signed ? ` · up to ${gbp((ad.per_payment_limit || {}).amount)} a payment` : ' · mandate not signed yet'}</div><div class="cu-card__line small">${x.mandate_revoked_at ? `${tag('revoked', 'mandate revoked')} ${t(x.mandate_revoked_at)}` : x.mandate_signed ? `${trust} · <a href="/customer?ref=${esc(x.passport_id)}&amend=1">Amend mandate</a> · <button class="link" type="button" data-revoke="${esc(x.passport_id)}">Revoke mandate</button>` : ''}</div><div class="cu-card__line small cu-card__counts">paid this month <b class="mono">${gbp(tot)}</b> · held <b class="mono">${held}</b> · refused <b class="mono">${vio.length}</b>${fr ? ` (<span class="bad">${fr} fraud indicator${fr === 1 ? '' : 's'} stopped by the bank</span>)` : ''}</div>`));
+        box.append(el('div', 'cu-card' + (x.passport_id === (p || {}).passport_id ? ' cu-card--current' : ''), `<div class="cu-card__head"><span>${badge}<a href="/customer?ref=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a></span>${x.status === 'pending' ? tag('unsigned', 'awaiting your signature') : tag(x.status, x.status)}</div><div class="cu-card__line small">${esc(ag.provider || '')}${x.mandate_signed ? ` · up to ${gbp((ad.per_payment_limit || {}).amount)} a payment` : ' · mandate not signed yet'}</div><div class="cu-card__line small">${x.mandate_revoked_at ? `${tag('revoked', 'mandate revoked')} ${t(x.mandate_revoked_at)}` : x.mandate_signed ? `${trust} · <a href="/customer?ref=${esc(x.passport_id)}">Manage mandate</a>` : ''}</div><div class="cu-card__line small cu-card__counts">paid this month <b class="mono">${gbp(tot)}</b> · held <b class="mono">${held}</b> · refused <b class="mono">${vio.length}</b>${fr ? ` (<span class="bad">${fr} fraud indicator${fr === 1 ? '' : 's'} stopped by the bank</span>)` : ''}</div>`));
       });
       if (!state.passports.length) box.append(el('p', 'small', 'No AI agent yet.'));
     }

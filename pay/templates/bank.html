@@ -8,19 +8,13 @@
 <div id="bk-dash" hidden>
   <header class="fx-top bd-head">
     <h1 class="fx-hello h1--ws"><span id="fx-greet">Good morning</span>, {{ officer }}.<small>{{ bank }} · {{ bank_team }} · the agent channel</small></h1>
-    <nav class="fx-nav" aria-label="Dashboard sections">
-      <a href="#bd-attention" aria-current="page">Overview</a>
-      <a href="#bk-agents-pane">AI agents</a>
-      <a href="#bd-stats">Statistics</a>
-      <a href="#bd-recent">Activity</a>
-      <a href="#bd-trail">Evidence</a>
-      <a href="#bd-more">Admissions</a>
-    </nav>
-    <div class="fx-tools bd-live">
-      <span class="fx-live"><span class="live-dot" aria-hidden="true"></span><span id="bd-live-label">Live</span></span>
-      <label class="bd-sim"><input type="checkbox" id="bd-sim" checked> simulated traffic</label>
-      <label class="bd-sim" title="each arriving instruction shows its checks ticking through before the status lands; untick for instant"><input type="checkbox" id="bd-pace" checked> paced arrivals</label>
+    <div class="fx-tools">
       <a class="fx-icon" href="/customer" title="Customer dashboard" aria-label="Customer dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></a>
+    </div>
+    <div class="bd-live" hidden>
+      <span class="fx-live"><span class="live-dot" aria-hidden="true"></span><span id="bd-live-label">Live</span></span>
+      <label class="bd-sim"><input type="checkbox" id="bd-sim"> simulated traffic</label>
+      <label class="bd-sim"><input type="checkbox" id="bd-pace" checked> paced arrivals</label>
     </div>
   </header>
   <div class="todo" id="bk-todo" hidden></div>
