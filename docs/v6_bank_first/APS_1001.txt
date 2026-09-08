@@ -1,5 +1,5 @@
 Agent Passport Standards Series                               T. Cvikl
-APS 1001 (2026), revision 3                                   A. Tran
+APS 1001 (2026), revision 4                                   A. Tran
 Series 1000: Payment Rails                                     B. Liu
 Category: Proposed Industry Standard                      J. Burnazyan
                                                      Legis Labs Ltd
@@ -22,11 +22,15 @@ Status of this Memo
    does not describe a current legal requirement, and no regulator
    has approved it.  Distribution is unlimited.
 
-   Revision 3 replaces the authority approval of revision 2 with a
+   Revision 3 replaced the authority approval of revision 2 with a
    bank-operated model: an industry register records AI products,
    each bank decides which registered products its customers may
    delegate to, and the regulator receives evidence through normal
    supervisory processes without operating or approving anything.
+   Revision 4 adds assurance levels on filings, currency and
+   velocity limits and account-type tiers on mandates, replay
+   protection by nonce, two classes of refusal, and a check of
+   payees against the public company register.
 
 Abstract
 
@@ -80,6 +84,11 @@ Abstract
                  assurance requirements for a stated use case.  It is
                  attached at filing and assessed by each relying
                  bank, never by the register.
+   Assurance level
+                 One of three declared with the evidence:
+                 self-declared, independently verified,
+                 independently audited.  It describes the evidence
+                 provided; nobody certifies it.
    Bank          The relying party that executes payment
                  instructions.  It admits products to its list and
                  verifies every instruction.
@@ -99,9 +108,10 @@ Abstract
         accountable principal with a signed declaration that the
         filing is accurate, insurance in force at or above the
         minimum cover, the product and its pinned model version, the
-        location of its documentation, and Independent Assurance
-        Evidence naming the use case it covers.  A filing MUST NOT
-        name a customer or contain any mandate content.
+        location of its documentation, Independent Assurance
+        Evidence naming the use case it covers, and the assurance
+        level declared with that evidence.  A filing MUST NOT name a
+        customer or contain any mandate content.
 
    3.2  The register MUST run completeness checks and record each
         result next to the entry:
@@ -112,9 +122,13 @@ Abstract
            F.3  insurance evidenced, cover at or above the minimum,
                 in force
            F.4  product documented with a pinned model version
-           F.5  Independent Assurance Evidence attached and covering
-                the registered use case
+           F.5  Independent Assurance Evidence attached, with its
+                assurance level, covering the registered use case
            F.6  product not already on the register
+
+        F.1 SHOULD be answered from the public company register
+        (Companies House in the UK), which reports what companies
+        filed and verifies nothing itself.
 
         The register MUST sign a receipt for the filing.  The
         register MUST NOT review, approve or rank filings.
@@ -130,11 +144,20 @@ Abstract
    3.4  An admission MUST state the ceilings that every mandate on
         the product at that bank must satisfy (maximum per-payment
         limit, maximum rolling limit per payee account, maximum
-        validity, permitted actions) and a hold condition (an amount
-        above which the bank holds the instruction for a named
-        person at the customer).
+        payments per day, maximum validity, permitted actions,
+        currency) and a hold condition (an amount above which the
+        bank holds the instruction for a named person at the
+        customer).  A bank MAY require a minimum assurance level and
+        MAY scale its ceilings by the level declared.
 
-   3.5  An admission MAY be suspended or withdrawn by the bank.
+   3.5  A bank SHOULD tier its ceilings by the type of account the
+        AI agent operates on and by customer class, as it already
+        does for other payment channels.  An AI agent is a payment
+        channel on the account: every mandate MUST sit at or below
+        the lower of the product ceiling for that account type and
+        the admission ceiling for the product.
+
+   3.6  An admission MAY be suspended or withdrawn by the bank.
         Either act MUST cascade to every passport issued on the
         product at that bank.
 
@@ -145,17 +168,21 @@ Abstract
 
       admission       signed by the BANK: the admitted product
                       (registration reference, name, identifier,
-                      version, hash of the register's receipt),
-                      ceilings, hold condition, validity, list
-                      pointer, and the hash of the agent_identity it
-                      was issued for.
+                      version, hash of the register's receipt), the
+                      assurance level declared, ceilings, hold
+                      condition, validity, list pointer, and the hash
+                      of the agent_identity it was issued for.
       agent_identity  signed by the CUSTOMER: agent name, the product
                       it runs on, agent public key (cnf, RFC 7800),
                       proof of possession, configuration hash, key
                       custody.
       mandate         signed by the CUSTOMER: permitted actions,
-                      payee allow-list by account, per-payment limit,
-                      rolling limit per payee account, expiry, as an
+                      currency, payee allow-list by account with the
+                      public-register record of each payee where one
+                      was checked, per-payment limit, rolling limit
+                      per payee account, maximum payments per day,
+                      expiry, and the account type and customer
+                      class the limits derive from, as an
                       authorization_details object (RFC 9396).
 
    No party MAY alter a claim it did not sign.  A passport carries
@@ -170,9 +197,14 @@ Abstract
         an agent record.  It is not a passport.
 
    5.2  The customer writes its mandate.  Before signing, the bank
-        MUST check that every limit sits within the ceilings of the
-        product's admission (containment).  A mandate outside the
-        ceilings MUST NOT be signed.
+        MUST check that every limit sits within the lower of the
+        product's admission ceilings and the account-type tier
+        (containment).  A mandate outside them MUST NOT be signed.
+        Where a payee is identified by company number, the bank
+        SHOULD read the public company register and record the
+        legal name, status and registered office in the mandate.
+        The register holds no bank accounts; the account is the
+        customer's statement, and payment goes only to that account.
 
    5.3  On signature of a contained mandate the bank's system MUST
         sign the admission, assign the passport identifier, set the
@@ -222,9 +254,22 @@ Abstract
         reproducible from its recorded inputs.
 
    8.2  Every refusal MUST be recorded with the instruction, the
-        rule, the reason and, where a document produced the
-        instruction, the extraction that produced it.  A repeated
-        refusal of the same rule SHOULD raise an alert at the bank.
+        rule, the reason, its class and, where a document produced
+        the instruction, the extraction that produced it.  Two
+        classes MUST be distinguished: a fraud indicator (the
+        instruction points at a destination, key or record the
+        customer never authorised: redirection, a copied passport, a
+        replay, a forged claim) and an agent error (a wrong amount,
+        currency, action or frequency inside the agent's own remit,
+        an operational quality event for the agent's owner).  A
+        repeated refusal of the same rule SHOULD raise an alert at
+        the bank.  Nothing in this standard reports a refusal to an
+        authority; evidence is available on request (8.3).
+
+   8.4  Each party sees only what its role requires: the customer,
+        and conceptually the provider, its own agent's error
+        pattern; the bank its instructions, checks and verdicts; a
+        supervisor evidence on request.
 
    8.3  For any passport the bank MUST be able to produce one
         evidence bundle: the register filing and receipt, the

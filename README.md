@@ -1,6 +1,6 @@
 # Agent Passport
 
-Bank-side verification of AI agent payments. Lexis Labs entry to the C:\>DIR Global 'Agentic Regulator' Hackathon 2026, Know Your Agent problem space. Live at **https://cdir.legislabs.uk**. Proposed industry standard: [APS 1001, revision 3](pay/static/APS_1001.pdf).
+Bank-side verification of AI agent payments. Lexis Labs entry to the C:\>DIR Global 'Agentic Regulator' Hackathon 2026, Know Your Agent problem space. Live at **https://cdir.legislabs.uk**. Proposed industry standard: [APS 1001, revision 4](pay/static/APS_1001.pdf).
 
 **Identity is not authority.** An AI agent that can be identified can still act beyond what its principal allowed. Agent Passport separates the two and puts the check where the money and the liability are: at the bank.
 
