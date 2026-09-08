@@ -1108,5 +1108,52 @@ const AP = (() => {
     if (rb) rb.onclick = async () => { if (confirm('Reset the demo to its baseline? Everything is deleted, then one AI product is filed on the register, admitted by the bank, and the customer mandate signed, so one passport is ACTIVE with a short history: the first payment confirmed by the customer, one payment made, its replay refused, one wrong-currency instruction refused, one payment held for the approver.')) { rb.disabled = true; rb.textContent = 'seeding…'; await api('POST', '/api/demo/seed?stage=history'); location.href = '/terminal'; } };
   });
 
-  return { home, provider, bank, customer, console: console_ };
+  // ───────────── the dashboards' extras: greeting, balance toggle, the customer's chart, the quiet pane ─────────────
+  const greet = () => { const h = new Date().getHours(); return h < 12 ? 'Good morning' : h < 18 ? 'Good afternoon' : 'Good evening'; };
+  function dashExtras() {
+    if ($('fx-greet')) $('fx-greet').textContent = greet();
+    const nav = document.querySelector('.fx-nav');
+    if (nav && !document.querySelector('.fx-nav .acct__tab')) {
+      const links = [...nav.querySelectorAll('a[href^="#"]')];
+      const targets = links.map(a => document.getElementById(a.getAttribute('href').slice(1))).filter(Boolean);
+      const mark = () => { let cur = links[0]; const y = window.scrollY + 140; targets.forEach((t_, i) => { if (t_.offsetTop <= y) cur = links[i]; }); links.forEach(a => a.removeAttribute('aria-current')); if (cur) cur.setAttribute('aria-current', 'page'); };
+      links.forEach(a => { a.onclick = (e) => { const t_ = document.getElementById(a.getAttribute('href').slice(1)); if (!t_) return; e.preventDefault(); if (t_.tagName === 'DETAILS') t_.open = true; t_.scrollIntoView({ behavior: 'smooth', block: 'start' }); links.forEach(x => x.removeAttribute('aria-current')); a.setAttribute('aria-current', 'page'); }; });
+      window.addEventListener('scroll', mark, { passive: true });
+    }
+    const meta = $('fx-agents-meta'), src = $('bd-agents-meta');
+    if (meta && src) setInterval(() => { meta.textContent = src.textContent; }, 1000);
+  }
+  function customerExtras() {
+    dashExtras();
+    const eye = $('fx-eye'); if (eye) eye.onclick = () => { const on = $('fx-balance').classList.toggle('is-hidden'); eye.setAttribute('aria-pressed', String(on)); eye.setAttribute('aria-label', on ? 'Show the balance' : 'Hide the balance'); };
+    // the quiet pane shows only while there is nothing to notify
+    const notify = $('cu-notify'), quiet = $('fx-quiet');
+    if (notify && quiet) { const sync = () => { quiet.hidden = !notify.hidden; }; new MutationObserver(sync).observe(notify, { attributes: true, attributeFilter: ['hidden'] }); sync(); }
+    let chart = null;
+    async function tick() {
+      if (document.hidden) return;
+      const st = await api('GET', '/api/state');
+      const name = ((st.mandate_draft || {}).authorising_officer || {}).name; if (name && $('fx-name')) $('fx-name').textContent = name.split(' ')[0];
+      const pays = [...(st.payments || [])].sort((a, b) => (a.ts < b.ts ? -1 : 1));
+      const viol = st.violations || [];
+      const total = pays.reduce((s, x) => s + Number(x.amount || 0), 0);
+      if ($('fx-cu-stats')) $('fx-cu-stats').innerHTML = [[gbp(total), 'Paid by AI agents'], [String(pays.length), 'Payments'], [String(viol.filter(x => x.failure_class === 'fraud').length), 'Stopped by the bank'], [String(viol.filter(x => x.failure_class !== 'fraud').length), 'Agent errors']].map(([n, l]) => `<li><b>${esc(n)}</b><span>${l}</span></li>`).join('');
+      if (!window.Chart || !$('chart-customer')) return;
+      $('fx-chart-empty').hidden = pays.length > 0;
+      // cumulative value paid, one point per payment, so the curve reads as money leaving under mandate
+      let run = 0; const labels = [], data = [];
+      pays.forEach(x => { run += Number(x.amount || 0); labels.push(t(x.ts)); data.push(run); });
+      if (!labels.length) { labels.push(t(new Date().toISOString())); data.push(0); }
+      if (!chart) {
+        const ctx = $('chart-customer').getContext('2d'); const g = ctx.createLinearGradient(0, 0, 0, 200); g.addColorStop(0, 'rgba(15,107,115,.28)'); g.addColorStop(1, 'rgba(15,107,115,0)');
+        Chart.defaults.font.family = getComputedStyle(document.body).fontFamily; Chart.defaults.font.size = 12; Chart.defaults.color = '#66736f';
+        chart = new Chart($('chart-customer'), { type: 'line', data: { labels, datasets: [{ data, borderColor: '#0f6b73', borderWidth: 2.5, fill: true, backgroundColor: g, tension: .45, pointRadius: 0, pointHoverRadius: 5, pointHoverBackgroundColor: '#c9f26b', pointHoverBorderColor: '#0f6b73' }] },
+          options: { animation: { duration: 400 }, responsive: true, maintainAspectRatio: false, interaction: { intersect: false, mode: 'index' }, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f1a17', cornerRadius: 10, padding: 10, displayColors: false, callbacks: { label: (c) => gbp(c.parsed.y) + ' paid so far' } } },
+            scales: { x: { grid: { display: false }, border: { display: false }, ticks: { maxTicksLimit: 6, color: '#97a39f' } }, y: { beginAtZero: true, grid: { color: '#eef1f0' }, border: { display: false, dash: [4, 4] }, ticks: { maxTicksLimit: 5, color: '#97a39f', callback: (v_) => gbp(v_) } } } } });
+      } else { chart.data.labels = labels; chart.data.datasets[0].data = data; chart.update('none'); }
+    }
+    tick(); setInterval(tick, 5000);
+  }
+
+  return { home, provider, bank, customer, console: console_, dashExtras, customerExtras };
 })();

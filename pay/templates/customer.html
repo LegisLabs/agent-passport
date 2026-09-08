@@ -1,110 +1,144 @@
 {% extends "base.html" %}
 {% block title %}Customer dashboard{% endblock %}
+{% block head %}<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="/static/dashboard.css">{% endblock %}
 {% block content %}
-<div class="acct">
-  <div class="acct__head">
-    <div>
-      <p class="acct__name">Business Current Account</p>
-      <p class="acct__no"><span class="num">20-45-77</span> <span class="num">31908822</span> · {{ customer }}</p>
+<div class="fx">
+  <header class="fx-top">
+    <h1 class="fx-hello"><span id="fx-greet">Good morning</span>, <span id="fx-name">Helen</span>.<small>{{ customer }} · Business Current Account at {{ bank }}</small></h1>
+    <nav class="fx-nav acct__tabs" role="tablist" aria-label="Account sections">
+      <button type="button" role="tab" class="acct__tab acct__tab--desktop" data-tab="live" aria-selected="true">Overview</button>
+      <button type="button" role="tab" class="acct__tab acct__tab--mobile" data-tab="agents" aria-selected="false">AI agents</button>
+      <button type="button" role="tab" class="acct__tab acct__tab--mobile" data-tab="trail" aria-selected="false">Evidence trail</button>
+      <button type="button" role="tab" class="acct__tab" data-tab="transactions" aria-selected="false">Transactions</button>
+    </nav>
+    <div class="fx-tools">
+      <a class="fx-icon" href="/bank" title="Bank dashboard" aria-label="Bank dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-6 9 6"/><path d="M5 10v9M19 10v9M9 10v9M15 10v9"/><path d="M3 19h18"/></svg></a>
+      <a class="fx-icon" href="#cu-notify" title="Notifications" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="live-dot" aria-hidden="true"></span></a>
+      <a class="fx-icon" href="/about" title="How it works" aria-label="How it works"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></a>
     </div>
-    <div class="acct__bal"><span>Balance</span><b class="num" id="ac-balance">£84,213.50</b><small>Available <span class="num" id="ac-avail">£79,713.50</span></small></div>
-  </div>
-  <nav class="acct__tabs" role="tablist" aria-label="Account sections">
-    <button type="button" role="tab" class="acct__tab acct__tab--desktop" data-tab="live" aria-selected="true">AI agents and evidence</button>
-    <button type="button" role="tab" class="acct__tab acct__tab--mobile" data-tab="agents" aria-selected="false">AI agents</button>
-    <button type="button" role="tab" class="acct__tab acct__tab--mobile" data-tab="trail" aria-selected="false">Evidence trail</button>
-    <button type="button" role="tab" class="acct__tab" data-tab="transactions" aria-selected="false">Transactions</button>
-  </nav>
-</div>
+  </header>
 
-<section class="cu-notify" id="cu-notify" hidden aria-label="Notifications" aria-live="polite">
-  <h2 class="ws-h">Needs your attention <span class="ws-h__meta" id="cu-notify-meta"></span></h2>
-  <ol class="cu-notes" id="cu-notes"></ol>
-  <p class="small" id="cu-notify-more"></p>
-</section>
-<div class="cu-toast" id="cu-toast" hidden role="status"></div>
+  <div class="cu-toast" id="cu-toast" hidden role="status"></div>
 
-<div class="cu-split" id="ac-live">
-  <div class="cu-split__agents glass" id="ac-agents">
-    <h2 class="ws-h">AI agents</h2>
-    <div id="cu-agents"></div>
-    <div class="empty" id="cu-empty"><p>Your bank has not admitted any AI product yet. Admission happens in the <a href="/bank">bank dashboard</a>.</p></div>
-    <div id="cu-create" hidden>
-      <p class="cu-add"><button class="link" type="button" id="cu-add-toggle">Add an AI agent</button></p>
-      <div id="cu-add-form" hidden>
-        <label class="label" for="cu-model">Product</label><select class="input" id="cu-model"></select>
-        <p class="small cu-model-level" id="cu-model-level"></p>
-        <label class="label" for="cu-agent-name">Name</label><input class="input" id="cu-agent-name" placeholder="e.g. PayGPT 6.0 · Northgate deployment">
-        <div class="actions"><button class="btn" id="btn-create-agent">Continue to the mandate</button><span class="actions__note" id="cu-create-note"></span></div>
-        <p class="error" id="cu-create-error" hidden></p>
+  <div id="ac-live">
+  <div class="fx-grid cu-split">
+    <div class="fx-col fx-col--left">
+      <section class="fx-balance" id="fx-balance" aria-label="Account balance">
+        <div>
+          <span class="fx-balance__k">Your balance</span>
+          <div class="fx-balance__v"><b class="num" id="ac-balance">£84,213.50</b><button class="fx-balance__eye" type="button" id="fx-eye" aria-label="Hide the balance" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.5-6 10-6 10 6 10 6-3.5 6-10 6S2 12 2 12z"/><circle cx="12" cy="12" r="3"/></svg></button></div>
+          <p class="fx-balance__avail">Available <span class="num" id="ac-avail">£79,713.50</span></p>
+        </div>
+        <div class="fx-balance__foot">
+          <div class="fx-balance__acct"><span class="acct__name">Business Current Account</span><span class="num acct__no"><span class="num">20-45-77</span> <span class="num">31908822</span></span></div>
+          <span class="fx-balance__brand">MERIDIAN<span>.</span></span>
+        </div>
+      </section>
+
+      <div class="glass cu-split__agents" id="ac-agents">
+        <h2 class="ws-h">AI agents <span class="ws-h__meta" id="fx-agents-meta"></span></h2>
+        <div id="cu-agents"></div>
+        <div class="empty" id="cu-empty"><p>Your bank has not admitted any AI product yet. Admission happens in the <a href="/bank">bank dashboard</a>.</p></div>
+        <div id="cu-create" hidden>
+          <p class="cu-add"><button class="btn btn--outline" type="button" id="cu-add-toggle">Add an AI agent</button></p>
+          <div id="cu-add-form" hidden>
+            <label class="label" for="cu-model">Product</label><select class="input" id="cu-model"></select>
+            <p class="small cu-model-level" id="cu-model-level"></p>
+            <label class="label" for="cu-agent-name">Name</label><input class="input" id="cu-agent-name" placeholder="e.g. PayGPT 6.0 · Northgate deployment">
+            <div class="actions"><button class="btn" id="btn-create-agent">Continue to the mandate</button><span class="actions__note" id="cu-create-note"></span></div>
+            <p class="error" id="cu-create-error" hidden></p>
+          </div>
+        </div>
       </div>
     </div>
-  </div>
-  <div class="cu-split__trail glass" id="ac-trail">
-    <h2 class="ws-h">Evidence trail <span class="ws-h__meta"><button class="link" type="button" id="cu-trail-toggle">Show full trail</button> · <a href="/bank#bd-trail">chain</a></span></h2>
-    <p class="small bd-legend" id="cu-legend"></p>
-    <p class="small bd-legend" id="cu-trail-hint">What mattered, most recent first: refusals, holds, decisions by a person, the mandate. Routine payments sit in Transactions and in the full trail.</p>
-    <div class="cu-trail-wrap"><table class="checks audit" id="ac-audit"><thead><tr><th>Time</th><th>What happened</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
-  </div>
-</div>
 
-<div id="ac-transactions" hidden>
-  <section class="ws-sec glass">
-    <h2 class="ws-h">Transactions</h2>
-    <div class="dash-wrap dash-wrap--plain"><table class="dash txns" id="ac-txns"><thead><tr><th>Date</th><th>Description</th><th class="num">Money out</th><th class="num">Money in</th><th class="num">Balance</th></tr></thead><tbody></tbody></table></div>
-  </section>
-</div>
+    <div class="fx-col fx-col--mid">
+      <section class="pane" aria-labelledby="fx-stats-h">
+        <h2 class="ws-h" id="fx-stats-h">Statistics <span class="ws-h__meta fx-range" id="fx-stats-range">AI agent payments, this session</span></h2>
+        <div class="fx-chart"><canvas id="chart-customer" aria-label="AI agent payments over the session" role="img"></canvas><p class="fx-chart__empty" id="fx-chart-empty" hidden>No AI agent payment yet this session.</p></div>
+        <ul class="stats" id="fx-cu-stats"></ul>
+      </section>
 
-<div id="cu-mandate" hidden>
-  <h2 class="ws-h ws-h--wide">Mandate for <span class="mono" id="cu-ref"></span></h2>
-  <dl class="kv kv--card" id="cu-agent-kv"></dl>
-  <div class="mandate" id="cu-card">
-    <div class="mandate__head"><span>Payment mandate · <span class="mono" id="cu-id"></span></span><span id="cu-state"></span></div>
-    <div class="mandate__body">
-      <dl class="kv" id="cu-kv"></dl>
-      <form class="mandate__form" id="cu-form" hidden>
-        <div class="step__head"><h3 class="h3" id="cu-form-h">Write the mandate</h3><div class="step__actions"><button class="btn btn--secondary btn--small" id="btn-cu-prefill" type="button">Prefill demo data</button></div></div>
-        <div class="context" id="cu-context" hidden>
-          <h3 class="h3">The demo, in a few sentences</h3>
-          <p><strong>Northgate Joinery Ltd</strong> is a synthetic joinery business with a business current account at Meridian Bank. Its finance director, <strong>Helen Marsh</strong>, is about to write the mandate for its AI agent: how much it may pay, how often, until when, and to which supplier accounts. Prefill enters Northgate's three suppliers, Fenwick Timber, Ashby Ironmongery and Coastline Glass, with £10,000 a payment and £20,000 per supplier account in 30 days. She then signs with the Northgate key.</p>
-          <div class="actions"><button class="btn" id="btn-cu-prefill-go" type="button">Fill the form and continue</button><button class="btn btn--secondary" id="btn-cu-prefill-cancel" type="button">Cancel</button></div>
-        </div>
-        <div class="fields fields--row">
-          <div><label class="label" for="cu-per">Per payment, up to (£)</label><input class="input" id="cu-per" type="number" min="1" step="100"></div>
-          <div><label class="label" for="cu-monthly">Per supplier account in 30 days, up to (£)</label><input class="input" id="cu-monthly" type="number" min="1" step="100"></div>
-          <div><label class="label" for="cu-daily">Payments per day, up to</label><input class="input" id="cu-daily" type="number" min="1" step="1"></div>
-          <div><label class="label" for="cu-until">Valid until</label><input class="input" id="cu-until" type="date"></div>
-          <div><label class="label" for="cu-currency">Currency</label><select class="input" id="cu-currency" disabled><option>GBP</option></select><span class="small">payments in any other currency are refused</span></div>
-        </div>
-        <h3 class="h3">Suppliers the AI agent may pay</h3>
-        <p class="hint">By account, not by name. A supplier's name on an invoice is easy to copy; the account you enter here is the only one your bank will pay. Type the supplier's name and pick it from the public register, or enter its Companies House number: the legal name, number and status fill themselves. That says what the company filed, not that it is legitimate, and the register holds no bank accounts, so the sort code and account number are yours to enter.</p>
-        <table class="suppliers" id="cu-suppliers"><thead><tr><th>Supplier, from the public register</th><th>Sort code and account</th><th></th></tr></thead><tbody></tbody></table>
-        <div class="actions"><button class="btn btn--secondary btn--small" type="button" id="cu-add">Add a supplier</button></div>
-      </form>
-      <table class="suppliers" id="cu-suppliers-signed" hidden><thead><tr><th>Supplier</th><th>Account</th></tr></thead><tbody></tbody></table>
-      <div class="containment" id="cu-containment"></div>
+      <div class="glass cu-split__trail" id="ac-trail">
+        <h2 class="ws-h">Evidence trail <span class="ws-h__meta"><button class="link" type="button" id="cu-trail-toggle">Show full trail</button> · <a href="/bank#bd-trail">chain</a></span></h2>
+        <p class="small bd-legend" id="cu-legend"></p>
+        <p class="small bd-legend" id="cu-trail-hint">What mattered, most recent first: refusals, holds, decisions by a person, the mandate. Routine payments sit in Transactions and in the full trail.</p>
+        <div class="cu-trail-wrap"><table class="checks audit" id="ac-audit"><thead><tr><th>Time</th><th>What happened</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
+      </div>
     </div>
-    <div class="mandate__sig" id="cu-sig" hidden></div>
+
+    <div class="fx-col fx-col--right">
+      <section class="cu-notify" id="cu-notify" hidden aria-label="Notifications" aria-live="polite">
+        <h2 class="ws-h">Needs your attention <span class="ws-h__meta" id="cu-notify-meta"></span></h2>
+        <ol class="cu-notes" id="cu-notes"></ol>
+        <p class="small" id="cu-notify-more"></p>
+      </section>
+      <section class="pane" id="fx-quiet" aria-label="All quiet">
+        <h2 class="ws-h">Notifications</h2>
+        <p class="bd-attention__empty">Nothing needs you. Your AI agents are paying inside their mandates.</p>
+      </section>
+    </div>
   </div>
-  <div class="actions" id="cu-actions">
-    <button class="btn" id="btn-sign-mandate">Sign mandate</button>
-    <button class="btn btn--secondary" id="btn-cancel-amend" type="button" hidden>Cancel</button>
-    <span class="actions__note" id="cu-signer"></span>
   </div>
-  <div class="actions" id="cu-manage" hidden>
-    <button class="btn btn--secondary" id="btn-amend-mandate" type="button">Amend mandate</button>
-    <button class="btn btn--warning" id="btn-revoke-mandate" type="button">Revoke mandate</button>
-    <span class="actions__note">An amendment is a new version you sign; the previous version stays on record. Revoking ends the AI agent's authority at once.</span>
+
+  <div id="ac-transactions" hidden>
+    <section class="ws-sec glass">
+      <h2 class="ws-h">Transactions <span class="ws-h__meta">AI agent payments alongside the rest of the account</span></h2>
+      <div class="dash-wrap dash-wrap--plain"><table class="dash txns" id="ac-txns"><thead><tr><th>Date</th><th>Description</th><th class="num">Money out</th><th class="num">Money in</th><th class="num">Balance</th></tr></thead><tbody></tbody></table></div>
+    </section>
   </div>
-  <p class="error" id="cu-error" hidden></p>
-  <div id="cu-versions" hidden></div>
-  <div class="notice" id="cu-after" hidden><p>Your AI agent is live. Its first payment under this mandate will wait here for you to review and confirm; after that, payments inside the mandate need nobody. Watch it pay, and watch an altered invoice get refused, in the <a href="/terminal">Action Terminal</a>.</p></div>
-  <details class="jwt" id="cu-jwt-wrap" hidden>
-    <summary>Signed mandate (JWT, EdDSA / Ed25519, {{ customer }} key; OAuth 2.0 RFC 9396 authorization_details)</summary>
-    <pre class="code" id="cu-jwt-payload"></pre>
-    <pre class="code code--wrap" id="cu-jwt"></pre>
-  </details>
-  <div hidden><div id="cu-activity-wrap"><table id="cu-activity"><tbody></tbody></table></div></div>
+
+  <div id="cu-mandate" class="fx-section" hidden>
+    <h2 class="ws-h ws-h--wide">Mandate for <span class="mono" id="cu-ref"></span></h2>
+    <dl class="kv kv--card" id="cu-agent-kv"></dl>
+    <div class="mandate" id="cu-card">
+      <div class="mandate__head"><span>Payment mandate · <span class="mono" id="cu-id"></span></span><span id="cu-state"></span></div>
+      <div class="mandate__body">
+        <dl class="kv" id="cu-kv"></dl>
+        <form class="mandate__form" id="cu-form" hidden>
+          <div class="step__head"><h3 class="h3" id="cu-form-h">Write the mandate</h3><div class="step__actions"><button class="btn btn--secondary btn--small" id="btn-cu-prefill" type="button">Prefill demo data</button></div></div>
+          <div class="context" id="cu-context" hidden>
+            <h3 class="h3">The demo, in a few sentences</h3>
+            <p><strong>Northgate Joinery Ltd</strong> is a synthetic joinery business with a business current account at Meridian Bank. Its finance director, <strong>Helen Marsh</strong>, is about to write the mandate for its AI agent: how much it may pay, how often, until when, and to which supplier accounts. Prefill enters Northgate's three suppliers, Fenwick Timber, Ashby Ironmongery and Coastline Glass, with £10,000 a payment and £20,000 per supplier account in 30 days. She then signs with the Northgate key.</p>
+            <div class="actions"><button class="btn" id="btn-cu-prefill-go" type="button">Fill the form and continue</button><button class="btn btn--secondary" id="btn-cu-prefill-cancel" type="button">Cancel</button></div>
+          </div>
+          <div class="fields fields--row">
+            <div><label class="label" for="cu-per">Per payment, up to (£)</label><input class="input" id="cu-per" type="number" min="1" step="100"></div>
+            <div><label class="label" for="cu-monthly">Per supplier account in 30 days, up to (£)</label><input class="input" id="cu-monthly" type="number" min="1" step="100"></div>
+            <div><label class="label" for="cu-daily">Payments per day, up to</label><input class="input" id="cu-daily" type="number" min="1" step="1"></div>
+            <div><label class="label" for="cu-until">Valid until</label><input class="input" id="cu-until" type="date"></div>
+            <div><label class="label" for="cu-currency">Currency</label><select class="input" id="cu-currency" disabled><option>GBP</option></select><span class="small">payments in any other currency are refused</span></div>
+          </div>
+          <h3 class="h3">Suppliers the AI agent may pay</h3>
+          <p class="hint">By account, not by name. A supplier's name on an invoice is easy to copy; the account you enter here is the only one your bank will pay. Type the supplier's name and pick it from the public register, or enter its Companies House number: the legal name, number and status fill themselves. That says what the company filed, not that it is legitimate, and the register holds no bank accounts, so the sort code and account number are yours to enter.</p>
+          <table class="suppliers" id="cu-suppliers"><thead><tr><th>Supplier, from the public register</th><th>Sort code and account</th><th></th></tr></thead><tbody></tbody></table>
+          <div class="actions"><button class="btn btn--secondary btn--small" type="button" id="cu-add">Add a supplier</button></div>
+        </form>
+        <table class="suppliers" id="cu-suppliers-signed" hidden><thead><tr><th>Supplier</th><th>Account</th></tr></thead><tbody></tbody></table>
+        <div class="containment" id="cu-containment"></div>
+      </div>
+      <div class="mandate__sig" id="cu-sig" hidden></div>
+    </div>
+    <div class="actions" id="cu-actions">
+      <button class="btn" id="btn-sign-mandate">Sign mandate</button>
+      <button class="btn btn--secondary" id="btn-cancel-amend" type="button" hidden>Cancel</button>
+      <span class="actions__note" id="cu-signer"></span>
+    </div>
+    <div class="actions" id="cu-manage" hidden>
+      <button class="btn btn--secondary" id="btn-amend-mandate" type="button">Amend mandate</button>
+      <button class="btn btn--warning" id="btn-revoke-mandate" type="button">Revoke mandate</button>
+      <span class="actions__note">An amendment is a new version you sign; the previous version stays on record. Revoking ends the AI agent's authority at once.</span>
+    </div>
+    <p class="error" id="cu-error" hidden></p>
+    <div id="cu-versions" hidden></div>
+    <div class="notice" id="cu-after" hidden><p>Your AI agent is live. Its first payment under this mandate will wait here for you to review and confirm; after that, payments inside the mandate need nobody. Watch it pay, and watch an altered invoice get refused, in the <a href="/terminal">Action Terminal</a>.</p></div>
+    <details class="jwt" id="cu-jwt-wrap" hidden>
+      <summary>Signed mandate (JWT, EdDSA / Ed25519, {{ customer }} key; OAuth 2.0 RFC 9396 authorization_details)</summary>
+      <pre class="code" id="cu-jwt-payload"></pre>
+      <pre class="code code--wrap" id="cu-jwt"></pre>
+    </details>
+    <div hidden><div id="cu-activity-wrap"><table id="cu-activity"><tbody></tbody></table></div></div>
+  </div>
 </div>
 {% endblock %}
-{% block scripts %}<script>AP.customer();</script>{% endblock %}
+{% block scripts %}<script src="/static/vendor/chart.umd.js"></script><script>AP.customer(); AP.customerExtras();</script>{% endblock %}
