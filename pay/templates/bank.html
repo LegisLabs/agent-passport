@@ -7,12 +7,10 @@
 
 <div id="bk-dash" hidden>
   <header class="fx-top bd-head">
-    <h1 class="fx-hello h1--ws">Good morning, {{ bank.replace(" (demo)", "") }}.<small>{{ officer }} · {{ bank_team }} · demo</small></h1>
+    <h1 class="fx-hello h1--ws">Good morning, {{ bank.replace(" (demo)", "") }}.</h1>
     <a class="back fx-hdr-back" href="/bank">Back to the overview</a>
     <div class="fx-tools">
-      <a class="fx-pill fx-pill--att" href="/bank?page=attention">Needs attention <b id="fx-att-count" hidden></b></a>
       <a class="fx-pill" href="/bank?page=activity">Activity</a>
-      <a class="fx-pill" href="/bank?page=agents">Active AI agents</a>
       <a class="fx-pill" href="/bank?page=products">Admitted products</a>
       <a class="fx-pill" href="/bank?trail=1">Evidence trail</a>
       <a class="fx-icon" href="/provider" title="Register an AI product" aria-label="Register an AI product"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>
@@ -26,89 +24,95 @@
   </header>
   <div class="todo" id="bk-todo" hidden></div>
 
+  <div id="bd-trail-page">
+      <section class="bd-panel bd-trail" id="bd-trail" aria-labelledby="bd-trail-h">
+        <h2 class="ws-h" id="bd-trail-h">Evidence trail <span class="ws-h__meta">every event, hash-chained; verifications replay from their recorded inputs</span></h2>
+        <p class="au-summary" id="au-summary"></p>
+        <div class="actions"><button class="btn btn--secondary btn--small" id="btn-replay-all" type="button">Replay every verification</button><span class="actions__note" id="replay-note"></span><span class="actions__note" id="au-evidence"></span></div>
+        <div class="dash-wrap bd-trail__wrap"><table class="checks audit" id="au-table"><thead><tr><th>Time</th><th>What happened</th><th>Subject</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
+      </section>
+
+  </div>
   <div id="bk-page-overview">
-    <section class="pane pane--strip" aria-labelledby="bk-month-h">
-      <h2 class="ws-h" id="bk-month-h">The agent channel this month <span class="ws-h__meta">all customers, totals</span></h2>
-      <ul class="stats bd-tiles" id="bk-stats"></ul>
-      <p hidden id="bd-seam"></p>
-    </section>
-    <div class="bk-grid">
-      <section class="bd-panel bd-stats pane--wide" id="bd-stats" aria-labelledby="bd-stats-h">
-        <h2 class="ws-h" id="bd-stats-h">Activity today <span class="ws-h__meta" id="bd-stats-meta"></span></h2>
-        <ul class="stats bd-tiles bd-tiles--small" id="bd-stats-totals" hidden></ul>
-        <div class="chartbox chartbox--stats"><h3 class="chart__title">Payment volume, £ per minute</h3><div class="chartbox__canvas"><canvas id="chart-volume" aria-label="Payment volume over the day"></canvas></div></div>
-        <div hidden><table id="bd-stats-agents"><tbody></tbody></table></div>
-      </section>
-      <section class="pane" aria-labelledby="bk-outcome-h">
-        <h2 class="ws-h" id="bk-outcome-h">Outcomes <span class="ws-h__meta">today</span></h2>
-        <div class="bk-chart"><canvas id="chart-outcome" aria-label="Instructions by outcome" role="img"></canvas></div>
-        <ul class="bk-legend" id="bk-outcome-legend"></ul>
-      </section>
-      <section class="pane" aria-labelledby="bk-intent-h">
-        <h2 class="ws-h" id="bk-intent-h">By payment intent <span class="ws-h__meta">this month</span></h2>
-        <div class="bk-chart"><canvas id="chart-intent" aria-label="Value by payment intent" role="img"></canvas></div>
-        <ul class="bk-legend" id="bk-intent-legend"></ul>
-      </section>
-      <section class="pane" aria-labelledby="bk-region-h">
-        <h2 class="ws-h" id="bk-region-h">By region <span class="ws-h__meta">this month</span></h2>
-        <div class="bk-chart bk-chart--tall"><canvas id="chart-region" aria-label="Value by region" role="img"></canvas></div>
-      </section>
-      <section class="pane" aria-labelledby="bk-provider-h">
-        <h2 class="ws-h" id="bk-provider-h">By model provider <span class="ws-h__meta">this month</span></h2>
-        <div class="bk-chart"><canvas id="chart-provider" aria-label="Value by foundation model provider" role="img"></canvas></div>
-        <ul class="bk-legend" id="bk-provider-legend"></ul>
-      </section>
-      <section class="pane" aria-labelledby="bk-product-h">
-        <h2 class="ws-h" id="bk-product-h">By AI product <span class="ws-h__meta">this month</span></h2>
-        <div class="bk-chart"><canvas id="chart-product" aria-label="Value by AI product" role="img"></canvas></div>
-      </section>
-      <section class="pane" aria-labelledby="bk-agents-h">
-        <h2 class="ws-h" id="bk-agents-h">By agent <span class="ws-h__meta">value today</span></h2>
-        <div class="bk-chart"><canvas id="chart-agents" aria-label="Value by agent" role="img"></canvas></div>
-      </section>
+  <div class="fx-grid bd-cols">
+    <div class="fx-col fx-col--left">
       <section class="pane" id="bk-network" aria-labelledby="bk-network-h">
-        <h2 class="ws-h" id="bk-network-h">Agent network <span class="ws-h__meta">who pays whom, today</span></h2>
+        <h2 class="ws-h" id="bk-network-h">Agent network <span class="ws-h__meta">who pays whom, this session</span></h2>
         <div class="bk-net" id="bk-net"></div>
         <p class="small bk-net__legend">Line width follows value. Red lines are refused instructions.</p>
       </section>
-    </div>
-  </div>
-
-  <div id="bk-page-attention">
-    <section class="bd-panel bd-attention" id="bd-attention" role="region" aria-label="Needs attention">
-      <h2 class="ws-h">Needs attention <span class="ws-h__meta" id="bd-attention-meta"></span></h2>
-      <p class="small bd-legend" id="bd-legend"></p>
-      <div class="dash-wrap"><table class="dash bd-att" id="bd-attention-list"><thead><tr><th>Time</th><th>AI agent</th><th>Payee</th><th class="num">Amount</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
-      <p class="small bd-attention__empty" id="bd-attention-empty" hidden>Nothing needs attention. All AI agent payments inside mandate.</p>
-      <p class="small bd-done" id="bd-attention-done" hidden></p>
-      <p class="small" id="bd-attention-more"></p>
-    </section>
-  </div>
-
-  <div id="bk-page-activity">
-    <div class="bd-col bd-col--log glass" id="bd-recent">
-      <h2 class="ws-h"><span id="bd-log-title">Activity</span> <span class="ws-h__meta"><span id="bk-activity-hint">every instruction today, with what the bank decided and why; open a row for the full record</span> <button class="link" type="button" id="bd-log-toggle" hidden>Full log</button></span></h2>
-      <p class="small bd-legend" id="bd-log-hint" hidden></p>
-      <div class="dash-wrap"><table class="dash bd-log" id="bd-log"><thead><tr><th>Time</th><th>Status</th><th>Customer · AI agent</th><th>Payee</th><th class="num">Amount</th><th>Why</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
-    </div>
-  </div>
-
-  <div id="bk-page-agents">
-    <div class="fx-grid bd-cols bk-two">
+      <div hidden><ul id="bk-stats"></ul><p id="bd-seam"></p></div>
       <div class="bd-col glass" id="bk-agents-pane">
         <h2 class="ws-h">Active AI agents <span class="ws-h__meta" id="fx-agents-meta"></span></h2>
         <div id="bk-agents"></div>
-        <div class="actions"><a class="btn" href="/bank?page=products">Admit a new AI product</a><span class="actions__note">A customer's AI agent runs on a product this bank has admitted. Admit a product from the register to let customers delegate to it.</span></div>
-      </div>
-      <div class="fx-col">
-        <section class="pane" id="bk-supervisory">
-          <h2 class="ws-h">Supervisory access</h2>
-          <p class="small">A supervisor can request the evidence for a passport or a refusal; each export is itself recorded in the chain.</p>
-          <ul class="evidence-list" id="bk-evidence"></ul>
-        </section>
+        <div class="actions"><a class="btn btn--secondary btn--small" href="/bank?page=products">Admit a new AI product</a></div>
       </div>
     </div>
-    <div id="bk-dash-anomaly"></div>
+
+    <div class="fx-col fx-col--mid">
+      <section class="bd-panel bd-stats" id="bd-stats" aria-labelledby="bd-stats-h">
+        <h2 class="ws-h" id="bd-stats-h">Statistics <span class="ws-h__meta" id="bd-stats-meta">this session</span></h2>
+        <ul class="stats bd-tiles bd-tiles--small" id="bd-stats-totals"></ul>
+        <div class="chartbox chartbox--stats"><h3 class="chart__title">Payment volume this session, £ per minute</h3><div class="chartbox__canvas"><canvas id="chart-volume" aria-label="Payment volume over the session"></canvas></div></div>
+        <div class="dash-wrap"><table class="dash bd-stats__agents" id="bd-stats-agents"><thead><tr><th>AI agent</th><th class="num">Payments</th><th class="num">Value</th><th class="num">Held</th><th class="num">Refused, fraud</th><th class="num">Refused, error</th></tr></thead><tbody></tbody></table></div>
+        <p class="small bd-stats__note">These figures are the bank's own operational view. A supervisor sees evidence per incident on request, not this dashboard.</p>
+      </section>
+      <div class="bd-graphs">
+        <section class="pane" aria-labelledby="bk-intent-h">
+          <h2 class="ws-h" id="bk-intent-h">By payment intent <span class="ws-h__meta">the channel this month</span></h2>
+          <div class="bk-chart"><canvas id="chart-intent" aria-label="Value by payment intent" role="img"></canvas></div>
+          <ul class="bk-legend" id="bk-intent-legend"></ul>
+        </section>
+        <section class="pane" aria-labelledby="bk-region-h">
+          <h2 class="ws-h" id="bk-region-h">By region <span class="ws-h__meta">the channel this month</span></h2>
+          <div class="bk-chart bk-chart--tall"><canvas id="chart-region" aria-label="Value by region" role="img"></canvas></div>
+        </section>
+        <section class="pane" aria-labelledby="bk-provider-h">
+          <h2 class="ws-h" id="bk-provider-h">By model provider <span class="ws-h__meta">the channel this month</span></h2>
+          <div class="bk-chart"><canvas id="chart-provider" aria-label="Value by foundation model provider" role="img"></canvas></div>
+          <ul class="bk-legend" id="bk-provider-legend"></ul>
+        </section>
+        <section class="pane" aria-labelledby="bk-product-h">
+          <h2 class="ws-h" id="bk-product-h">By AI product <span class="ws-h__meta">the channel this month</span></h2>
+          <div class="bk-chart bk-chart--tall"><canvas id="chart-product" aria-label="Value by AI product" role="img"></canvas></div>
+        </section>
+        <section class="pane" aria-labelledby="bk-outcome-h">
+          <h2 class="ws-h" id="bk-outcome-h">Outcomes <span class="ws-h__meta">this session</span></h2>
+          <div class="bk-chart"><canvas id="chart-outcome" aria-label="Instructions by outcome" role="img"></canvas></div>
+          <ul class="bk-legend" id="bk-outcome-legend"></ul>
+        </section>
+        <section class="pane" aria-labelledby="bk-agents-h">
+          <h2 class="ws-h" id="bk-agents-h">By agent <span class="ws-h__meta">value this session</span></h2>
+          <div class="bk-chart bk-chart--tall"><canvas id="chart-agents" aria-label="Value by agent" role="img"></canvas></div>
+        </section>
+      </div>
+      <div class="bd-col bd-col--log glass" id="bd-recent">
+        <h2 class="ws-h"><span id="bd-log-title">Recent activity</span> <span class="ws-h__meta"><button class="link" type="button" id="bd-log-toggle">Full log</button></span></h2>
+        <p class="small bd-legend" id="bd-log-hint">The last few instructions, every one of them real. Volume lives in the numbers; anything that needs a person is in Needs attention.</p>
+        <div class="dash-wrap"><table class="dash bd-log" id="bd-log"><thead><tr><th>Time</th><th>Status</th><th>Customer · AI agent</th><th>Payee</th><th class="num">Amount</th><th>Why</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
+      </div>
+    </div>
+
+    <div class="fx-col fx-col--right">
+      <section class="bd-panel bd-attention" id="bd-attention" role="region" aria-label="Needs attention">
+        <h2 class="ws-h">Needs attention <span class="ws-h__meta" id="bd-attention-meta"></span></h2>
+        <p class="small bd-legend" id="bd-legend"></p>
+        <div class="dash-wrap"><table class="dash bd-att" id="bd-attention-list"><thead><tr><th>Time</th><th>AI agent</th><th>Payee</th><th class="num">Amount</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+        <p class="small bd-attention__empty" id="bd-attention-empty" hidden>Nothing needs attention. All AI agent payments inside mandate.</p>
+        <p class="small bd-done" id="bd-attention-done" hidden></p>
+        <p class="small" id="bd-attention-more"></p>
+      </section>
+      <section class="pane" id="bk-supervisory">
+        <h2 class="ws-h">Supervisory access</h2>
+        <p class="small">A supervisor can request the evidence for a passport or a refusal; each export is itself recorded in the chain.</p>
+        <ul class="evidence-list" id="bk-evidence"></ul>
+      </section>
+    </div>
+
+    <div class="fx-col fx-col--wide">
+      <div hidden><span id="bd-log-meta"></span><span id="bd-agents-meta"></span><span id="bk-trail-meta"></span><span id="ex-meta"></span><table id="bk-audit"><tbody></tbody></table><details class="bd-more" id="bd-more"><summary></summary></details><div id="bk-dash-anomaly"></div></div>
+    </div>
+  </div>
   </div>
 
   <div id="bk-page-products">
@@ -133,15 +137,6 @@
     </div>
   </div>
 
-  <div id="bd-trail-page">
-    <section class="bd-panel bd-trail" id="bd-trail" aria-labelledby="bd-trail-h">
-      <h2 class="ws-h" id="bd-trail-h">Evidence trail <span class="ws-h__meta">every event, hash-chained; verifications replay from their recorded inputs</span></h2>
-      <p class="au-summary" id="au-summary"></p>
-      <div class="actions"><button class="btn btn--secondary btn--small" id="btn-replay-all" type="button">Replay every verification</button><span class="actions__note" id="replay-note"></span><span class="actions__note" id="au-evidence"></span></div>
-      <div class="dash-wrap bd-trail__wrap"><table class="checks audit" id="au-table"><thead><tr><th>Time</th><th>What happened</th><th>Subject</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
-    </section>
-  </div>
-  <div hidden><span id="bd-log-meta"></span><span id="bd-agents-meta"></span><span id="bk-trail-meta"></span><span id="ex-meta"></span><table id="bk-audit"><tbody></tbody></table><details class="bd-more" id="bd-more"><summary></summary></details></div>
 </div>
 
 <div id="bk-case" hidden>

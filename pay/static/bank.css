@@ -470,7 +470,6 @@ body[data-bkpage="agents"] #bk-page-overview, body[data-bkpage="agents"] #bk-pag
 body[data-bkpage="trail"] #bk-page-overview, body[data-bkpage="trail"] #bk-page-attention, body[data-bkpage="trail"] #bk-page-agents { display: none; }
 body:not([data-bkpage="overview"]) .fx .fx-hdr-back { display: inline-flex; order: -1; flex-basis: 100%; margin: 0; }
 body:not([data-bkpage="overview"]) .fx-pill { display: none; }
-body[data-bkpage="trail"] .fx .fx-grid.bd-cols { display: grid; }
 .fx-pill--att b { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 8px; border-radius: 999px; background: var(--fx-red); color: #fff; font-size: .7rem; }
 .pane--strip { margin: 0 0 20px; }
 .pane--strip .bd-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }
@@ -493,8 +492,20 @@ body[data-bkpage="overview"] #bk-todo, body[data-bkpage="attention"] #bk-todo, b
 @media (max-width: 640px) { .fx-tools { flex-wrap: wrap; } .fx-pill { height: 34px; padding: 0 12px; } }
 /* the activity page */
 body:not([data-bkpage="activity"]) #bk-page-activity { display: none; }
-body[data-bkpage="activity"] #bk-page-overview, body[data-bkpage="activity"] #bk-page-attention, body[data-bkpage="activity"] #bk-page-agents, body[data-bkpage="activity"] #bk-page-products, body[data-bkpage="activity"] #bd-trail-page { display: none; }
+body[data-bkpage="activity"] #bk-page-attention, body[data-bkpage="activity"] #bk-page-agents, body[data-bkpage="activity"] #bk-page-products, body[data-bkpage="activity"] #bd-trail-page { display: none; }
 .fx .bd-log__cust { display: block; font-weight: 600; white-space: nowrap; }
 .fx .bd-log__agent { display: block; white-space: nowrap; }
 .fx #bd-recent.bd-col--full .dash-wrap { max-height: none; }
 body[data-bkpage="attention"] .bd-attention { max-width: 44rem; }
+
+/* ── back to the three-column overview; Activity and Admitted products as pages ── */
+body[data-bkpage="activity"] #bk-page-overview > .fx-grid > :not(.fx-col--mid), body[data-bkpage="activity"] .fx-col--mid > :not(#bd-recent), body[data-bkpage="activity"] #bk-page-products, body[data-bkpage="activity"] #bd-trail-page { display: none; }
+body[data-bkpage="activity"] .fx .fx-grid.bd-cols { grid-template-columns: minmax(0, 1fr); }
+body[data-bkpage="products"] #bk-page-overview { display: none; }
+body[data-bkpage="products"] .fx .fx-grid.bd-cols.bk-two { display: grid; }
+/* the customer column and the time only on the activity page */
+.fx .bd-log tr.bd-log__row > td:nth-child(3), .fx .bd-log thead th:nth-child(3), .fx .bd-log tr.bd-log__row > td:first-child, .fx .bd-log thead th:first-child { display: none; }
+body[data-bkpage="activity"] .fx .bd-log tr.bd-log__row > td:nth-child(3), body[data-bkpage="activity"] .fx .bd-log thead th:nth-child(3), body[data-bkpage="activity"] .fx .bd-log tr.bd-log__row > td:first-child, body[data-bkpage="activity"] .fx .bd-log thead th:first-child { display: table-cell; }
+body[data-bkpage="activity"] #bd-log-hint, body[data-bkpage="activity"] .bd-log__more { display: none; }
+.fx-col--right > * { flex: 0 0 auto; }
+.fx-col--right > .bd-attention { flex: 1 1 auto; }
