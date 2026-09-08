@@ -514,3 +514,9 @@ body[data-bkpage="activity"] #bd-log-hint, body[data-bkpage="activity"] .bd-log_
 .fx #au-table .bd-detail td { white-space: normal; }
 .fx #bk-add-product .label:first-of-type { margin-top: 0; }
 .fx #bk-add-product .input { max-width: none; }
+/* agents on their own page; the overview columns */
+body:not([data-bkpage="agents"]) #bk-page-agents { display: none; }
+body[data-bkpage="agents"] #bk-page-overview, body[data-bkpage="agents"] #bk-page-products, body[data-bkpage="agents"] #bd-trail-page { display: none; }
+body[data-bkpage="agents"] .fx .fx-grid.bd-cols.bk-two { display: grid; grid-template-columns: minmax(0, 44rem); }
+.fx-col--left > .pane, .fx-col--mid > .bd-stats { flex: 0 0 auto; }
+.fx-col--left > .pane:last-child { flex: 1 1 auto; }
