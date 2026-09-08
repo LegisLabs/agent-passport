@@ -74,22 +74,25 @@ flowchart LR
     <div class="evd-split__text">
     <p class="home__lede">When the AI agent tries to pay the altered invoice, the bank refuses it at the payee check and money never moves. What remains is a record the bank produced itself: who asked to pay whom, how much, which check stopped it and why, signed by the bank and chained to every earlier entry. The provider answers for its filing, the customer for its mandate, the bank for the check. A supervisor can read that record without operating any of it.</p>
     </div>
-  <article class="print" aria-label="Evidence of the refused transaction">
-<pre class="print__body">MERIDIAN BANK (DEMO)     EVIDENCE OF TRANSACTION
-08 SEP 2026  13:28:49                EV-2026-0017
-------------------------------------------------
-FROM     Northgate Joinery Ltd
-BY       PayGPT 6.0, AI agent (AP-2026-0107)
-TO       Fenwick Timber Ltd
-<mark>         account 60-11-22 99887766   NOT ON MANDATE</mark>
-AMOUNT   £2,500.00            invoice INV-9001
-------------------------------------------------
-<b>RESULT   REFUSED. MONEY DID NOT MOVE.</b>
-         R.6: payee account not on the mandate.
-         The mandate allows 60-11-22 10101010 only.
-------------------------------------------------
-SIGNED   by the bank   chain entry #17   replay ok
-synthetic record  ·  <a href="/api/evidence/passports/AP-2026-0107">live bundle</a></pre>
+  <article class="rec" aria-label="Evidence of the refused transaction">
+    <header class="rec__head">
+      <div><span class="rec__k">Evidence of transaction</span><b>Meridian Bank (demo) · Payments Risk</b></div>
+      <div class="rec__ref"><span class="rec__k">Record</span><b>EV-2026-0017</b><span class="rec__k">8 September 2026, 13:28:49</span></div>
+    </header>
+    <div class="rec__grid">
+      <div><span class="rec__k">From</span>Northgate Joinery Ltd<br><span class="small">business account 20-45-77 31908822</span></div>
+      <div><span class="rec__k">By</span>PayGPT 6.0, AI agent<br><span class="small">passport AP-2026-0107 · signature verified</span></div>
+      <div><span class="rec__k">To</span>Fenwick Timber Ltd<br><span class="rec__flag">account 60-11-22 99887766 · not on the mandate</span></div>
+      <div><span class="rec__k">Amount</span>£2,500.00<br><span class="small">invoice INV-9001</span></div>
+    </div>
+    <div class="rec__result"><b>Refused. Money did not move.</b><span>Check R.6, payee account not on the mandate. The mandate signed by Helen Marsh, Finance Director, allows Fenwick Timber Ltd at 60-11-22 10101010 only. Checks R.1 to R.5 passed; R.7 to R.9 were not run.</span></div>
+    <dl class="rec__proof">
+      <div><dt>Receipt</dt><dd>signed by the bank, Ed25519 · key <span class="mono">c9Qw3eVh2mKpT7Lx</span></dd></div>
+      <div><dt>Chain entry</dt><dd>#17 · <span class="mono">9c1e4b7d2a60f3e1</span> · previous <span class="mono">e2f0a97c11d4b8a6</span></dd></div>
+      <div><dt>Replay</dt><dd>same inputs, same decision</dd></div>
+      <div><dt>Register</dt><dd>REG-2026-0014, OpenPay Ltd · receipt verified</dd></div>
+    </dl>
+    <footer class="rec__foot"><span class="rec__seal">Verified</span><span>Synthetic record. <a href="/api/evidence/passports/AP-2026-0107">The live bundle</a> carries every signature and hash.</span></footer>
   </article>
   </div>
 
