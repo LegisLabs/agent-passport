@@ -5,8 +5,8 @@
   <div class="wrap hero__grid">
     <div>
       <h1 class="hero__h1">Know the AI agent before it pays.</h1>
-      <p class="hero__lede">Businesses are handing their invoices to AI agents that read, decide and pay. When one of them pays, the bank cannot see which agent acted, on whose authority, or who answers for it. Agent Passport gives the bank those three answers before money moves: a registered provider, an admitted AI product, a customer-signed mandate, and a check on every payment.</p>
-      <p class="hero__actions"><a class="btn btn--inverse" href="/terminal">Watch an invoice get caught</a><a class="hero__link" href="/bank">Open the bank console</a></p>
+      <p class="hero__lede">Businesses are handing their invoices to AI agents that read, decide and pay. When one of them pays, the bank cannot see which agent acted, on whose authority, or who answers for it. Agent Passport gives the bank those three answers before money moves, and a record afterwards that stands up on its own.</p>
+      <p class="hero__actions"><a class="btn btn--inverse" href="/customer">Customer dashboard</a><a class="btn btn--ghost" href="/bank">Bank dashboard</a><a class="hero__link" href="/about">How it works</a></p>
     </div>
     <figure class="hero__photo"><img src="/static/photos/boe.jpg" alt="The City of London" width="1920" height="1291"><figcaption>Photo: It's No Game, CC BY 2.0</figcaption></figure>
   </div>
@@ -25,30 +25,20 @@
 {% endblock %}
 {% block content %}
 <div class="home">
-  <section class="home__section">
-    <div class="home__intro"><h2 class="h2">The shift</h2>
-    <p class="home__lede">AI agents are already buying. Last holiday season AI and agents stood behind a fifth of everything sold online, and the businesses behind those shoppers are handing over their invoices next. The question is no longer whether AI agents will pay, but whether anyone can see on whose authority.</p></div>
-    <div class="home__body">
-    <div class="chartbox"><h3 class="chart__title">Agentic commerce, global, $ billion: actual to 2025, forecast to 2030</h3><div class="chartbox__canvas"><canvas id="chart-shift" aria-label="2024 $229bn, 2025 $262bn, 2030 $1.5tn forecast" role="img"></canvas></div></div>
-    <p class="chart__src">2024 and 2025: online holiday sales influenced by AI and agents, <a href="https://www.salesforce.com/news/press-releases/2025/01/06/2024-holiday-shopping-data/">Salesforce 2024</a>, <a href="https://www.salesforce.com/news/stories/2025-holiday-shopping-data/">Salesforce 2025</a>. 2030: agentic commerce spend, <a href="https://www.juniperresearch.com/press/agentic-commerce-set-to-generate-15-trillion-globally-by-2030-as-payments-infrastructure-leaders-revealed/">Juniper Research forecast</a>; McKinsey puts the same year at <a href="https://www.digitalcommerce360.com/2025/10/20/mckinsey-forecast-5-trillion-agentic-commerce-sales-2030/">$3 to 5 trillion</a>.</p>
-    </div>
-  </section>
+  <h2 class="h2">The shift</h2>
+  <p class="home__lede">AI agents are already buying. Last holiday season AI and agents stood behind a fifth of everything sold online, and the businesses behind those shoppers are handing over their invoices next. The question is no longer whether AI agents will pay, but whether anyone can see on whose authority.</p>
+  <div class="chartbox"><h3 class="chart__title">Agentic commerce, global, $ billion: actual to 2025, forecast to 2030</h3><div class="chartbox__canvas"><canvas id="chart-shift" aria-label="2024 $229bn, 2025 $262bn, 2030 $1.5tn forecast" role="img"></canvas></div></div>
+  <p class="chart__src">2024 and 2025: online holiday sales influenced by AI and agents, <a href="https://www.salesforce.com/news/press-releases/2025/01/06/2024-holiday-shopping-data/">Salesforce 2024</a>, <a href="https://www.salesforce.com/news/stories/2025-holiday-shopping-data/">Salesforce 2025</a>. 2030: agentic commerce spend, <a href="https://www.juniperresearch.com/press/agentic-commerce-set-to-generate-15-trillion-globally-by-2030-as-payments-infrastructure-leaders-revealed/">Juniper Research forecast</a>; McKinsey puts the same year at <a href="https://www.digitalcommerce360.com/2025/10/20/mckinsey-forecast-5-trillion-agentic-commerce-sales-2030/">$3 to 5 trillion</a>.</p>
 
-  <section class="home__section">
-    <div class="home__intro"><h2 class="h2">The cost of not knowing</h2>
-    <p class="home__lede">This is what happens when the person paying cannot see who is really behind a request. Of the £1.28 billion taken from UK customers last year, £576 million was authorised push payment fraud, up 19% in a year: payments the victims made themselves, in good faith, to someone they could not see. An AI agent sees even less than they did, and since 2024 the sending bank carries the loss.</p></div>
-    <div class="home__body">
-    <div class="chartbox"><h3 class="chart__title">Authorised push payment fraud, UK, £ million</h3><div class="chartbox__canvas"><canvas id="chart-app" aria-label="2021 £583m, 2022 £485m, 2023 £460m, 2024 £451m, 2025 £576m" role="img"></canvas></div></div>
-    <p class="chart__src">Source: <a href="https://www.ukfinance.org.uk/news-and-insight/press-release/fraud-report-2026-press-release">UK Finance, Annual Fraud Report 2026</a>. Losses reported to UK Finance.</p>
-    </div>
-  </section>
+  <h2 class="h2">The numbers</h2>
+  <p class="home__lede">This is what happens when the person paying cannot see who is really behind a request. Of the £1.28 billion taken from UK customers last year, £576 million was authorised push payment fraud, up 19% in a year: payments the victims made themselves, in good faith, to someone they could not see. An AI agent sees even less than they did, and since 2024 the sending bank carries the loss.</p>
+  <div class="chartbox"><h3 class="chart__title">Authorised push payment fraud, UK, £ million</h3><div class="chartbox__canvas"><canvas id="chart-app" aria-label="2021 £583m, 2022 £485m, 2023 £460m, 2024 £451m, 2025 £576m" role="img"></canvas></div></div>
+  <p class="chart__src">Source: <a href="https://www.ukfinance.org.uk/news-and-insight/press-release/fraud-report-2026-press-release">UK Finance, Annual Fraud Report 2026</a>. Losses reported to UK Finance.</p>
 
-  <section class="home__section">
-    <div class="home__intro"><h2 class="h2">The problem</h2>
-    <p class="home__lede">Today an AI agent's payment looks exactly like a person's. Nothing on it says which agent acted, what it was allowed to do, or who stands behind it. The bank sees an instruction and nothing else.</p></div>
-    <div class="home__body">
-    <div class="diagram"><pre class="mermaid">
-flowchart TB
+  <h2 class="h2">The problem</h2>
+  <p class="home__lede">Today an AI agent's payment looks exactly like a person's. Nothing on it says which agent acted, what it was allowed to do, or who stands behind it. The bank sees an instruction and nothing else.</p>
+  <div class="diagram"><pre class="mermaid">
+flowchart LR
   I["<b>Invoice</b><br/>from anyone"] --> A["<b>AI agent</b><br/>reads, decides, pays"]
   A --> B["<b>Bank</b><br/>sees only an instruction"]
   B --> M["<b>Money moves</b><br/>with no record of who acted"]
@@ -59,60 +49,84 @@ flowchart TB
   class M out
   class Q1,Q2,Q3 q
 </pre></div>
-    <p class="home__note">Identity alone does not fix this. Knowing who an AI agent is tells you nothing about what it may do, and nothing about who answers when it goes wrong.</p>
-    </div>
-  </section>
+  <p class="home__lede">Identity alone does not fix this. Knowing who an AI agent is tells you nothing about what it may do, and nothing about who answers when it goes wrong.</p>
 
-  <section class="home__section">
-    <h2 class="h2">How it works</h2>
-    <div class="standard-split">
-      <div class="standard-text">
-        <p class="home__lede">Three layers set up once, and a check that runs on every payment. Banks operate it, because they carry the fraud loss and hold the customer relationship. <strong class="claim">Every payment an AI agent makes then carries provable, revocable authority.</strong></p>
-        <ol class="plain-steps plain-steps--std">
-          <li><strong>The provider registers the AI product.</strong> Once. A filing, not an approval: identity, an accountable principal, insurance and Independent Assurance Evidence. The register does not certify that AI agents are good; it guarantees that someone is accountable when they are bad.</li>
-          <li><strong>The bank admits the product to its list.</strong> Once. The bank, not a regulator, decides which registered products its customers may delegate to. Its commercial risk decision and its fraud control.</li>
-          <li><strong>The customer signs the mandate.</strong> Once, inside its own banking app: which payees, how much, until when. The mandate is the consent artefact.</li>
-          <li><strong>The bank checks.</strong> Every payment. Passport and mandate are verified before any money moves, and a signed audit entry is written either way. A manipulated invoice fails here, visibly.</li>
-        </ol>
-        <p class="vouch__links"><a href="/about">How it works in detail</a></p>
-      </div>
-      <div class="standard-one">
-        <a class="standard-page" href="/static/APS_1001.pdf" aria-label="APS 1001, first page (PDF)"><img src="/static/aps-p1-bold.png" alt="First page of APS 1001, the proposed standard"></a>
-        <a class="btn btn--secondary btn--small" href="/static/APS_1001.pdf">Read the standard, APS 1001</a>
-      </div>
+  <h2 class="h2">Our proposal</h2>
+  <div class="standard-split">
+    <div class="standard-text">
+      <p class="home__lede">Put the check where the money and the liability are: at the bank. A registered provider, a product the bank admitted, a mandate the customer signed, and a verification on every payment. <strong class="claim">Every payment an AI agent makes then carries provable, revocable authority.</strong></p>
+      <ol class="plain-steps plain-steps--std">
+        <li><strong>The provider registers the AI product.</strong> Once.</li>
+        <li><strong>The bank admits it to its list.</strong> Once.</li>
+        <li><strong>The customer signs the mandate.</strong> Once.</li>
+        <li><strong>The bank checks.</strong> Every payment.</li>
+      </ol>
+      <p class="vouch__links"><a href="/about">Check how it works</a></p>
     </div>
-  </section>
-
-  <section class="home__section home__section--peak">
-    <h2 class="h2">The result</h2>
-    <p class="home__lede">What lands on a supervisor's desk when it asks about the invoice above.</p>
-    <div class="evd-split">
-      <article class="evd" aria-label="Evidence record for the refused invoice">
-        <header class="evd__head">
-          <div><span class="evd__k">Evidence record · Meridian Bank (demo)</span><b>Passport AP-2026-0107 · 8 September 2026</b></div>
-          <span class="evd__stamp">Denied</span>
-        </header>
-        <table class="evd__t">
-          <tr><th>The AI agent asked to pay</th><td>£2,500 to Fenwick Timber Ltd, account <span class="num">60-11-22 99887766</span>, from invoice INV-9001.</td></tr>
-          <tr><th>The customer allowed</th><td>Fenwick Timber Ltd at <span class="num">60-11-22 10101010</span>, up to £10,000 a payment. Signed by Helen Marsh, Finance Director.</td></tr>
-          <tr><th>The bank decided</th><td>Refused at check R.6: the account is not on the mandate. The invoice changed the destination, not the AI agent.</td></tr>
-          <tr><th>Proof</th><td>Receipt signed by the bank. Entry #17 in the chain, replayed with the same result.</td></tr>
-        </table>
-        <footer class="evd__foot">Synthetic record. <a href="/api/evidence/passports/AP-2026-0107">The live bundle</a> carries every signature and hash behind it.</footer>
-      </article>
-      <ul class="evd__points">
-        <li><b>The fraud fails.</b> The payee check stops invoice redirection and prompt injection whatever the invoice says. The mandate names accounts, not names.</li>
-        <li><b>The bank can prove what it did.</b> Every line above is signed or hashed and replays from its recorded inputs. A disputed payment has a record, not a story.</li>
-        <li><b>Everyone knows who answers.</b> The provider for its filing, the customer for its mandate, the bank for the check. The supervisor reads the record without operating any of it.</li>
-      </ul>
+    <div class="standard-one">
+      <a class="standard-page" href="/static/APS_1001.pdf" aria-label="APS 1001, first page (PDF)"><img src="/static/aps-p1-bold.png" alt="First page of APS 1001, the proposed standard"></a>
+      <a class="btn btn--secondary btn--small" href="/static/APS_1001.pdf">Read the whole standard</a>
     </div>
-  </section>
+  </div>
 
-  <section class="home__section">
-    <h2 class="h2 vouch__h">Powered by <a href="https://vouch.finance" class="vouch__logo" aria-label="vouch.finance"><img src="/static/logos/vouch.svg" alt="" width="46" height="40"><span>vouch.finance</span></a></h2>
-    <p class="home__lede">A passport is a promise. On vouch.finance the promise becomes money that can only be spent the way it was promised. When a customer signs its mandate, the bank mints an AI Voucher carrying the agent's limits, its payees and its passport. The bank runs the nine checks and the vouch policy engine authorises the settlement, so a refusal on one is a refusal on both. Suspend or revoke the passport and the voucher goes with it: the next instruction fails on every rail.</p>
-    <p class="vouch__links"><a href="/bank">See the rail on a live passport</a></p>
-  </section>
+  <h2 class="h2">The result</h2>
+  <p class="home__lede">What lands on a supervisor's desk when it asks about the invoice above: one page, produced by the bank.</p>
+  <div class="evd-split">
+    <article class="a4" aria-label="Evidence record for the refused instruction">
+      <header class="a4__head">
+        <div><b>Meridian Bank (demo)</b><span>Payments Risk · Agent Passport evidence record</span></div>
+        <div class="a4__ref"><span>Record</span><b>EV-2026-0017</b></div>
+        <span class="a4__stamp">Denied</span>
+      </header>
+      <h3 class="a4__h">Instruction</h3>
+      <dl class="a4__f">
+        <div><dt>Time</dt><dd>8 September 2026, 13:28:49</dd></div>
+        <div><dt>Passport</dt><dd>AP-2026-0107</dd></div>
+        <div><dt>AI agent</dt><dd>PayGPT 6.0, OpenPay Ltd</dd></div>
+        <div><dt>Customer</dt><dd>Northgate Joinery Ltd</dd></div>
+        <div><dt>Amount</dt><dd>£2,500.00</dd></div>
+        <div><dt>Payee</dt><dd>Fenwick Timber Ltd</dd></div>
+        <div><dt>Account</dt><dd>60-11-22 99887766</dd></div>
+        <div><dt>Invoice</dt><dd>INV-9001</dd></div>
+        <div><dt>Signature</dt><dd>AI agent key, verified</dd></div>
+        <div><dt>Declared before reading</dt><dd>60-11-22 10101010</dd></div>
+      </dl>
+      <h3 class="a4__h">Mandate</h3>
+      <dl class="a4__f">
+        <div><dt>Signed by</dt><dd>Helen Marsh, Finance Director</dd></div>
+        <div><dt>Fenwick Timber Ltd</dt><dd>60-11-22 10101010</dd></div>
+        <div><dt>Per payment</dt><dd>up to £10,000</dd></div>
+        <div><dt>Per account, 30 days</dt><dd>up to £20,000</dd></div>
+        <div><dt>Valid until</dt><dd>31 March 2027</dd></div>
+        <div><dt>Product admitted by</dt><dd>A. Ferreira, 8 September 2026</dd></div>
+      </dl>
+      <h3 class="a4__h">Decision</h3>
+      <dl class="a4__f">
+        <div><dt>Outcome</dt><dd><b>Refused</b></dd></div>
+        <div><dt>Rule</dt><dd>R.6, payee not on the mandate</dd></div>
+        <div><dt>Checks passed</dt><dd>R.1 to R.5</dd></div>
+        <div><dt>Not evaluated</dt><dd>R.7 to R.9</dd></div>
+        <div><dt>Finding</dt><dd>The invoice changed the account. The AI agent did not.</dd></div>
+      </dl>
+      <h3 class="a4__h">Proof</h3>
+      <dl class="a4__f">
+        <div><dt>Receipt</dt><dd>signed by the bank</dd></div>
+        <div><dt>Chain entry</dt><dd>#17 · 9c1e4b7d2a60</dd></div>
+        <div><dt>Replay</dt><dd>identical</dd></div>
+        <div><dt>Register</dt><dd>REG-2026-0014, receipt verified</dd></div>
+      </dl>
+      <footer class="a4__foot"><span>Synthetic record.</span><a href="/api/evidence/passports/AP-2026-0107">Live bundle</a></footer>
+    </article>
+    <ul class="evd__points">
+      <li><b>The fraud fails.</b> The payee check stops invoice redirection and prompt injection whatever the invoice says. The mandate names accounts, not names.</li>
+      <li><b>The bank can prove what it did.</b> Every line is signed or hashed and replays from its recorded inputs. A disputed payment has a record, not a story.</li>
+      <li><b>Everyone knows who answers.</b> The provider for its filing, the customer for its mandate, the bank for the check. The supervisor reads the record without operating any of it.</li>
+    </ul>
+  </div>
+
+  <h2 class="h2 vouch__h">Powered by <a href="https://vouch.finance" class="vouch__logo" aria-label="vouch.finance"><img src="/static/logos/vouch.svg" alt="" width="46" height="40"><span>vouch.finance</span></a></h2>
+  <p class="home__lede">A passport is a promise. On vouch.finance the promise becomes money that can only be spent the way it was promised. When a customer signs its mandate, the bank mints an AI Voucher carrying the agent's limits, its payees and its passport. The bank runs the nine checks and the vouch policy engine authorises the settlement, so a refusal on one is a refusal on both. Suspend or revoke the passport and the voucher goes with it: the next instruction fails on every rail.</p>
+  <p class="vouch__links"><a href="/bank">See the rail on a live passport</a></p>
 </div>
 {% endblock %}
 {% block scripts %}<script src="/static/vendor/chart.umd.js"></script><script src="/static/vendor/mermaid.min.js"></script><script>AP.home();</script>{% endblock %}

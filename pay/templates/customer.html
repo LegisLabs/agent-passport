@@ -1,28 +1,49 @@
 {% extends "base.html" %}
-{% block title %}My AI agents{% endblock %}
-{% block role %}<div class="role"><div class="wrap role__row"><span class="role__who"><b>{{ customer }}</b> · business banking at {{ bank }}</span><span class="role__where">signed in as Helen Marsh, Finance Director</span></div></div>{% endblock %}
+{% block title %}Customer dashboard{% endblock %}
+{% block role %}<div class="role"><div class="wrap role__row"><span class="role__who"><b>{{ customer }}</b> · business banking at {{ bank }}</span><span class="role__where">Helen Marsh, Finance Director</span></div></div>{% endblock %}
 {% block content %}
-<h1 class="h1">AI agents</h1>
-<p class="lede">Let an AI agent pay your suppliers the way you would set up a direct debit. Choose a product from your bank's list, say exactly which accounts it may pay, how much and until when, then sign. Your bank checks every payment against what you signed, and refuses anything outside it however convincing the invoice.</p>
-
-<h2 class="h2">Your AI agents</h2>
-<div class="dash-wrap"><table class="dash" id="cu-agents"><thead><tr><th>Passport</th><th>AI agent</th><th>Product</th><th class="num">Paid in 30 days</th><th>Status</th></tr></thead><tbody></tbody></table></div>
-
-<div class="empty" id="cu-empty"><p>Your bank has not admitted any AI product yet. Admission happens in the <a href="/bank">Bank console</a>.</p></div>
-
-<div class="card" id="cu-create" hidden>
-  <h2 class="h2 h2--card">Add an AI agent</h2>
-  <p class="hint">Products on this list have been registered by their provider and admitted by your bank. Give your deployment a name; a key pair is generated for it and its possession is proven to the bank.</p>
-  <div class="fields">
-    <label class="label" for="cu-model">Product from {{ bank }}'s list</label><select class="input" id="cu-model"></select>
-    <label class="label" for="cu-agent-name">Name for your AI agent</label><input class="input" id="cu-agent-name" placeholder="e.g. PayGPT 6.0 · Northgate deployment">
+<div class="acct">
+  <div class="acct__head">
+    <div>
+      <p class="acct__name">Business Current Account</p>
+      <p class="acct__no"><span class="num">20-45-77</span> <span class="num">31908822</span> · {{ customer }}</p>
+    </div>
+    <div class="acct__bal"><span>Balance</span><b class="num" id="ac-balance">£84,213.50</b><small>Available <span class="num" id="ac-avail">£79,713.50</span></small></div>
   </div>
-  <div class="actions"><button class="btn" id="btn-create-agent">Continue to the mandate</button><span class="actions__note" id="cu-create-note"></span></div>
-  <p class="error" id="cu-create-error" hidden></p>
+  <nav class="acct__tabs" aria-label="Account sections"><a href="#ac-transactions">Transactions</a><a href="#ac-agents">AI agents</a><a href="#ac-trail">Evidence trail</a></nav>
+</div>
+
+<div class="ws ws--acct">
+  <div class="ws__main">
+    <section class="ws-sec" id="ac-transactions">
+      <h2 class="ws-h">Transactions <span class="ws-h__meta">September 2026</span></h2>
+      <div class="dash-wrap dash-wrap--plain"><table class="dash txns" id="ac-txns"><thead><tr><th>Date</th><th>Description</th><th class="num">Money out</th><th class="num">Money in</th><th class="num">Balance</th></tr></thead><tbody></tbody></table></div>
+      <p class="hint hint--after">Payments marked <b>AI agent</b> were made by your AI agent within the mandate you signed. Blocked attempts never left the account. Watch one happen in the <a href="/terminal">Action Terminal</a>.</p>
+    </section>
+    <section class="ws-sec" id="ac-trail">
+      <h2 class="ws-h">Evidence trail <span class="ws-h__meta">this account's AI agents · <a href="/audit">full trail</a></span></h2>
+      <table class="checks audit" id="ac-audit"><thead><tr><th>Time</th><th>What happened</th><th>Proof</th></tr></thead><tbody></tbody></table>
+    </section>
+  </div>
+  <aside class="ws__side" id="ac-agents">
+    <section class="ws-sec">
+      <h2 class="ws-h">AI agents</h2>
+      <table class="dash" id="cu-agents"><thead><tr><th>Agent</th><th class="num">Paid, 30 days</th><th>Status</th></tr></thead><tbody></tbody></table>
+      <div class="empty" id="cu-empty"><p>Your bank has not admitted any AI product yet. Admission happens in the <a href="/bank">bank dashboard</a>.</p></div>
+      <div id="cu-create" hidden>
+        <h3 class="h3">Add an AI agent</h3>
+        <p class="hint">Products your bank has admitted. A key pair is generated for your deployment and its possession is proven to the bank.</p>
+        <label class="label" for="cu-model">Product</label><select class="input" id="cu-model"></select>
+        <label class="label" for="cu-agent-name">Name</label><input class="input" id="cu-agent-name" placeholder="e.g. PayGPT 6.0 · Northgate deployment">
+        <div class="actions"><button class="btn" id="btn-create-agent">Continue to the mandate</button><span class="actions__note" id="cu-create-note"></span></div>
+        <p class="error" id="cu-create-error" hidden></p>
+      </div>
+    </section>
+  </aside>
 </div>
 
 <div id="cu-mandate" hidden>
-  <h2 class="h2">Mandate for <span class="mono" id="cu-ref"></span></h2>
+  <h2 class="ws-h ws-h--wide">Mandate for <span class="mono" id="cu-ref"></span></h2>
   <dl class="kv kv--card" id="cu-agent-kv"></dl>
   <div class="mandate" id="cu-card">
     <div class="mandate__head"><span>Payment mandate · <span class="mono" id="cu-id"></span></span><span id="cu-state"></span></div>
@@ -50,16 +71,12 @@
   </div>
   <p class="error" id="cu-error" hidden></p>
   <div class="notice" id="cu-after" hidden><p>Your AI agent is live. Watch it pay, and watch an altered invoice get refused, in the <a href="/terminal">Action Terminal</a>.</p></div>
-
-  <div id="cu-activity-wrap" hidden>
-    <h2 class="h2">Activity</h2>
-    <table class="checks activity" id="cu-activity"><thead><tr><th>Time</th><th>Instruction</th><th>Outcome</th><th>Reason</th></tr></thead><tbody></tbody></table>
-  </div>
   <details class="jwt" id="cu-jwt-wrap" hidden>
     <summary>Signed mandate (JWT, EdDSA / Ed25519, {{ customer }} key; OAuth 2.0 RFC 9396 authorization_details)</summary>
     <pre class="code" id="cu-jwt-payload"></pre>
     <pre class="code code--wrap" id="cu-jwt"></pre>
   </details>
+  <div hidden><div id="cu-activity-wrap"><table id="cu-activity"><tbody></tbody></table></div></div>
 </div>
 {% endblock %}
 {% block scripts %}<script>AP.customer();</script>{% endblock %}

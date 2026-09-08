@@ -5,28 +5,41 @@
 <div class="alert" id="bk-alert" hidden role="alert"></div>
 
 <div id="bk-dash" hidden>
-  <h1 class="h1">Bank console</h1>
-  <p class="lede lede--tight">The AI agents paying from your customers' accounts, the products you have admitted, the registrations waiting for your decision, and every instruction you refused, with the reason. You operate this. A supervisor can request the evidence.</p>
-  <ul class="stats" id="bk-stats"></ul>
-
+  <div class="ws-head">
+    <div><h1 class="h1 h1--ws">Bank dashboard</h1><p class="ws-sub">AI agent payments from your customers' accounts. You operate this; a supervisor can request the evidence.</p></div>
+    <ul class="stats stats--ws" id="bk-stats"></ul>
+  </div>
   <div class="todo" id="bk-todo" hidden></div>
-
-  <h2 class="h2">AI agents on your list</h2>
-  <div class="dash-wrap"><table class="dash" id="bk-agents"><thead><tr><th>Passport</th><th>AI agent</th><th>Customer</th><th>Product</th><th class="num">Paid in 30 days</th><th class="num">Refusals</th><th>Status</th></tr></thead><tbody></tbody></table></div>
-
-  <h2 class="h2">Flagged and blocked instructions <span class="h2__meta" id="ex-meta"></span></h2>
-  <div id="bk-dash-anomaly"></div>
-
-  <h2 class="h2">Admitted AI products</h2>
-  <div class="dash-wrap"><table class="dash" id="bk-products"><thead><tr><th>Registration</th><th>AI product</th><th>Provider</th><th>Admitted</th><th class="num">Hold above</th><th class="num">Live agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
-
-  <h2 class="h2">The register <span class="h2__meta">{{ register_name }} · read by every bank</span></h2>
-  <div class="dash-wrap"><table class="dash" id="bk-register"><thead><tr><th>Registration</th><th>AI product</th><th>Provider</th><th>Filed</th><th>Filing checks</th><th>Your decision</th></tr></thead><tbody></tbody></table></div>
-
-  <section class="supervisory" id="bk-supervisory">
-    <h2 class="h2">Supervisory access <span class="h2__meta">read-only · by exception</span></h2>
-    <p class="hint">A regulator does not operate this console and does not approve anything in it. Through normal supervisory and incident processes it can request the evidence for a specific passport or refusal: the register filing and receipt, your admission decision, the customer's agent identity and mandate, every verification with its inputs and signed receipt, and the hash chain that ties them together. Each export is itself recorded in the chain.</p>
-    <ul class="evidence-list" id="bk-evidence"></ul>
+  <div class="ws">
+    <div class="ws__main">
+      <section class="ws-sec">
+        <h2 class="ws-h">AI agents on your list</h2>
+        <div class="dash-wrap"><table class="dash" id="bk-agents"><thead><tr><th>Passport</th><th>AI agent</th><th>Customer</th><th>Product</th><th class="num">Paid, 30 days</th><th class="num">Refusals</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+      </section>
+      <section class="ws-sec">
+        <h2 class="ws-h">Flagged and blocked instructions <span class="ws-h__meta" id="ex-meta"></span></h2>
+        <div id="bk-dash-anomaly"></div>
+      </section>
+    </div>
+    <aside class="ws__side">
+      <section class="ws-sec">
+        <h2 class="ws-h">Admitted products</h2>
+        <div class="dash-wrap"><table class="dash" id="bk-products"><thead><tr><th>Product</th><th>Provider</th><th class="num">Hold above</th><th class="num">Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+      </section>
+      <section class="ws-sec">
+        <h2 class="ws-h">The register <span class="ws-h__meta">read by every bank</span></h2>
+        <div class="dash-wrap"><table class="dash" id="bk-register"><thead><tr><th>Product</th><th>Provider</th><th>Filed</th><th>Your decision</th></tr></thead><tbody></tbody></table></div>
+      </section>
+      <section class="ws-sec ws-sec--quiet" id="bk-supervisory">
+        <h2 class="ws-h">Supervisory access <span class="ws-h__meta">read-only, by exception</span></h2>
+        <p class="small">A regulator does not operate this console and approves nothing in it. Through normal supervisory and incident processes it can request the evidence for a passport or a refusal; each export is itself recorded in the chain.</p>
+        <ul class="evidence-list" id="bk-evidence"></ul>
+      </section>
+    </aside>
+  </div>
+  <section class="ws-sec" id="bk-trail">
+    <h2 class="ws-h">Evidence trail <span class="ws-h__meta"><span id="bk-trail-meta"></span> · <a href="/audit">full trail and replay</a></span></h2>
+    <table class="checks audit" id="bk-audit"><thead><tr><th>Time</th><th>What happened</th><th>Subject</th><th>Proof</th></tr></thead><tbody></tbody></table>
   </section>
 </div>
 
@@ -39,7 +52,7 @@
   <dl class="summary" id="bk-summary"></dl>
 
   <h2 class="h2">Filing checks <span class="h2__meta">recorded on the register · rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
-  <table class="checks" id="bk-checks"><thead><tr><th>Rule</th><th>Check</th><th>Source</th><th>Result</th></tr></thead><tbody></tbody></table>
+  <div class="dash-wrap dash-wrap--plain"><table class="checks" id="bk-checks"><thead><tr><th>Rule</th><th>Check</th><th>Source</th><th>Result</th></tr></thead><tbody></tbody></table></div>
 
   <h2 class="h2">Admission review assistant <span class="h2__meta">your tool · deterministic · rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
   <p class="hint">Does this product meet the minimum assurance requirements for this use case? Six steps over the filing and your own payment engine. The assistant recommends; you decide.</p>
@@ -49,6 +62,7 @@
   <details class="jwt" id="bk-note-wrap">
     <summary>File note (draft phrased by the model from the filing and the checks; not a decision)</summary>
     <div class="actions"><button class="btn btn--secondary btn--small" id="btn-note">Draft file note</button><span class="actions__note" id="note-mode"></span></div>
+    <label class="label" for="bk-filenote">File note</label>
     <textarea class="textarea" id="bk-filenote" rows="5" placeholder="No draft yet."></textarea>
   </details>
 
@@ -94,17 +108,8 @@
     <p class="envelope__stamp" id="envelope-stamp"></p>
     <ul class="badges" aria-label="Standards used"><li>OAuth 2.0 RFC 9396</li><li>W3C VC JWT</li><li>RFC 7800 cnf</li><li>Ed25519 RFC 8037</li></ul>
 
-    <h3 class="h3">Passport control</h3>
-    <label class="label" for="bk-reason">Reason</label>
-    <input class="input" id="bk-reason" placeholder="e.g. Customer reported a suspected key compromise">
-    <div class="actions">
-      <button class="btn btn--secondary" id="btn-suspend">Suspend</button>
-      <button class="btn btn--secondary" id="btn-reinstate" hidden>Reinstate</button>
-      <button class="btn btn--warning" id="btn-revoke">Revoke</button>
-      <a class="btn btn--secondary" href="/terminal?console=1">Open the expert console</a>
-      <a class="btn btn--secondary" id="btn-evidence" href="#" target="_blank" rel="noopener">Export evidence bundle</a>
-    </div>
-    <p class="error" id="life-error" hidden></p>
+    <p class="small"><a href="/terminal?console=1">Open the expert console</a> · <a id="btn-evidence" href="#" target="_blank" rel="noopener">Export the evidence bundle</a></p>
+    <div hidden><button id="btn-suspend"></button><button id="btn-reinstate"></button><button id="btn-revoke"></button><p id="life-error"></p></div>
 
     <h3 class="h3">Mandate on the vouch rail</h3>
     <p class="small">The mandate is mirrored as an AI Voucher on vouch.finance when the customer signs; revoking the passport revokes the voucher, so one action refuses on two rails.</p>
@@ -122,10 +127,12 @@
 <div id="bk-anomaly">
   <div class="exception" id="exception" hidden>
     <div class="exception__state" id="ex-state"></div>
+    <label class="label" for="bk-reason">Reason (recorded in the chain)</label>
+    <input class="input" id="bk-reason" placeholder="e.g. Two redirected invoices in ten minutes; calling the customer">
     <div class="actions" id="ex-actions"></div>
     <p class="error" id="ex-error" hidden></p>
   </div>
-  <table class="checks violations" id="bk-violations"><thead><tr><th>Time</th><th>AI agent</th><th>Rule</th><th>Instruction attempted</th><th>Outcome</th><th>Status</th></tr></thead><tbody></tbody></table>
+  <table class="checks violations" id="bk-violations"><thead><tr><th>Time</th><th>Instruction attempted</th><th>Refused at</th><th>Status</th></tr></thead><tbody></tbody></table>
   <div class="evidence" id="ex-evidence" hidden></div>
   <h3 class="h3">Incidents</h3>
   <ol class="incidents" id="bk-incidents"><li class="log__empty">No incidents.</li></ol>

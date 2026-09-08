@@ -157,19 +157,20 @@ const AP = (() => {
       const regs = state.registrations.filter(x => x.status !== 'draft'), live = issued(), viol = state.violations || [], inc = state.incidents || [];
       const todo = regs.filter(x => !x.admission_status || x.admission_status === 'info_requested');
       const paid = (state.payments || []).reduce((s, x) => s + Number(x.amount || 0), 0);
-      $('bk-stats').innerHTML = [[live.filter(x => x.status === 'active').length, 'live AI agents'], [todo.length, 'awaiting your admission decision'], [gbp(paid), 'executed in 30 days'], [viol.filter(x => x.status === 'OPEN').length, 'open refusals'], [inc.length, 'incidents']].map(([n, l]) => `<li><b>${n}</b><span>${l}</span></li>`).join('');
+      $('bk-stats').innerHTML = [[live.filter(x => x.status === 'active').length, 'live agents'], [todo.length, 'awaiting decision'], [gbp(paid), 'paid, 30 days'], [viol.filter(x => x.status === 'OPEN').length, 'open refusals'], [inc.length, 'incidents']].map(([n, l]) => `<li><b>${n}</b><span>${l}</span></li>`).join('');
       $('bk-todo').hidden = !todo.length;
       $('bk-todo').innerHTML = todo.map(x => `<span><strong>${esc(v(x.fields, 'product', 'product_name') || x.ref)}</strong> by ${esc(v(x.fields, 'company', 'legal_name') || '')} is on the register and awaits your admission decision.</span><a class="btn btn--small" href="/bank?ref=${x.ref}">Open ${esc(x.ref)}</a>`).join('');
       rows('bk-agents', live.map(x => { const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}; const tot = Object.values(x.ledger || {}).reduce((s, y) => s + y.total, 0); const nv = viol.filter(y => y.passport_id === x.passport_id).length; return { cells: [`<a href="/bank?passport=${x.passport_id}">${esc(x.passport_id)}</a>`, esc(ag.name || ''), esc((mp.customer || {}).legal_name || ''), esc(ag.product_name || ''), gbp(tot), nv ? `<span class="tag tag--${nv >= 2 ? 'red' : 'amber'}">${nv}</span>` : '0', tag(x.status)] }; }), 7, 'No AI agent has a passport on your list yet.');
-      rows('bk-products', regs.filter(x => x.admission_status && x.admission_status !== 'declined' && x.admission_status !== 'info_requested').map(x => { const pr = (state.products || []).find(y => y.registration_id === x.id) || { passports: [] }; return { cells: [`<a href="/bank?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(x.fields, 'product', 'product_name') || ''), esc(v(x.fields, 'company', 'legal_name') || ''), d(x.admitted_at), holdOf(x) != null ? gbp(holdOf(x)) : '—', String(pr.passports.length), admissionTag(x)] }; }), 7, 'No product admitted yet.');
+      rows('bk-products', regs.filter(x => x.admission_status && x.admission_status !== 'declined' && x.admission_status !== 'info_requested').map(x => { const pr = (state.products || []).find(y => y.registration_id === x.id) || { passports: [] }; return { cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a>`, esc(v(x.fields, 'company', 'legal_name') || ''), holdOf(x) != null ? gbp(holdOf(x)) : '—', String(pr.passports.length), admissionTag(x)] }; }), 5, 'No product admitted yet.');
       rows('bk-register', [
-        ...regs.map(x => ({ cells: [`<a href="/bank?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(x.fields, 'product', 'product_name') || ''), esc(v(x.fields, 'company', 'legal_name') || ''), d(x.submitted_at), `${(x.checks || []).filter(c => c.result === 'pass').length} of ${(x.checks || []).length} pass`, admissionTag(x)] })),
-        ...(state.register || []).map(m => ({ cells: [esc(m.registration), esc(m.product), esc(m.provider), d(m.registered), '6 of 6 pass', tag('grey', m.status === 'active' ? 'not on your list' : m.status)] })),
-      ], 6);
+        ...regs.map(x => ({ cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a>`, esc(v(x.fields, 'company', 'legal_name') || ''), d(x.submitted_at), admissionTag(x)] })),
+        ...(state.register || []).map(m => ({ cells: [esc(m.product), esc(m.provider), d(m.registered), `<span class="small">${m.status === 'active' ? 'not on your list' : esc(m.status)}</span>`] })),
+      ], 4);
       const ev = $('bk-evidence'); ev.innerHTML = '';
-      live.forEach(x => ev.append(el('li', null, `<span><span class="mono">${esc(x.passport_id)}</span> · complete evidence bundle: filing, admission, agent identity, mandate, every verification, chain segment</span><a class="btn btn--secondary btn--small" href="/api/evidence/passports/${esc(x.passport_id)}" target="_blank" rel="noopener">Export JSON</a>`)));
-      viol.slice(0, 5).forEach(x => ev.append(el('li', null, `<span>Refusal #${x.id} · <span class="mono">${esc(x.rule)} ${esc(x.code)}</span> on <span class="mono">${esc(x.passport_id)}</span> · ${t(x.ts)}</span><a class="btn btn--secondary btn--small" href="/api/evidence/violations/${x.id}" target="_blank" rel="noopener">Export JSON</a>`)));
+      live.forEach(x => ev.append(el('li', null, `<span>Passport <span class="mono">${esc(x.passport_id)}</span>, the complete bundle</span><a href="/api/evidence/passports/${esc(x.passport_id)}" target="_blank" rel="noopener">Export</a>`)));
+      viol.slice(0, 5).forEach(x => ev.append(el('li', null, `<span>Refusal #${x.id}, ${esc(x.rule)} at ${t(x.ts)}</span><a href="/api/evidence/violations/${x.id}" target="_blank" rel="noopener">Export</a>`)));
       if (!live.length && !viol.length) ev.append(el('li', 'small', 'Nothing to export yet.'));
+      api('GET', '/api/audit').then(data => { $('bk-trail-meta').textContent = `${data.rows.length} entries · chain ${data.chain.ok ? 'intact' : 'broken'}`; trailRows($('bk-audit').querySelector('tbody'), data.rows.slice(0, 12), { subject: true }); });
     }
     function renderCase() {
       $('bk-ref').textContent = a.ref;
@@ -270,17 +271,17 @@ const AP = (() => {
       else al.hidden = true;
       $('ex-meta').textContent = mine.length ? `${mine.length} refusals · ${mine.filter(x => x.status === 'OPEN').length} open` : 'no refusals';
       const tb = $('bk-violations').querySelector('tbody'); tb.innerHTML = '';
-      mine.forEach(x => { const tr = el('tr', null, `<td>${t(x.ts)}</td><td class="mono small">${esc(x.agent_id || '')}${p ? '' : `<br><a href="/bank?passport=${esc(x.passport_id)}">${esc(x.passport_id)}</a>`}</td><td><span class="mono">${esc(x.rule)}</span><br><span class="small">${esc(x.code)}</span></td><td>${esc(x.instruction.action_type)} · ${esc(x.instruction.supplier_name || '')} · <span class="mono">${esc(x.instruction.payee_account_ref || '')}</span> · ${gbp(x.instruction.amount)}${x.evidence ? ` <span class="tag tag--grey">invoice ${esc(x.evidence.invoice)}</span>` : ''}</td><td>${tag('revoked', x.outcome)}</td><td>${tag(x.status, x.status)}${x.resolution ? `<br><span class="small">${esc(x.resolution)}</span>` : ''}</td>`); tr.dataset.vid = x.id; tr.setAttribute('aria-selected', String(x.id === selectedVid)); tr.onclick = () => { selectedVid = x.id; renderEvidence(x); renderExceptions(); }; tb.append(tr); });
-      if (!mine.length) tb.append(el('tr', null, '<td colspan="6" class="empty-row">Nothing refused. Every instruction the verifier refuses appears here with its rule, the reason and the evidence that produced it.</td>'));
+      mine.forEach(x => { const tr = el('tr', null, `<td>${t(x.ts)}</td><td>${esc(x.instruction.supplier_name || '')} · <span class="mono">${esc(x.instruction.payee_account_ref || '')}</span> · ${gbp(x.instruction.amount)}${x.instruction.action_type !== 'pay_invoice' ? ' · ' + esc(x.instruction.action_type) : ''}${x.evidence ? ` · <span class="small">invoice ${esc(x.evidence.invoice)}</span>` : ''}${p ? '' : ` <span class="small">· <a href="/bank?passport=${esc(x.passport_id)}">${esc(x.passport_id)}</a></span>`}</td><td><b class="rule">${esc(x.rule)}</b> <span class="small">${esc(x.code.toLowerCase().replace(/_/g, ' '))}</span></td><td>${tag(x.status, x.status.toLowerCase())}${x.resolution ? ` <span class="small">${esc(x.resolution)}</span>` : ''}</td>`); tr.dataset.vid = x.id; tr.setAttribute('aria-selected', String(x.id === selectedVid)); tr.onclick = () => { selectedVid = x.id; renderEvidence(x); renderExceptions(); }; tb.append(tr); });
+      if (!mine.length) tb.append(el('tr', null, '<td colspan="4" class="empty-row">Nothing refused yet.</td>'));
       const ex = $('exception'); ex.hidden = !p; if (!p) return;
       const inv = p.investigation === 'investigating';
       $('ex-state').innerHTML = `<span class="stamp stamp--${p.status === 'active' ? 'green' : p.status === 'suspended' ? 'amber' : 'red'}">${esc(p.status)}</span>${inv ? '<span class="stamp stamp--amber">investigating</span>' : ''}<span class="small">${p.status === 'suspended' ? 'payments blocked at R.2 while you look' : p.status === 'revoked' ? 'closed; passport list REVOKED, vouch voucher revoked' : 'payments flow; the verifier reads the list on every instruction'}${inv ? ' · investigating blocks nothing by itself; the list status does' : ''}</span>`;
       const act = $('ex-actions'); act.innerHTML = '';
-      const btn = (label, cls, fn) => { const b = el('button', 'btn btn--small ' + cls, label); b.type = 'button'; b.onclick = fn; act.append(b); };
-      const reason = () => $('bk-reason').value.trim() || 'via the exception panel';
+      const btn = (label, cls, fn, guard) => { const b = el('button', 'btn btn--small ' + cls, label); b.type = 'button'; b.onclick = async () => { const r = $('bk-reason').value.trim(); if (!r) { $('ex-error').textContent = 'Give a reason first; it is recorded in the chain with your name.'; $('ex-error').hidden = false; $('bk-reason').focus(); return; } if (guard && b.dataset.armed !== '1') { b.dataset.armed = '1'; b.textContent = guard; setTimeout(() => { if (b.isConnected) { b.dataset.armed = ''; b.textContent = label; } }, 6000); return; } await fn(); }; act.append(b); };
+      const reason = () => $('bk-reason').value.trim();
       if (p.status === 'active') btn('Suspend', 'btn--secondary', () => lifeFrom('suspended', reason()));
       if (p.status !== 'revoked' && !inv) btn('Open investigation', 'btn--secondary', async () => { await api('POST', `/api/passports/${p.passport_id}/investigation`, { action: 'open', note: reason() }); await refresh(); });
-      if (p.status !== 'revoked') btn('Revoke', 'btn--warning', () => lifeFrom('revoked', reason()));
+      if (p.status !== 'revoked') btn('Revoke', 'btn--warning', () => lifeFrom('revoked', reason()), `Confirm revoke: closes ${p.passport_id}${p.vouch_voucher_id ? ' and its voucher' : ''}`);
       if (p.status === 'suspended') btn('Reinstate (false positive)', '', () => lifeFrom('active', reason()));
       if (inv && p.status === 'active') btn('Close investigation, no change', 'btn--secondary', async () => { await api('POST', `/api/passports/${p.passport_id}/investigation`, { action: 'close', note: reason() }); await refresh(); });
     }
@@ -339,21 +340,50 @@ const AP = (() => {
     $('btn-note').onclick = async () => { const b = $('btn-note'); b.disabled = true; b.textContent = 'Drafting…'; try { const r = await api('POST', `/api/registrations/${a.id}/file-note`); $('bk-filenote').value = r.note; $('note-mode').textContent = `drafted by ${modeLabel(r.mode)}`; } finally { b.disabled = false; b.textContent = 'Draft file note'; } };
   }
 
-  // ───────────── Customer: my AI agents ─────────────
+  // ───────────── Customer dashboard: the business account ─────────────
+  const ACCOUNT_OPENING = 84213.50;
+  const STATIC_TXNS = [   // synthetic September activity for Northgate Joinery Ltd, newest first
+    { d: '2026-09-07', desc: 'Kiln Lane Estates Ltd · workshop rent', out: 3850.00 },
+    { d: '2026-09-05', desc: 'HMRC PAYE and NIC · August', out: 6421.18 },
+    { d: '2026-09-05', desc: 'Card · Screwfix, King\'s Lynn', out: 218.40 },
+    { d: '2026-09-04', desc: 'Received · Harbourside Developments Ltd · invoice NJ-2287', in: 14200.00 },
+    { d: '2026-09-03', desc: 'Salaries · 9 employees', out: 21740.00 },
+    { d: '2026-09-02', desc: 'Received · Mrs P. Okafor · staircase deposit', in: 2600.00 },
+    { d: '2026-09-01', desc: 'EDF Energy · direct debit', out: 612.73 },
+    { d: '2026-09-01', desc: 'Received · Coastline Hotels Ltd · invoice NJ-2281', in: 9870.00 },
+  ];
   async function customer() {
     let state = await api('GET', '/api/state');
     const ref = new URLSearchParams(location.search).get('ref');
     let p = state.passports.find(x => x.passport_id === ref) || null;
     const d0 = state.mandate_draft || { customer: {}, authorising_officer: {} };
     const draft = JSON.parse(JSON.stringify(d0)); let checkTimer = null;
-    render();
+    render(); renderAccount();
+
+    async function renderAccount() {
+      const data = await api('GET', '/api/audit');
+      const mine = data.rows.filter(r => r.subject && (r.subject.startsWith('AP-') || r.subject.startsWith('AG-')));
+      const live = mine.filter(r => r.kind === 'verify').map(r => { const e = r.entry, i = e.instruction || {}; const blocked = e.decision !== 'ALLOW'; return { d: r.ts, desc: `${blocked ? '<b class="txn-blocked">Blocked</b> · ' : ''}<b class="txn-ai">AI agent</b> PayGPT 6.0 · ${esc(i.supplier_name || '')} · <span class="num">${esc(i.payee_account_ref || '')}</span> · invoice ${esc(i.invoice_ref || '')}${blocked ? ` · <span class="small">${e.decision === 'ESCALATE' ? 'held for you' : 'Agent Passport ' + esc(e.rule)}</span>` : ''}`, out: blocked ? null : Number(i.amount || 0), blocked, ts: r.ts }; });
+      const all = [...live, ...STATIC_TXNS.map(x => ({ ...x, ts: x.d + 'T12:00:00Z' }))].sort((a, b) => (a.ts < b.ts ? 1 : -1));
+      // running balance from the opening figure, newest first
+      let bal = ACCOUNT_OPENING; const spent = live.reduce((s, x) => s + (x.out || 0), 0); bal -= spent;
+      $('ac-balance').textContent = gbp2(bal); $('ac-avail').textContent = gbp2(bal - 4500);
+      const tb = $('ac-txns').querySelector('tbody'); tb.innerHTML = '';
+      let running = bal;
+      for (const x of all) {
+        tb.append(el('tr', x.blocked ? 'txn--blocked' : null, `<td class="small">${d(x.ts)}</td><td>${x.desc.includes('<b') ? x.desc : esc(x.desc)}</td><td class="num">${x.out ? gbp2(x.out) : ''}</td><td class="num">${x.in ? gbp2(x.in) : ''}</td><td class="num small">${x.blocked ? '' : gbp2(running)}</td>`));
+        if (!x.blocked) running = running + (x.out || 0) - (x.in || 0);
+      }
+      trailRows($('ac-audit').querySelector('tbody'), mine.slice(0, 12));
+    }
+    const gbp2 = (n) => '£' + Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
     function render() {
       const products = (state.products || []).filter(m => m.admission_status === 'admitted');
-      rows('cu-agents', state.passports.map(x => { const ag = (x.agent_identity || {}).agent || {}; const tot = Object.values(x.ledger || {}).reduce((s, y) => s + y.total, 0); return { cells: [`<a href="/customer?ref=${x.passport_id}">${esc(x.passport_id)}</a>`, esc(ag.name || ''), `${esc(ag.product_name || '')} <span class="small">by ${esc(ag.provider || '')}</span>`, gbp(tot), x.status === 'pending' ? tag('unsigned', 'awaiting your signature') : tag(x.status, x.status)] }; }), 5, 'No AI agent yet.');
+      rows('cu-agents', state.passports.map(x => { const ag = (x.agent_identity || {}).agent || {}; const tot = Object.values(x.ledger || {}).reduce((s, y) => s + y.total, 0); return { cells: [`<a href="/customer?ref=${x.passport_id}">${esc(ag.name || x.passport_id)}</a><br><span class="small">${esc(ag.product_name || '')} · <span class="mono">${esc(x.passport_id)}</span></span>`, gbp(tot), x.status === 'pending' ? tag('unsigned', 'awaiting your signature') : tag(x.status, x.status)] }; }), 3, 'No AI agent yet.');
       $('cu-empty').hidden = !!(products.length || p);
       $('cu-create').hidden = !products.length;
-      const sel = $('cu-model'); sel.innerHTML = products.map(m => `<option value="${m.registration_id}">${esc(m.product_name)} · ${esc(m.provider)} · ${esc(m.model_version)}</option>`).join('');
+      const sel = $('cu-model'); sel.innerHTML = products.map(m => `<option value="${m.registration_id}">${esc(m.product_name)} · ${esc(m.provider)}</option>`).join('');
       if (!$('cu-agent-name').value) $('cu-agent-name').value = (state.agent_draft || {}).agent_name || '';
       $('cu-mandate').hidden = !p;
       if (!p) return;
@@ -364,20 +394,11 @@ const AP = (() => {
       $('cu-card').classList.toggle('mandate--signed', signed);
       $('cu-kv').innerHTML = [['Account holder', `${esc((mp.customer || d0.customer).legal_name)} · Companies House <span class="mono">${esc((mp.customer || d0.customer).companies_house_number)}</span>`], ['Signatory', `${esc((mp.authorising_officer || d0.authorising_officer).name)}, ${esc((mp.authorising_officer || d0.authorising_officer).role)}`], ['Bank hold', `the bank holds anything above ${gbp(p.admission.condition.hold_above.amount)} for your confirmation`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       renderMandateForm(p, signed, ad, mp);
-      renderActivity(p);
-    }
-    async function renderActivity(p) {
-      const wrap = $('cu-activity-wrap'); if (p.status === 'pending') { wrap.hidden = true; return; }
-      const data = await api('GET', '/api/audit');
-      const mine = data.rows.filter(r => r.kind === 'verify' && r.subject === p.passport_id);
-      const tb = $('cu-activity').querySelector('tbody'); tb.innerHTML = '';
-      mine.forEach(r => { const e = r.entry, i = e.instruction || {}; tb.append(el('tr', null, `<td class="mono small">${t(r.ts)}</td><td>${esc(i.action_type)} · ${esc(i.supplier_name || '')} · <span class="mono">${esc(i.payee_account_ref || '')}</span> · ${gbp(i.amount)}</td><td>${e.decision === 'ALLOW' ? tag('active', 'paid') : e.decision === 'ESCALATE' ? tag('pending', 'held for you') : tag('revoked', 'refused')}</td><td class="small">${esc(e.reason)}</td>`)); });
-      if (!mine.length) tb.append(el('tr', null, '<td colspan="4" class="empty-row">No payments yet.</td>'));
-      wrap.hidden = false;
+      if (ref) $('cu-mandate').scrollIntoView({ block: 'start' });
     }
     $('btn-create-agent').onclick = async () => {
       const b = $('btn-create-agent'); b.disabled = true; $('cu-create-error').hidden = true; $('cu-create-note').textContent = 'generating key, signing the bank\'s challenge…';
-      try { const np = await api('POST', '/api/agents', { registration_id: Number($('cu-model').value), agent_name: $('cu-agent-name').value.trim() || null }); state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${p.passport_id}`); render(); }
+      try { const np = await api('POST', '/api/agents', { registration_id: Number($('cu-model').value), agent_name: $('cu-agent-name').value.trim() || null }); state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${p.passport_id}`); render(); $('cu-mandate').scrollIntoView({ behavior: 'smooth', block: 'start' }); }
       catch (e) { $('cu-create-error').textContent = e.message; $('cu-create-error').hidden = false; }
       finally { b.disabled = false; $('cu-create-note').textContent = ''; }
     };
@@ -427,7 +448,7 @@ const AP = (() => {
     $('cu-add').onclick = () => { collect(); draft.supplier_allowlist.push({ supplier_id: `SUP-${String(draft.supplier_allowlist.length + 1).padStart(3, '0')}`, name: '', account_ref: '' }); renderForm(); scheduleCheck(); };
     $('btn-sign-mandate').onclick = async () => {
       const b = $('btn-sign-mandate'); b.disabled = true; $('cu-error').hidden = true;
-      try { const np = await api('POST', `/api/passports/${p.passport_id}/mandate/sign`, collect()); state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${np.passport_id}`); render(); }
+      try { const np = await api('POST', `/api/passports/${p.passport_id}/mandate/sign`, collect()); state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${np.passport_id}`); render(); renderAccount(); }
       catch (e) { $('cu-error').textContent = typeof e.message === 'string' ? e.message : JSON.stringify(e.message); $('cu-error').hidden = false; b.disabled = false; }
     };
   }
@@ -592,7 +613,7 @@ const AP = (() => {
     }
   }
 
-  // ───────────── Evidence trail ─────────────
+  // ───────────── Evidence trail (shared renderer) ─────────────
   function plainEvent(r) {
     const e = r.entry || {}, i = e.instruction || {};
     const acct = (x) => x ? `<span class="mono">${esc(x)}</span>` : '';
@@ -615,6 +636,11 @@ const AP = (() => {
       case 'system': return esc(e.event);
       default: return esc(e.event || r.kind);
     }
+  }
+  function trailRows(tbody, rows, opts = {}) {
+    tbody.innerHTML = '';
+    rows.forEach(r => tbody.append(el('tr', null, `<td class="mono small">${t(r.ts)}</td><td>${plainEvent(r)}</td>${opts.subject ? `<td class="mono small">${esc(r.subject || '')}</td>` : ''}<td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`)));
+    if (!rows.length) tbody.append(el('tr', null, `<td colspan="${opts.subject ? 4 : 3}" class="empty-row">Nothing recorded yet.</td>`));
   }
   async function audit() {
     const data = await api('GET', '/api/audit');
