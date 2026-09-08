@@ -791,10 +791,8 @@ const AP = (() => {
         box.innerHTML = `<div class="apv">
           <div class="apv__head"><div><b class="apv__amt">£${pounds.toLocaleString('en-GB')}<small>.${String(pence).padStart(2, '0')}</small></b><div class="apv__name">${sup}</div><div class="apv__meta">Requested by ${ag} on ${d(r.ts)}, ${t(r.ts).slice(0, 5)}</div></div><span class="apv__avatar" aria-hidden="true">${esc(initials(i.supplier_name))}</span></div>
           <div class="apv__why"><span class="apv__clock" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><p>Held for your review. ${reason}</p></div>
-          <details class="apv__q"><summary>Why must I approve this payment?</summary><p>Your AI agent may pay on its own inside the mandate you signed. This payment sits outside it, so the bank holds it and nothing moves until you decide. Approving pays it this once and does not change the mandate; rejecting records the decision and nothing leaves your account.</p></details>
           <label class="label apv__label" for="cu-review-note">Add a note, recorded with your decision</label><textarea class="textarea" id="cu-review-note" rows="2" placeholder="${e.failed_check ? 'e.g. Ashby quoted the larger order in writing.' : 'e.g. Checked the invoice with the supplier.'}"></textarea><p class="error" id="cu-review-err" hidden>Write a note first; it is recorded with your decision.</p>
           <div class="apv__actions"><button class="apv__btn" type="button" data-decide-cu="release" data-audit="${r.id}">Approve payment</button><button class="apv__link" type="button" data-decide-cu="refuse" data-audit="${r.id}">Reject payment</button></div>
-          <p class="small apv__foot">Decided as ${esc(ap.name || '')}, ${esc(ap.role || '')}. Recorded in the evidence chain with a receipt signed by the bank.</p>
         </div>`;
         return;
       }

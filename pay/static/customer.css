@@ -113,3 +113,10 @@ body:not([data-cupage="overview"]) .fx-hello { display: none; }
 .fx .apv__link { appearance: none; border: 0; background: none; color: var(--fx-teal); font: inherit; font-weight: 800; font-size: 1.0625rem; padding: 12px; cursor: pointer; }
 .fx .apv__foot { margin: 14px 0 0; text-align: center; color: var(--fx-ink-2); }
 body[data-cupage="event"] .fx #cu-event { max-width: 30rem; margin: 0 auto; }
+/* the approval screen fills the page; the actions sit at the bottom */
+body[data-cupage="event"] .fx { display: flex; flex-direction: column; }
+body[data-cupage="event"] .fx #cu-event { flex: 1 1 auto; display: flex; flex-direction: column; width: 100%; }
+body[data-cupage="event"] .fx #cu-event-body { flex: 1 1 auto; display: flex; flex-direction: column; }
+.fx .apv { flex: 1 1 auto; display: flex; flex-direction: column; width: 100%; min-height: 60vh; }
+.fx .apv__actions { margin-top: auto; padding-top: 28px; }
+.fx .apv__label { margin-top: 12px; }
