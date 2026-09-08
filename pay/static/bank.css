@@ -534,3 +534,16 @@ body[data-bkpage="add-product"] #bk-page-overview, body[data-bkpage="add-product
 .fx .bk-act td.num { white-space: nowrap; font-weight: 700; }
 .fx .bk-act td:last-child { white-space: normal; }
 body[data-bkpage="activity"] #au-table tbody tr:nth-child(n+11) { display: table-row; }
+/* the add-product page: one flat form, sections with a heading, fields two across */
+.bk-form-page--wide { max-width: 62rem; }
+.bk-form-page__h { margin: 0 0 6px; }
+.bk-form-page__lede { margin: 0 0 22px; max-width: 60ch; }
+.bk-fs { border: 0; padding: 18px 0 6px; margin: 0; border-top: 1px solid var(--fx-line); min-width: 0; }
+.bk-fs__h { margin: 0 0 2px; font-size: .9375rem; font-weight: 700; }
+.bk-fs .hint { margin: 0 0 6px; max-width: 70ch; }
+.bk-form-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 0 20px; }
+.bk-form-grid .wide { grid-column: 1 / -1; }
+.bk-form-grid .label { margin-top: 10px; }
+.bk-form-grid .input, .bk-form-grid .textarea { width: 100%; max-width: none; }
+.bk-form-page .actions { margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--fx-line); }
+@media (max-width: 640px) { .bk-form-grid { grid-template-columns: minmax(0, 1fr); } }

@@ -511,21 +511,43 @@ const AP = (() => {
     }
     // the bank dashboard is still: no polling, no simulated traffic; it re-renders only after an action on it
     void timer; void simTimer; void simTick;
+    // the bank's own add-product form: every field of the register filing, then the admission condition
+    const AP_SECTIONS = ['company', 'principal', 'insurance', 'product', 'assurance_evidence', 'intended_use', 'data_protection'];
+    const AP_WIDE = new Set(['summary', 'description', 'documentation_url', 'report_url', 'website', 'dpia_reference']);
+    let apReg = null;
+    function apField(sec, k) {
+      const id = `ap-${sec}-${k}`, label = LABELS[sec][k]; const en = ENUMS(state);
+      let ctl;
+      if (k === 'level') ctl = `<select class="input" id="${id}">${((state.policy || {}).assurance_levels || []).map(l => `<option value="${l.id}">${esc(l.label)}</option>`).reverse().join('')}</select>`;
+      else if (en[k]) ctl = `<select class="input" id="${id}"><option value="">Choose</option>${en[k].map(([v_, l]) => `<option value="${esc(v_)}">${esc(l)}</option>`).join('')}</select>`;
+      else if (k === 'summary' || k === 'description') ctl = `<textarea class="textarea input" id="${id}" rows="2"></textarea>`;
+      else if (k === 'expires' || k === 'date') ctl = `<input class="input" id="${id}" type="date">`;
+      else if (k === 'cover_gbp') ctl = `<input class="input" id="${id}" type="number" min="0" step="1000">`;
+      else ctl = `<input class="input" id="${id}" type="text">`;
+      return `<div class="${AP_WIDE.has(k) ? 'wide' : ''}"><label class="label" for="${id}">${esc(label)}</label>${ctl}</div>`;
+    }
+    function apRender() {
+      const box = $('ap-form'); if (!box) return;
+      box.innerHTML = AP_SECTIONS.filter(sec => LABELS[sec]).map(sec => `<fieldset class="bk-fs"><h3 class="bk-fs__h">${esc(LABELS[sec].title)}</h3>${SECTION_HINTS[sec] ? `<p class="hint">${esc(SECTION_HINTS[sec])}</p>` : ''}<div class="bk-form-grid">${Object.keys(LABELS[sec]).filter(k => k !== 'title').map(k => apField(sec, k)).join('')}</div></fieldset>`).join('');
+    }
+    function apCollect() { const f = {}; AP_SECTIONS.filter(sec => LABELS[sec]).forEach(sec => { f[sec] = {}; Object.keys(LABELS[sec]).filter(k => k !== 'title').forEach(k => { const elx = $(`ap-${sec}-${k}`); f[sec][k] = { value: elx ? (elx.value === '' ? null : (k === 'cover_gbp' ? Number(elx.value) : elx.value)) : null, source_doc: 'entered by the bank', quote: null }; }); }); return f; }
+    function apFill(fields) { AP_SECTIONS.forEach(sec => Object.keys(LABELS[sec] || {}).forEach(k => { const elx = $(`ap-${sec}-${k}`); if (elx && fields[sec] && fields[sec][k]) elx.value = v(fields, sec, k) ?? ''; })); }
+    if ($('ap-form')) apRender();
+    if ($('btn-ap-prefill')) $('btn-ap-prefill').onclick = async () => {
+      $('ap-error').hidden = true; $('ap-note').textContent = 'filling with the demo values…';
+      try { if (!apReg) apReg = await api('POST', '/api/registrations'); const r = await api('POST', `/api/registrations/${apReg.id}/prefill`); apFill(r.fields || {}); $('ap-note').textContent = 'demo values entered; edit anything, then register and approve.'; }
+      catch (e) { $('ap-error').textContent = e.message; $('ap-error').hidden = false; $('ap-note').textContent = ''; }
+    };
     if ($('btn-add-product')) $('btn-add-product').onclick = async () => {
       const b = $('btn-add-product'), err = $('ap-error'); err.hidden = true; b.disabled = true; $('ap-note').textContent = 'filing on the register, running the checks, admitting…';
       try {
-        const name = $('ap-name').value.trim(), provider = $('ap-provider').value.trim(), model = $('ap-model').value.trim(), level = $('ap-level').value, hold = Number($('ap-hold').value || 0);
-        if (!name || !provider) throw new Error('give the product a name and a provider');
-        const reg = await api('POST', '/api/registrations');
-        const f = reg.fields || {}; const set = (sec, k, val) => { f[sec] = f[sec] || {}; f[sec][k] = { value: val, source_doc: 'entered by the bank', quote: null }; };
-        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
-        set('company', 'legal_name', provider); set('company', 'companies_house_number', ''); set('principal', 'name', 'entered by the bank'); set('principal', 'role', 'bank admission'); set('principal', 'declaration_ref', 'BANK-ENTRY');
-        set('product', 'product_name', name); set('product', 'product_id', slug); set('product', 'release', '1.0'); set('product', 'model_provider', (model.split(' ')[0] || 'unknown')); set('product', 'model_version', model.split(' ').slice(1).join(' ') || '1.0'); set('product', 'documentation_url', 'https://example.invalid/docs');
-        set('assurance_evidence', 'level', level); set('assurance_evidence', 'use_case', 'pay_invoice'); set('assurance_evidence', 'issuer', level === 'self-declared' ? '' : 'independent assessor (bank entry)'); set('assurance_evidence', 'reference', level === 'self-declared' ? '' : 'IAE-BANK'); set('assurance_evidence', 'date', new Date().toISOString().slice(0, 10)); set('assurance_evidence', 'report_url', 'https://example.invalid/report');
-        set('intended_use', 'action_type', 'pay_invoice'); set('intended_use', 'payment_intent', 'pay_invoice'); set('intended_use', 'description', 'entered by the bank');
-        await api('PUT', `/api/registrations/${reg.id}/fields`, { fields: f });
-        await api('POST', `/api/registrations/${reg.id}/submit`);
-        await api('POST', `/api/registrations/${reg.id}/admission`, { decision: 'admit', note: `Entered and approved by ${who()}: ${name} by ${provider}, ${level}, hold above £${hold.toLocaleString('en-GB')}.`, hold_above: hold });
+        const f = apCollect(); const name = v(f, 'product', 'product_name'), provider = v(f, 'company', 'legal_name'), hold = Number($('ap-hold').value || 0);
+        if (!name || !provider) throw new Error('give the product a name and the provider a legal name');
+        if (!v(f, 'product', 'product_id')) f.product.product_id.value = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        if (!apReg) apReg = await api('POST', '/api/registrations');
+        await api('PUT', `/api/registrations/${apReg.id}/fields`, { fields: f });
+        await api('POST', `/api/registrations/${apReg.id}/submit`);
+        await api('POST', `/api/registrations/${apReg.id}/admission`, { decision: 'admit', note: `Entered and approved by ${who()}: ${name} by ${provider}, hold above £${hold.toLocaleString('en-GB')}.`, hold_above: hold });
         location.href = '/bank?page=products';
       } catch (e) { err.textContent = e.message; err.hidden = false; $('ap-note').textContent = ''; }
       finally { b.disabled = false; }

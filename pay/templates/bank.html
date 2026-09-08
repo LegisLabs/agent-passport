@@ -127,18 +127,15 @@
   </div>
 
   <div id="bk-page-add-product">
-    <div class="bk-form-page">
-      <section class="pane" id="bk-add-product">
-        <h2 class="ws-h">Add an AI product</h2>
-        <p class="small">You enter the product, the bank checks it against the register rules and, if it is independently verified or audited, admits it to the bank's list with a hold condition. Customers can then delegate payments to it.</p>
-        <label class="label" for="ap-name">Product</label><input class="input" id="ap-name" placeholder="e.g. Ledgerly Payables 2">
-        <label class="label" for="ap-provider">Provider</label><input class="input" id="ap-provider" placeholder="e.g. Ledgerly Software Ltd">
-        <label class="label" for="ap-model">Foundation model</label><input class="input" id="ap-model" placeholder="e.g. Anthropic claude-sonnet-5">
-        <label class="label" for="ap-level">Assurance level</label><select class="input" id="ap-level"><option value="independently-audited">Independently audited</option><option value="independently-verified">Independently verified</option><option value="self-declared">Self-declared</option></select>
-        <label class="label" for="ap-hold">Hold payments above (£)</label><input class="input" id="ap-hold" type="number" min="0" step="100" value="5000">
-        <div class="actions"><button class="btn" id="btn-add-product" type="button">Register and approve</button><span class="actions__note" id="ap-note"></span></div>
-        <p class="error" id="ap-error" hidden></p>
-      </section>
+    <div class="bk-form-page bk-form-page--wide">
+      <h2 class="h2 bk-form-page__h">Add an AI product</h2>
+      <p class="small bk-form-page__lede">The same record a provider files on the register, entered by the bank. The register runs its completeness checks, and the bank admits the product to its list with the hold condition below. Customers can then delegate payments to it.</p>
+      <div id="ap-form"></div>
+      <fieldset class="bk-fs"><h3 class="bk-fs__h">Admission</h3><p class="hint">The bank's own condition on this product.</p>
+        <div class="bk-form-grid"><div><label class="label" for="ap-hold">Hold payments above (£)</label><input class="input" id="ap-hold" type="number" min="0" step="100" value="5000"></div></div>
+      </fieldset>
+      <div class="actions"><button class="btn" id="btn-add-product" type="button">Register and approve</button><button class="btn btn--secondary" id="btn-ap-prefill" type="button">Prefill demo values</button><span class="actions__note" id="ap-note"></span></div>
+      <p class="error" id="ap-error" hidden></p>
     </div>
   </div>
 </div>
