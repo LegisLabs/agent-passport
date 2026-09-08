@@ -58,6 +58,7 @@ services:
       VOUCH_PRIVY_USER_ID: ${VOUCH_PRIVY_USER_ID:-}
       VOUCH_MERCHANTS: ${VOUCH_MERCHANTS:-{}}
       VOUCH_CATEGORY: ${VOUCH_CATEGORY:-SUPPLIES}
+      COMPANIES_HOUSE_API_KEY: ${COMPANIES_HOUSE_API_KEY:-}
     volumes:
       - cdir_bank_data:/data
     restart: unless-stopped
