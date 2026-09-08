@@ -1662,3 +1662,18 @@ body[data-view="bank"]::before, body[data-view="customer"]::before { display: no
 .dash td.num, .checks td.num, .txns td.num, .bd-att td:first-child, .bd-log td:first-child { white-space: nowrap; }
 .dash td.num, .txns td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 @media (max-width: 900px) { .bd-att { min-width: 720px; } .bd-log { min-width: 640px; } .bd-attention .dash-wrap { overflow-x: auto; } }
+
+/* dashboard sections as visible components: a bordered card with a grey title strip (the GOV.UK summary card pattern) */
+.glass, .bd-attention, .bd-summary, .bd-more .ws-sec { border: 1px solid var(--line); margin: 0 0 30px; padding: 0 0 20px; background: var(--ground); }
+.glass > .ws-h, .bd-attention > .ws-h, .bd-summary > .ws-h, .bd-more .ws-sec > .ws-h { background: var(--panel); border-bottom: 1px solid var(--line); margin: 0 0 15px; padding: 12px 20px; font-size: 1.1875rem; }
+.glass > :not(.ws-h), .bd-attention > :not(.ws-h), .bd-summary > :not(.ws-h), .bd-more .ws-sec > :not(.ws-h) { margin-left: 20px; margin-right: 20px; }
+.glass > .dash-wrap, .bd-attention > .dash-wrap, .bd-more .ws-sec > .dash-wrap { margin-bottom: 0; }
+.bd-summary .bd-tiles { border: 0; padding: 4px 0 0; margin-bottom: 0; }
+.bd-cols, .cu-split { gap: 0 30px; }
+.bd-cols .glass, .cu-split .glass { margin-bottom: 30px; }
+.cu-trail-wrap, .bd-col--log .dash-wrap { margin-left: 20px; margin-right: 20px; }
+.cu-split__agents .empty { margin: .6rem 20px 0; }
+.bd-more { border-top: 0; padding-top: 0; }
+.bd-more > summary { margin-bottom: 1rem; }
+#bk-supervisory .evidence-list { margin-bottom: 0; }
+@media (max-width: 640px) { .glass > :not(.ws-h), .bd-attention > :not(.ws-h), .bd-summary > :not(.ws-h), .bd-more .ws-sec > :not(.ws-h), .cu-trail-wrap, .bd-col--log .dash-wrap { margin-left: 15px; margin-right: 15px; } .glass > .ws-h, .bd-attention > .ws-h, .bd-summary > .ws-h, .bd-more .ws-sec > .ws-h { padding: 10px 15px; } }
