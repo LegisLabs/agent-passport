@@ -103,7 +103,7 @@
       <div class="bd-col glass" id="bk-agents-pane">
         <h2 class="ws-h">Active AI agents <span class="ws-h__meta" id="fx-agents-meta"></span></h2>
         <div id="bk-agents"></div>
-        <div class="actions"><a class="btn btn--secondary btn--small" href="/bank?page=products">Admit a new AI product</a></div>
+        <div class="actions"><a class="btn btn--secondary btn--small" href="/bank?page=add-product">Add an AI product</a></div>
       </div>
     </div>
   </div>
@@ -129,7 +129,7 @@
   <div id="bk-page-add-product">
     <div class="bk-form-page bk-form-page--wide">
       <h2 class="h2 bk-form-page__h">Add an AI product</h2>
-      <p class="small bk-form-page__lede">The same record a provider files on the register, entered by the bank. The register runs its completeness checks, and the bank admits the product to its list with the hold condition below. Customers can then delegate payments to it.</p>
+      <p class="small bk-form-page__lede">The same record a provider files on the register, entered by the bank. The register runs its completeness checks, and the bank approves the product for its list with the hold condition below. Customers can then delegate payments to it.</p>
       <div id="ap-form"></div>
       <fieldset class="bk-fs"><h3 class="bk-fs__h">Admission</h3><p class="hint">The bank's own condition on this product.</p>
         <div class="bk-form-grid"><div><label class="label" for="ap-hold">Hold payments above (£)</label><input class="input" id="ap-hold" type="number" min="0" step="100" value="5000"></div></div>
@@ -167,7 +167,7 @@
     <div class="step__head"><h2 class="h2 h2--card">Your decision</h2><div class="step__actions"><button class="btn btn--secondary btn--small" id="btn-bk-prefill" type="button">Prefill demo data</button></div></div>
     <div class="context" id="bk-context" hidden>
       <h3 class="h3">The demo, in a few sentences</h3>
-      <p><strong>Meridian Bank</strong> is a synthetic bank. Its Payments Risk officer, <strong>A. Ferreira</strong>, has read what OpenPay Ltd filed about PayGPT 6.0 and the six-step review above. The decision is the bank's own: whether its customers may delegate invoice payments to this product, within ceilings the bank sets. Prefill enters the demo hold condition of £5,000 and a file note; the officer then admits, asks for information or declines.</p>
+      <p><strong>Meridian Bank</strong> is a synthetic bank. Its Payments Risk officer, <strong>A. Ferreira</strong>, has entered what OpenPay Ltd supplied about PayGPT 6.0 and the six-step review above. The decision is the bank's own: whether its customers may delegate invoice payments to this product, within ceilings the bank sets. Prefill enters the demo hold condition of £5,000 and a file note; the officer then admits, asks for information or declines.</p>
       <div class="actions"><button class="btn" id="btn-bk-prefill-go" type="button">Fill the inputs and continue</button><button class="btn btn--secondary" id="btn-bk-prefill-cancel" type="button">Cancel</button></div>
     </div>
     <p class="small">Ceilings this approval sets for every customer mandate on the product: <span id="bk-ceilings" class="mono"></span></p>

@@ -75,8 +75,8 @@ def view_terminal(request: Request):
 
 @app.get("/audit", include_in_schema=False)
 def view_audit_redirect():
-    """The evidence trail is part of the bank dashboard."""
-    return RedirectResponse("/bank#bd-trail", status_code=302)
+    """The evidence trail is the bank's Activity page."""
+    return RedirectResponse("/bank?page=activity", status_code=302)
 
 
 @app.get("/regulator", include_in_schema=False)
@@ -843,8 +843,8 @@ def agent_act(body: ActIn):
         key = p["agent"]["private_pem"] if body.signer == "agent" else rogue_key()["private_pem"]
     req["agent_signature"] = crypto.sign_bytes(key, rules.request_signing_input(req))
     out = verify(VerifyIn(passport_id=body.passport_id, instruction=req))
-    if out["decision"] in ("ALLOW", "ESCALATE"):
-        _last_instruction[body.passport_id] = dict(req)   # the last instruction the bank executed or held: the one worth replaying
+    if out["decision"] == "ALLOW" or (out["decision"] == "ESCALATE" and not out.get("failed_check")):
+        _last_instruction[body.passport_id] = dict(req)   # the last instruction the bank accepted (executed or held within the mandate): the one worth replaying
     return out
 
 
@@ -1245,9 +1245,9 @@ def demo_seed(stage: str = "issued"):
         pid = p["passport_id"]
         out.update({"passport_id": pid, "status": p["status"], "mandate_signed": p["mandate_signed"], "vouch": {"voucher_id": p.get("vouch_voucher_id"), "mode": p.get("vouch_mode")}})
     if stage in ("history", "busy"):
-        # A short history so the log shows every kind of event before anyone touches the Action Terminal: one payment executed,
-        # the same signed instruction presented again (a replay, refused at R.4, a fraud indicator), and one instruction in the wrong
-        # currency (refused at R.6, an agent error). Coastline Glass, £600, so the terminal's Fenwick totals are untouched.
+        # A short history so the log shows something before anyone touches the Action Terminal: the first payment held and confirmed
+        # by the customer, two payments processed, and one instruction over the per-payment limit held for review (an agent error).
+        # Coastline Glass and Ashby, so the terminal's Fenwick totals are untouched.
         allow = p["mandate"]["authorization_details"][0]["supplier_allowlist"]
         coastline = next(s for s in allow if "Coastline" in s["name"]); ashby = next(s for s in allow if "Ashby" in s["name"])
         first = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=600, invoice_ref="CG-0860"))

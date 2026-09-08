@@ -122,15 +122,19 @@ const AT = (() => {
       const st = await (await fetch('/api/state')).json();
       const p = (st.passports || []).find(x => x.status === 'active' && x.mandate_signed) || null;
       if (!p) return;
-      const r = await (await fetch('/api/agent/invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ passport_id: p.passport_id, invoice_id: 'INV-9001-poisoned' }) })).json();
-      const res = r.result;
+      // reuse the last hold the poisoned invoice produced on this passport; create one only if none exists yet, so a visit writes nothing
+      const audit = await (await fetch('/api/audit')).json();
+      const prior = (audit.rows || []).find(x => x.kind === 'verify' && x.subject === p.passport_id && ((x.entry || {}).instruction || {}).payee_account_ref === '60-11-22 99887766' && (x.entry || {}).decision !== 'ALLOW');
+      let res;
+      if (prior) { const e = prior.entry; res = { trace: e.trace || [], decision: e.decision, failed_check: !!e.failed_check, rule: e.rule, reason: e.reason, audit_id: prior.id, audit_hash: prior.hash }; }
+      else { const r = await (await fetch('/api/agent/invoice', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ passport_id: p.passport_id, invoice_id: 'INV-9001-poisoned' }) })).json(); res = r.result; }
       live = { trace: res.trace.map(t => [t.rule, t.ok, t.note]), decision: res.decision, failed_check: !!res.failed_check, rule: res.rule, reason: `${res.rule}: ${res.reason}.`, audit_id: res.audit_id, audit_hash: res.audit_hash, passport_id: p.passport_id };
       const m = (await (await fetch(`/api/passports/${p.passport_id}`)).json()).minimal;
       if (m) {
-        $('pp-model').textContent = `${m.product || m.agent} by ${m.provider}, registered and admitted by the bank`;
+        $('pp-model').textContent = `${m.product || m.agent} by ${m.provider}, registered and approved by the bank`;
         $('pp-scope').textContent = `£${Number(m.scope.per_payment_limit.amount).toLocaleString('en-GB')} a payment · £${Number(m.scope.monthly_limit_per_account.amount).toLocaleString('en-GB')} an account a month`;
       }
-      $('sc-live-note').textContent = 'The hold is the live verifier on this deployment; its record is in the Evidence trail.';
+      $('sc-live-note').textContent = 'The hold is the live verifier on this deployment; its record is in the bank\'s Activity.';
     } catch (e) { live = null; }
   }
   function init() {

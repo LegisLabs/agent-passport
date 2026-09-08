@@ -76,7 +76,7 @@ cp .env.example .env            # optional keys below; the defaults run fully of
 EXTRACTION_MODE=fixture VOUCH_MODE=fixture PAYMENT_RAIL=local .venv/bin/uvicorn pay.main:app --port 8014
 ```
 
-Open http://localhost:8014. The app creates its signer keys and SQLite database under `data/pay/` on first start. Reset to the demo baseline at any time with the footer's "Reset demo" link, with `bash scripts/demo_reset.sh`, or with `POST /api/demo/seed?stage=registered|issued|history` (product filed and reviewed; approved with the mandate signed; plus a short payment history with one held payment and both refusal classes).
+Open http://localhost:8014. The app creates its signer keys and SQLite database under `data/pay/` on first start. Reset to the demo baseline at any time with the footer's "Reset demo" link, with `bash scripts/demo_reset.sh`, or with `POST /api/demo/seed?stage=registered|issued|history` (product filed and reviewed; approved with the mandate signed; plus a short payment history: the first payment confirmed by the customer, two payments processed, one instruction over the per-payment limit held for review).
 
 Optional environment (`.env.example` documents each):
 

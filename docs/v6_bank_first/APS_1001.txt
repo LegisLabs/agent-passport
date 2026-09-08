@@ -161,9 +161,10 @@ Abstract
         the product at that bank must satisfy (maximum per-payment
         limit, maximum rolling limit per payee account, maximum
         payments per day, maximum validity, permitted actions, which
-        MUST NOT exceed the payment intent filed, currency) and a hold condition (an amount above which the
-        bank holds the instruction for a named person at the
-        customer).  A bank MAY require a minimum assurance level and
+        MUST NOT exceed the payment intent filed, currency) and a hold
+        condition (an amount above which the bank holds the
+        instruction for a named person, at the bank or at the
+        customer, to approve or decline with a note).  A bank MAY require a minimum assurance level and
         MAY scale its ceilings by the level declared.
 
    3.5  A bank SHOULD tier its ceilings by the type of account the
@@ -225,27 +226,42 @@ Abstract
    5.3  On signature of a contained mandate the bank's system MUST
         sign the admission, assign the passport identifier, set the
         list status to ACTIVE and, where a purpose-bound rail is in
-        use, mirror the mandate on it.  No further human review
-        takes place: the human decision was the admission.
+        use, mirror the mandate on it.  No further review takes
+        place at issuance.  The first instruction under each mandate
+        version is held for the customer's own confirmation (R.9);
+        later instructions inside the mandate flow without a person.
 
 6.  Verification Procedure
 
    The AI agent MUST sign every instruction with the key named in
-   agent_identity.  The bank MUST evaluate the following in order
-   and stop at the first failure:
+   agent_identity, over the canonical instruction including a nonce
+   used once.  The bank MUST evaluate the following in order and
+   stop at the first failure:
 
       R.1  admission signature verifies (bank key)
       R.2  passport ACTIVE and unexpired (list lookup)
       R.3  agent_identity verifies (customer key) and is bound to
            this admission
-      R.4  instruction signed by the agent key in agent_identity
-      R.5  mandate present, customer-signed, unexpired
-      R.6  action permitted; payee account on the allow-list
+      R.4  instruction signed by the agent key in agent_identity,
+           and its nonce not accepted before (a repeat is a replay)
+      R.5  mandate present, customer-signed, unexpired, not revoked
+      R.6  action and currency permitted; payee account on the
+           allow-list
       R.7  amount within the per-payment limit
       R.8  amount plus the bank's own rolling total within the
-           limit per payee account
-      R.9  amount above the hold condition            -> ESCALATE
+           limit per payee account; payments in the rolling day
+           within the mandate's count
+      R.9  amount above the hold condition, or the first
+           instruction under this mandate version   -> ESCALATE
       else                                            -> ALLOW
+
+   A failed check MUST NOT execute.  The bank MUST either refuse it
+   (DENY) or hold it for a named person to approve or decline with
+   a note (ESCALATE), and in both cases MUST cite the failed rule.
+   The reference implementation holds every failed check for
+   review, so that a person, not a rule, has the last word on money
+   that did not move; the failed rule and its class (fraud
+   indicator, or the agent's own error) travel with the hold.
 
    The result MUST cite the rule that decided it and MUST be
    accompanied by a receipt signed by the bank.  Limits live in the
@@ -269,7 +285,7 @@ Abstract
         append-only, hash-chained log.  Every verification MUST be
         reproducible from its recorded inputs.
 
-   8.2  Every refusal MUST be recorded with the instruction, the
+   8.2  Every failed check MUST be recorded with the instruction, the
         rule, the reason, its class and, where a document produced
         the instruction, the extraction that produced it.  Two
         classes MUST be distinguished: a fraud indicator (the
@@ -280,14 +296,14 @@ Abstract
         an operational quality event for the agent's owner).  A
         repeated refusal of the same rule SHOULD raise an alert at
         the bank.  Nothing in this standard reports a refusal to an
-        authority; evidence is available on request (8.3).
+        authority; evidence is available on request (8.4).
 
-   8.4  Each party sees only what its role requires: the customer,
+   8.3  Each party sees only what its role requires: the customer,
         and conceptually the provider, its own agent's error
         pattern; the bank its instructions, checks and verdicts; a
         supervisor evidence on request.
 
-   8.3  For any passport the bank MUST be able to produce one
+   8.4  For any passport the bank MUST be able to produce one
         evidence bundle: the register filing and receipt, the
         admission, the agent identity, the mandate, every
         verification with its inputs and receipt, the refusals, and
