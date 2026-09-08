@@ -121,7 +121,7 @@ def state():
             "register": fixtures.register_entries(),
             "products": [product_summary(a) for a in regs if a.get("admission_status") in ("admitted", "suspended", "revoked")],
             "incidents": db.list_audit(50, kind="incident"), "violations": db.list_violations(), "alerts": db.pattern_alerts(pat["count"], pat["window_hours"]), "pattern_threshold": pat,
-            "payments": db.list_payments(limit=100),
+            "payments": db.list_payments(limit=100), "decisions": db.list_audit(100, kind="decision"),
             "vouch_mode": vouch.mode(), "payment_rail": vouch.rail(),
             "mandate_draft": mandate_draft(), "agent_draft": agent_draft(), "policy": {k: pol[k] for k in ("per_payment_ceiling_gbp", "monthly_per_account_ceiling_gbp", "max_validity", "action_types", "currency", "hold_above_gbp", "min_insurance_cover_gbp", "velocity_ceiling_per_day", "assurance_levels", "min_assurance_level_for_admission", "account_tiers", "customer_classes")},
             "failure_classes": rules.pack().get("failure_classes", {}), "planned_fields": rules.pack().get("planned_fields", []), "companies_house_mode": companies_house.mode(),
@@ -880,6 +880,49 @@ def audit_list():
     return {"rows": rows, "chain": chain}
 
 
+class DecideIn(BaseModel):
+    decision: str            # release | refuse
+    reason: str | None = None
+
+
+def held_decision(audit_id: int) -> dict | None:
+    """The human decision already recorded on a held instruction, if any."""
+    return next((d for d in db.list_audit(500, kind="decision") if d["entry"].get("held_audit_id") == audit_id), None)
+
+
+@app.post("/api/audit/{audit_id}/decide")
+def decide_held(audit_id: int, body: DecideIn):
+    """Human in the loop. A held instruction (the verifier returned ESCALATE: inside the mandate, above the bank's hold
+    condition) is released or refused by a named person. Either way the chain records who decided, when, and on what;
+    a release executes the payment, a refusal records the reason 'held payment refused by approver'. Nothing moves
+    without this entry."""
+    e = db.get_audit(audit_id) or _404()
+    if e["kind"] != "verify" or e["entry"].get("decision") != "ESCALATE":
+        _400("only a held instruction can be decided")
+    if held_decision(audit_id):
+        _400("this held instruction has already been decided")
+    if body.decision not in ("release", "refuse"):
+        _400("decision must be release or refuse")
+    p = db.get_passport(e["subject"]) or _404()
+    req = e["entry"]["instruction"]
+    mp = p.get("mandate_proposed") or {}
+    approver = (p.get("mandate") or {}).get("signed_by") or mp.get("authorising_officer") or {}
+    hold = ((p.get("admission") or {}).get("condition") or {}).get("hold_above", {})
+    outcome = "RELEASED" if body.decision == "release" else "REFUSED"
+    entry = {"event": "held payment released by approver" if outcome == "RELEASED" else "held payment refused by approver",
+             "held_audit_id": audit_id, "outcome": outcome, "instruction": req, "instruction_hash": e["entry"].get("instruction_hash"),
+             "hold_above": hold, "rule": e["entry"].get("rule"), "code": e["entry"].get("code"),
+             "officer": f"{config.BANK_OFFICER}, {config.BANK_TEAM}", "approver": {"name": approver.get("name"), "role": approver.get("role")},
+             "reason": body.reason or ("held payment refused by approver" if outcome == "REFUSED" else "confirmed by the customer's named approver")}
+    rec = audit.record("decision", e["subject"], entry, receipt_for={"passport_id": e["subject"], "decision": outcome, "held_audit_id": audit_id, "instruction_hash": entry["instruction_hash"]})
+    out = {"audit_id": rec["id"], "hash": rec["hash"], "receipt": rec["receipt"], "outcome": outcome, "held_audit_id": audit_id, "officer": entry["officer"], "approver": entry["approver"], "settlement": None}
+    if outcome == "RELEASED":
+        s = vouch.settle_payment(req)
+        pay = db.insert_payment(e["subject"], str(req.get("payee_account_ref")), float(req.get("amount") or 0), str(req.get("currency") or "GBP"), req.get("invoice_ref"), rec["id"], s["rail"], s.get("ref"))
+        out["settlement"] = {**s, "payment_id": pay["id"]}
+    return out
+
+
 @app.post("/api/audit/{audit_id}/replay")
 def replay(audit_id: int):
     """Re-run a past verification from its stored inputs. Same inputs, same rule pack, same ledger total, same answer."""
@@ -961,7 +1004,9 @@ def reset():
 def demo_seed(stage: str = "issued"):
     """Restore the exact pre-demo baseline between takes. stage=registered: the product is filed on the register and the bank's
     review has run, ready for the officer. stage=issued (default): admitted, customer mandate signed, passport ACTIVE,
-    no payments, no violations. Deterministic: fixture values, the customer's draft mandate, the default hold condition."""
+    no payments, no violations. stage=history: issued, then one payment, its replay refused, one wrong-currency instruction
+    refused, one instruction held above the hold condition, so both refusal classes and a held payment are on the log.
+    Deterministic: fixture values, the customer's draft mandate, the default hold condition."""
     if stage not in ("registered", "issued", "history"):
         _400("stage must be registered, issued or history")
     db.reset_all()
@@ -987,8 +1032,9 @@ def demo_seed(stage: str = "issued"):
         first = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=600, invoice_ref="CG-0860"))
         replayed = agent_replay(ReplayIn(passport_id=pid))
         usd = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=600, currency="USD", invoice_ref="CG-0861"))
+        held = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=5600, invoice_ref="CG-0871"))
         out["history"] = [{"event": "paid", "decision": first["decision"]}, {"event": "replayed", "decision": replayed["decision"], "rule": replayed["rule"], "code": replayed["code"]},
-                          {"event": "usd", "decision": usd["decision"], "rule": usd["rule"], "code": usd["code"]}]
+                          {"event": "usd", "decision": usd["decision"], "rule": usd["rule"], "code": usd["code"]}, {"event": "held", "decision": held["decision"], "rule": held["rule"], "audit_id": held["audit_id"]}]
     out["audit_entries"] = len(db.list_audit())
     return out
 

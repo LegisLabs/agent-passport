@@ -563,7 +563,7 @@ def test_demo_seed_history_puts_both_refusal_classes_on_the_log(client):
     """stage=history: one payment executed, its byte-for-byte replay refused at R.4 (fraud indicator), one USD instruction
     refused at R.6 (agent error). The nonce is recorded with the refusal so the evidence names what was replayed."""
     r = client.post("/api/demo/seed?stage=history").json()
-    assert [h["decision"] for h in r["history"]] == ["ALLOW", "DENY", "DENY"]
+    assert [h["decision"] for h in r["history"]] == ["ALLOW", "DENY", "DENY", "ESCALATE"]
     assert r["history"][1]["code"] == "REPLAY_DETECTED" and r["history"][2]["code"] == "CURRENCY_NOT_PERMITTED"
     st = client.get("/api/state").json()
     classes = sorted(v["failure_class"] for v in st["violations"])
@@ -677,3 +677,27 @@ def test_companies_house_falls_back_to_the_labelled_demo_register(monkeypatch):
     companies_house._cache.clear()
     r = companies_house.lookup("07310455")
     assert r["found"] and "demo register" in r["source"] and "unreachable" in r.get("note", "")
+
+
+def test_held_payment_is_decided_by_a_named_person_and_recorded_in_the_chain(client):
+    """C2: a held instruction moves nothing until a person releases it; both outcomes are chain entries with a bank receipt."""
+    r = client.post("/api/demo/seed?stage=history").json()
+    held = next(h for h in r["history"] if h["event"] == "held"); pid = r["passport_id"]
+    before = client.get(f"/api/passports/{pid}").json()["payments"]
+    paid_id = next(x["id"] for x in client.get("/api/audit").json()["rows"] if x["kind"] == "verify" and x["entry"]["decision"] == "ALLOW")
+    assert client.post(f"/api/audit/{paid_id}/decide", json={"decision": "release"}).status_code == 400, "only a held instruction can be decided"
+    d = client.post(f"/api/audit/{held['audit_id']}/decide", json={"decision": "release"}).json()
+    assert d["outcome"] == "RELEASED" and d["officer"].startswith("A. Ferreira") and d["approver"]["name"] == "Helen Marsh" and d["settlement"]["settled"]
+    assert client.get(f"/api/passports/{pid}").json()["payments"] == before + 1
+    assert client.post(f"/api/audit/{held['audit_id']}/decide", json={"decision": "release"}).status_code == 400, "decided once"
+    row = client.get("/api/audit").json()["rows"][0]
+    assert row["kind"] == "decision" and row["entry"]["held_audit_id"] == held["audit_id"] and row["receipt"] and row["entry"]["approver"]["role"]
+    assert client.get("/api/audit").json()["chain"]["ok"]
+    h2 = client.post("/api/agent/act", json={"passport_id": pid, "supplier_name": "Coastline Glass Ltd", "payee_account_ref": "20-13-57 77665544", "amount": 5100, "invoice_ref": "CG-0872"}).json()
+    assert h2["decision"] == "ESCALATE"
+    d2 = client.post(f"/api/audit/{h2['audit_id']}/decide", json={"decision": "refuse"}).json()
+    assert d2["outcome"] == "REFUSED" and d2["settlement"] is None
+    assert client.get(f"/api/passports/{pid}").json()["payments"] == before + 1
+    st = client.get("/api/state").json()
+    assert [x["entry"]["outcome"] for x in st["decisions"]] == ["REFUSED", "RELEASED"]
+    assert st["decisions"][0]["entry"]["reason"] == "held payment refused by approver"
