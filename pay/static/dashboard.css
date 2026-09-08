@@ -567,7 +567,7 @@ body[data-actab="agent"] .fx-nav { visibility: hidden; }
 .fx .tl__meta b { text-transform: uppercase; letter-spacing: .05em; font-size: .7rem; }
 .fx .tl__title { margin: 0 0 4px; font-size: 1.0625rem; font-weight: 700; letter-spacing: -.01em; }
 .fx .tl__body { margin: 0; font-size: .9375rem; line-height: 1.5; color: var(--fx-ink); }
-.fx .tl__quote { margin: 8px 0 0; padding: 8px 12px; border-left: 2px solid var(--fx-line-2); background: var(--fx-tint); font-size: .8125rem; color: var(--fx-ink-2); font-style: italic; }
+.fx .tl__quote { margin: 8px 0 0; padding: 8px 12px; border-radius: 8px; background: var(--fx-tint); font-size: .8125rem; color: var(--fx-ink-2); font-style: italic; }
 .fx .tl__strip { display: flex; gap: 4px; margin: 10px 0 2px; }
 .fx .tl__strip i { width: 26px; height: 26px; border-radius: 7px; display: grid; place-items: center; font-style: normal; font-size: .72rem; font-weight: 700; background: var(--fx-green-soft); color: var(--fx-green); }
 .fx .tl__strip i.fail { background: var(--fx-red-soft); color: var(--fx-red); box-shadow: inset 0 0 0 2px var(--fx-red); }
