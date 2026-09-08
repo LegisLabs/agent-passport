@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Customer dashboard{% endblock %}
-{% block head %}<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="/static/dashboard.css">{% endblock %}
+{% block head %}<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="/static/dashboard.css"><link rel="stylesheet" href="/static/customer.css">{% endblock %}
 {% block content %}
 <div class="fx">
   <header class="fx-top">
@@ -11,7 +11,10 @@
       <button type="button" role="tab" class="acct__tab acct__tab--mobile" data-tab="trail" aria-selected="false">Evidence trail</button>
       <button type="button" role="tab" class="acct__tab" data-tab="transactions" aria-selected="false">Transactions</button>
     </nav>
+    <a class="back fx-hdr-back" href="/customer">Back to the overview</a>
     <div class="fx-tools">
+      <a class="fx-pill" href="/customer?tab=transactions">Transactions</a>
+      <a class="fx-pill" href="/customer?trail=1">Evidence trail</a>
       <a class="fx-icon" href="/bank" title="Bank dashboard" aria-label="Bank dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-6 9 6"/><path d="M5 10v9M19 10v9M9 10v9M15 10v9"/><path d="M3 19h18"/></svg></a>
       <a class="fx-icon" href="#cu-notify" title="Notifications" aria-label="Notifications"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M6 16V11a6 6 0 0 1 12 0v5l1.5 2h-15z"/><path d="M10 20a2 2 0 0 0 4 0"/></svg><span class="live-dot" aria-hidden="true"></span></a>
       <a class="fx-icon" href="/about" title="How it works" aria-label="How it works"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></a>
@@ -38,7 +41,7 @@
       <div class="glass cu-split__agents" id="ac-agents">
         <h2 class="ws-h">AI agents <span class="ws-h__meta" id="fx-agents-meta"></span></h2>
         <div id="cu-create" hidden>
-          <p class="cu-add cu-add--top"><button class="btn btn--outline" type="button" id="cu-add-toggle">Add an AI agent</button></p>
+          <p class="cu-add cu-add--top"><a class="btn btn--outline" id="cu-add-toggle" href="/customer?new=1">Add an AI agent</a></p>
           <div id="cu-add-form" hidden>
             <label class="label" for="cu-model">Product</label><select class="input" id="cu-model"></select>
             <p class="small cu-model-level" id="cu-model-level"></p>
@@ -53,17 +56,17 @@
     </div>
 
     <div class="fx-col fx-col--mid">
-      <section class="pane" aria-labelledby="fx-stats-h">
-        <h2 class="ws-h" id="fx-stats-h">Statistics <span class="ws-h__meta fx-range" id="fx-stats-range">AI agent payments, this session</span></h2>
-        <ul class="stats" id="fx-cu-stats"></ul>
+      <section class="pane cu-txlog" id="ac-txlog" aria-labelledby="cu-txlog-h">
+        <h2 class="ws-h" id="cu-txlog-h">Transactions <span class="ws-h__meta"><button class="link" type="button" id="cu-tx-all">All transactions</button></span></h2>
+        <ol class="tx" id="cu-tx"></ol>
       </section>
 
-      <div class="glass cu-split__trail" id="ac-trail">
-        <h2 class="ws-h">Evidence trail <span class="ws-h__meta"><button class="link" type="button" id="cu-trail-toggle">Show full trail</button> · <a href="/bank#bd-trail">chain</a></span></h2>
+      <details class="pane cu-split__trail" id="ac-trail">
+        <summary class="ws-h">Evidence trail <span class="ws-h__meta"><button class="link" type="button" id="cu-trail-toggle">Show full trail</button> · <a href="/bank#bd-trail">chain</a></span></summary>
         <p class="small bd-legend" id="cu-legend"></p>
         <p class="small bd-legend" id="cu-trail-hint">What mattered, most recent first: refusals, holds, decisions by a person, the mandate. Routine payments sit in Transactions and in the full trail.</p>
         <div class="cu-trail-wrap"><table class="checks audit" id="ac-audit"><thead><tr><th>Time</th><th>What happened</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
-      </div>
+      </details>
     </div>
 
     <div class="fx-col fx-col--right">
@@ -94,9 +97,11 @@
 
   <div id="cu-mandate" class="fx-section" hidden>
     <p class="fx-back"><a class="back" href="/customer">Back to the overview</a></p>
-    <h2 class="ws-h ws-h--wide">Mandate for <span class="mono" id="cu-ref"></span></h2>
-    <ul class="stats cu-agent-stats" id="cu-agent-stats"></ul>
-    <dl class="kv kv--card" id="cu-agent-kv"></dl>
+    <div class="cu-agent-head"><h2 class="cu-agent-title" id="cu-agent-title"></h2><span class="mono small" id="cu-ref"></span></div>
+    <div class="cu-agent-grid">
+      <section class="cu-group"><h3 class="cu-group__h">About this agent</h3><dl class="kv kv--grid" id="cu-agent-kv"></dl></section>
+      <section class="cu-group"><h3 class="cu-group__h">Activity, last 30 days</h3><dl class="kv kv--grid" id="cu-agent-stats"></dl></section>
+    </div>
     <div class="mandate" id="cu-card">
       <div class="mandate__head"><span>Payment mandate · <span class="mono" id="cu-id"></span></span><span id="cu-state"></span></div>
       <div class="mandate__body">

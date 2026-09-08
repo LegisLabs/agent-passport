@@ -1,0 +1,31 @@
+/* Customer dashboard only. dashboard.css holds the shared shell (field, app card, header, grid, panes, tables); everything
+   specific to the customer's pages lives here, so the customer and bank dashboards can evolve independently. */
+
+/* subpages: the overview, and one page each for an agent's mandate, a record, the evidence trail, transactions, a new agent */
+.fx-hdr-back { display: none; }
+body:not([data-cupage="overview"]) .fx-hdr-back { display: inline-flex; order: -1; flex-basis: 100%; margin: 0; }
+.fx-pill { display: inline-flex; align-items: center; height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--fx-line); background: #fff; color: var(--fx-ink); font-size: .8125rem; font-weight: 600; text-decoration: none; }
+.fx-pill:hover { background: var(--fx-tint); text-decoration: none; }
+body:not([data-cupage="overview"]) .fx-pill { display: none; }
+body[data-cupage="overview"] #ac-trail, body[data-cupage="overview"] #cu-mandate, body[data-cupage="overview"] #cu-event { display: none; }
+body[data-cupage="overview"] #cu-add-form { display: none !important; }
+body[data-cupage="trail"] .fx-col--left, body[data-cupage="trail"] .fx-col--right, body[data-cupage="trail"] .fx-col--mid > .pane { display: none; }
+body[data-cupage="trail"] .fx .fx-grid.cu-split { grid-template-columns: minmax(0, 1fr); }
+body[data-cupage="trail"] #cu-trail-hint { display: block; }
+body[data-cupage="new"] .fx-col--mid, body[data-cupage="new"] .fx-col--right, body[data-cupage="new"] .fx-balance, body[data-cupage="new"] #cu-agents, body[data-cupage="new"] #cu-add-toggle, body[data-cupage="new"] #cu-empty { display: none; }
+body[data-cupage="new"] .fx .fx-grid.cu-split { grid-template-columns: minmax(0, 34rem); }
+body[data-cupage="new"] #cu-add-form { margin-top: 0; padding-top: 0; border-top: 0; }
+body[data-cupage="new"] .cu-add { display: none; }
+body[data-cupage="transactions"] #ac-transactions .glass { margin: 0; }
+/* header back link only on subpages (beats .fx .back) */
+.fx .fx-hdr-back { display: none; }
+body:not([data-cupage="overview"]) .fx .fx-hdr-back { display: inline-flex; }
+/* overview: balance and agents on the left, statistics compact on top of the notifications, which run two across */
+body[data-cupage="overview"] .fx .fx-grid.cu-split { grid-template-columns: minmax(290px, 3fr) minmax(0, 9fr); grid-template-rows: auto minmax(0, 1fr); }
+body[data-cupage="overview"] .fx-col--left { grid-row: 1 / span 2; }
+body[data-cupage="overview"] .fx-col--mid, body[data-cupage="overview"] .fx-col--right { grid-column: 2; }
+body[data-cupage="overview"] .fx-col--mid > .pane { flex: 0 0 auto; }
+body[data-cupage="overview"] .fx-col--mid .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+body[data-cupage="overview"] .cu-notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; }
+@media (max-width: 1100px) { body[data-cupage="overview"] .cu-notes { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 899px) { body[data-cupage="overview"] .fx .fx-grid.cu-split { grid-template-columns: minmax(0, 1fr); } body[data-cupage="overview"] .fx-col--left { grid-row: auto; } body[data-cupage="overview"] .fx-col--mid, body[data-cupage="overview"] .fx-col--right { grid-column: auto; } }
