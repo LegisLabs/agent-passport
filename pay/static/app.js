@@ -746,11 +746,12 @@ const AP = (() => {
       const box = $('cu-notify'); box.hidden = !visible.length;
       $('cu-notify-meta').textContent = visible.length ? `${visible.length} item${visible.length === 1 ? '' : 's'}` : '';
       const ol = $('cu-notes'); ol.innerHTML = '';
-      visible.slice(0, 6).forEach(n => {
-        const li = el('li', `cu-note cu-note--${n.tone}${fresh && fresh.has(n.audit) ? ' is-new' : ''}${n.audit ? ' cu-note--link' : ''}`, `<div class="cu-note__head"><span class="tag tag--${n.tone === 'red' ? 'red' : n.tone === 'amber' ? 'amber' : 'grey'}">${esc(n.label)}</span><span class="mono small">${t(n.ts)}</span></div><p class="cu-note__text">${n.text}</p><p class="small cu-note__sub">${n.sub || ''}</p><div class="cu-note__links">${n.first ? `<button class="btn btn--small" type="button" data-review="${n.audit}">${pendingConfirm === n.audit ? 'Hide the review' : 'Review and confirm'}</button>` : `${n.audit ? `<a href="/customer?event=${n.audit}">Open</a> · ` : ''}<button class="link" type="button" data-dismiss="${esc(n.id)}">Dismiss</button>`}</div>${n.first && pendingConfirm === n.audit ? confirmHtml(n) : ''}`);
+      visible.slice(0, 3).forEach(n => {
+        const brief = String(n.text).split(/\.\s+/)[0].replace(/\.$/, '') + '.';
+        const li = el('li', `cu-note cu-note--${n.tone}${fresh && fresh.has(n.audit) ? ' is-new' : ''}${n.audit ? ' cu-note--link' : ''}`, `<div class="cu-note__head"><span class="tag tag--${n.tone === 'red' ? 'red' : n.tone === 'amber' ? 'amber' : 'grey'}">${esc(n.label)}</span><span class="mono small">${t(n.ts)}</span></div><p class="cu-note__text">${brief}</p>${n.first ? `<div class="cu-note__links"><button class="btn btn--small" type="button" data-review="${n.audit}">${pendingConfirm === n.audit ? 'Hide the review' : 'Review and confirm'}</button></div>${pendingConfirm === n.audit ? confirmHtml(n) : ''}` : ''}`);
         li.dataset.subject = n.subject || ''; if (n.audit) { li.dataset.event = n.audit; li.tabIndex = 0; li.setAttribute('role', 'link'); } ol.append(li);
       });
-      $('cu-notify-more').textContent = visible.length > 6 ? `and ${visible.length - 6} more in the evidence trail` : '';
+      $('cu-notify-more').textContent = '';
       // a toast for what just arrived, the newest one
       const arrived = fresh && fresh.size ? visible.find(n => fresh.has(n.audit)) : null;
       if (arrived) { const tst = $('cu-toast'); tst.className = `cu-toast cu-toast--${arrived.tone}`; tst.innerHTML = `<b>${esc(arrived.label)}</b> ${arrived.text}`; tst.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { tst.hidden = true; }, 8000); }
@@ -808,7 +809,7 @@ const AP = (() => {
       if (subpage === 'new') $('cu-add-form').hidden = false;
       const sel = $('cu-model'); sel.innerHTML = products.map(m => `<option value="${m.registration_id}">${esc(m.product_name)} · ${esc(m.provider)} · ${esc((LEVELS[m.assurance_level] || ['no level'])[0].toLowerCase())}</option>`).join('');
       const showLevel = () => { const m = products.find(y => String(y.registration_id) === sel.value); if ($('cu-model-level')) $('cu-model-level').innerHTML = m ? `${levelTag(m.assurance_level)} <span class="small">assurance level the provider declared with its evidence</span>` : ''; }; sel.onchange = showLevel; showLevel();
-      if ($('cu-legend')) $('cu-legend').textContent = LEGEND_LINE;
+      if ($('cu-legend')) $('cu-legend').hidden = true;
       if (!$('cu-agent-name').value) $('cu-agent-name').value = (state.agent_draft || {}).agent_name || '';
       $('cu-mandate').hidden = !p;
       if (ref || eventId) { $('ac-live').hidden = true; $('ac-transactions').hidden = true; document.body.dataset.actab = 'agent'; document.querySelectorAll('.acct__tab').forEach(bt => { bt.setAttribute('aria-selected', 'false'); }); }

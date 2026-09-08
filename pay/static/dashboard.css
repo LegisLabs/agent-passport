@@ -495,3 +495,46 @@ body[data-actab="agent"] .fx-nav { visibility: hidden; }
 .fx #cu-event .bd-trace li { display: grid; grid-template-columns: 3rem minmax(0, 1fr); gap: 0 .6rem; padding: .35rem 0; border-bottom: 1px solid var(--fx-line); font-size: .875rem; }
 .fx #cu-event .bd-trace li span { grid-column: 2; color: var(--fx-ink-2); font-size: .8125rem; }
 .fx #cu-event .h3 { margin: 18px 0 8px; }
+
+/* transactions like a bank account: grouped by day, description, amount; the AI agent's rows open their record */
+.fx .tx { list-style: none; margin: 0; padding: 0; }
+.fx .tx__day { font-size: .75rem; font-weight: 700; letter-spacing: .02em; color: var(--fx-ink-2); padding: 14px 0 6px; border-bottom: 1px solid var(--fx-line); }
+.fx .tx__day:first-child { padding-top: 0; }
+.fx .tx__row { display: grid; grid-template-columns: 40px minmax(0, 1fr) auto; align-items: center; gap: 12px; padding: 10px 0; border-bottom: 1px solid var(--fx-line); }
+.fx .tx__row:last-child { border-bottom: 0; }
+.fx .tx__row--ai { cursor: pointer; }
+.fx .tx__row--ai:hover { background: var(--fx-tint); margin: 0 -8px; padding-left: 8px; padding-right: 8px; border-radius: 10px; }
+.fx .tx__row--ai:focus-visible { outline: 2px solid var(--fx-ink); outline-offset: 2px; border-radius: 10px; }
+.fx .tx__avatar { width: 40px; height: 40px; border-radius: 50%; display: grid; place-items: center; background: var(--fx-tint); color: var(--fx-ink-2); font-size: .8125rem; font-weight: 700; letter-spacing: .02em; }
+.fx .tx__avatar--ai { background: var(--fx-green-soft); color: var(--fx-green, #0f6b73); }
+.fx .tx__main { display: grid; gap: 2px; min-width: 0; }
+.fx .tx__main b { font-size: .9375rem; font-weight: 600; color: var(--fx-ink); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.fx .tx__main small { font-size: .78rem; color: var(--fx-ink-2); display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.fx .tx__main small .tag { font-size: .68rem; padding: 1px 7px; }
+.fx .tx__amt { font-weight: 700; font-variant-numeric: tabular-nums; font-size: .9375rem; white-space: nowrap; color: var(--fx-ink); }
+.fx .tx__amt.in { color: var(--fx-green, #0f6b73); }
+.fx .tx__amt.blocked { color: var(--fx-ink-3, #9aa5a1); text-decoration: line-through; font-weight: 600; }
+.fx .tx__row--blocked .tx__main b { color: var(--fx-ink-2); }
+.fx details.cu-split__trail > summary { list-style: none; cursor: pointer; display: flex; }
+.fx details.cu-split__trail > summary::-webkit-details-marker { display: none; }
+.fx details.cu-split__trail > summary::before { content: ""; width: 8px; height: 8px; border-right: 2px solid var(--fx-ink-2); border-bottom: 2px solid var(--fx-ink-2); transform: rotate(-45deg); margin: 6px 10px 0 0; flex: 0 0 auto; transition: transform .2s; }
+.fx details.cu-split__trail[open] > summary::before { transform: rotate(45deg); margin-top: 3px; }
+/* the agent's page: a title, then labelled groups in a grid */
+.fx .cu-agent-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; flex-wrap: wrap; margin: 0 0 16px; }
+.fx .cu-agent-title { margin: 0; font-size: 1.5rem; font-weight: 800; letter-spacing: -.02em; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.fx .cu-agent-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; margin: 0 0 24px; }
+.fx .cu-group { min-width: 0; }
+.fx .cu-group__h { margin: 0 0 8px; font-size: .75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--fx-ink-2); }
+.fx .kv--grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 20px; border: 0; margin: 0; }
+.fx .kv--grid div { display: grid; gap: 2px; border: 0; padding: 0; grid-template-columns: none; min-width: 0; }
+.fx .kv--grid dt { font-size: .75rem; color: var(--fx-ink-2); }
+.fx .kv--grid dd { margin: 0; font-size: .9375rem; font-weight: 600; color: var(--fx-ink); overflow-wrap: anywhere; }
+.fx .kv--grid dd .small { font-weight: 500; color: var(--fx-ink-2); }
+.fx .kv--grid dd .bad { color: var(--fx-red); }
+.fx #cu-mandate .mandate__body .kv div { grid-template-columns: 11rem minmax(0, 1fr); }
+@media (max-width: 899px) { .fx .cu-agent-grid { grid-template-columns: minmax(0, 1fr); } }
+.fx .cu-note { padding: 10px 12px 10px 48px; }
+.fx .cu-note__text { font-size: .875rem; font-weight: 600; line-height: 1.4; margin: 0; }
+.fx .cu-note--slate .cu-note__text { font-weight: 500; }
+.fx .cu-note__head { margin-bottom: 4px; }
+.fx .cu-note__links { margin-top: 8px; }
