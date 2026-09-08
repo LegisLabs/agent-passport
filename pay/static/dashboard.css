@@ -473,3 +473,25 @@ body[data-view="customer"] ::-webkit-scrollbar-track, body[data-view="bank"] ::-
 .fx-icon .live-dot { display: none; }
 /* no section bar on the customer dashboard either: one overview, every column shown at every width */
 .fx .fx-nav.acct__tabs { display: none; }
+
+/* agent card: a name and a status; the agent opens as its own page */
+.fx .cu-card__kv { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 14px; margin: 8px 0 6px; padding: 0; }
+.fx .cu-card__kv div { display: grid; gap: 1px; min-width: 0; }
+.fx .cu-card__kv dt { font-size: .6875rem; text-transform: uppercase; letter-spacing: .04em; color: var(--fx-ink-2); font-weight: 600; }
+.fx .cu-card__kv dd { margin: 0; font-size: .875rem; font-weight: 700; color: var(--fx-ink); font-variant-numeric: tabular-nums; }
+.fx .cu-card__kv dd .bad { color: var(--fx-red, #b3261e); font-weight: 600; }
+.fx .cu-card__foot { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-top: 6px; }
+.fx .cu-card__open { margin-left: auto; font-weight: 700; }
+.fx-back { margin: 0 0 12px; font-size: .875rem; }
+body[data-actab="agent"] .fx-nav { visibility: hidden; }
+.fx .cu-note--link { cursor: pointer; }
+.fx .cu-note--link:hover { filter: brightness(.985); }
+.fx .cu-add--top { margin: 0 0 12px; }
+.fx a.cu-card { display: block; color: inherit; text-decoration: none; }
+.fx a.cu-card:hover { background: var(--fx-tint); }
+.fx .cu-card__name { font-weight: 700; }
+.fx .cu-agent-stats { grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); margin: 0 0 16px; }
+.fx .cu-event__head { margin-bottom: 16px; cursor: default; }
+.fx #cu-event .bd-trace li { display: grid; grid-template-columns: 3rem minmax(0, 1fr); gap: 0 .6rem; padding: .35rem 0; border-bottom: 1px solid var(--fx-line); font-size: .875rem; }
+.fx #cu-event .bd-trace li span { grid-column: 2; color: var(--fx-ink-2); font-size: .8125rem; }
+.fx #cu-event .h3 { margin: 18px 0 8px; }

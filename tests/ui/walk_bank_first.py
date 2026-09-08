@@ -84,7 +84,7 @@ with sync_playwright() as pw:
     check("fenwick timber" in low(page, ".cu-confirm") and "£2,500" in page.locator(".cu-confirm").inner_text() and "review and confirm the first payment" in low(page, ".cu-confirm") and "helen marsh" in low(page, ".cu-confirm"), "review panel: agent, payee, amount, mandate, who signs")
     page.click(".cu-confirm [data-first='confirm']"); page.wait_for_selector("#cu-toast:not([hidden])"); check("confirmed" in low(page, "#cu-toast"), "confirmed: toast")
     page.wait_for_function("document.querySelector('#ac-audit').innerText.toLowerCase().includes('confirmed by the customer')"); check("first payment under mandate version 3 confirmed by the customer" in low(page, "#ac-audit"), "the confirmation is a chain entry on the evidence trail")
-    page.wait_for_function("document.querySelector('#cu-agents').innerText.toLowerCase().includes('first payment confirmed')"); check(True, "agent card: first payment confirmed")
+    page.wait_for_function("!document.querySelector('#cu-agents').innerText.toLowerCase().includes('awaits your confirmation')"); check(True, "agent card: the pending flag clears once the first payment is confirmed")
     print("== 5 · Expert console: clean, boundary, poisoned")
     page.goto(BASE + "/terminal?console=1"); page.wait_for_selector("#invoice-buttons button"); page.locator("#invoice-buttons button").nth(0).click(); page.wait_for_selector('#invoice-outcome [data-step="d"]:not([hidden])', timeout=60000)
     v = low(page, "#inv-verdict"); check("allow" in v and "all nine checks passed" in v and "r.4 instruction signature: verified" in v, "clean invoice ALLOW with signature evidence, no person needed the second time")
@@ -163,7 +163,8 @@ with sync_playwright() as pw:
     check(page.locator("#ac-audit .tag--green").filter(has_text="Processed").filter(has_not_text="·").count() == 0, "routine processed payments stay out of the default trail")
     page.click("#cu-trail-toggle"); page.wait_for_function(f"document.querySelectorAll('#ac-audit tbody tr').length > {n1}"); check(page.locator("#ac-audit .tag--green").filter(has_text="Processed").filter(has_not_text="·").count() >= 1, "full trail reachable, routine rows included"); page.click("#cu-trail-toggle"); page.wait_for_function(f"document.querySelectorAll('#ac-audit tbody tr').length <= {n1}")
     check("fraud indicator: something the customer never authorised" in low(page, "#cu-legend"), "customer legend line")
-    check("paid this month" in low(page, "#cu-agents") and "held" in low(page, "#cu-agents") and "refused" in low(page, "#cu-agents"), "agent card carries its quality counts")
+    check(page.locator("#cu-agents a.cu-card").count() >= 1 and "active" in low(page, "#cu-agents"), "agent card: a name and a status, opening its own page")
+    page.click("#cu-notes li[data-event]"); page.wait_for_selector("#cu-event:not([hidden])"); check(page.locator("#ac-live").is_hidden() and "proof" in low(page, "#cu-event") and "chain entry" in low(page, "#cu-event"), "a notification opens as its own page with the record and its proof"); page.goto(BASE + "/customer"); page.wait_for_selector("#cu-agents .cu-card")
     # the terminal refuses the altered invoice while the customer page is open: the notification arrives, the trail gains the entry
     n2 = page.locator("#ac-audit tbody tr").count(); page.request.post(BASE + "/api/agent/invoice", data={"passport_id": h["passport_id"], "invoice_id": "INV-9001-poisoned"})
     page.wait_for_selector("#cu-toast:not([hidden])", timeout=8000); check("account not on your mandate" in low(page, "#cu-toast") and "nothing left your account" in low(page, "#cu-toast"), "the refused altered invoice arrives as a red notification while the page is open")

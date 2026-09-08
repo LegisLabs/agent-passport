@@ -37,10 +37,8 @@
 
       <div class="glass cu-split__agents" id="ac-agents">
         <h2 class="ws-h">AI agents <span class="ws-h__meta" id="fx-agents-meta"></span></h2>
-        <div id="cu-agents"></div>
-        <div class="empty" id="cu-empty"><p>Your bank has not admitted any AI product yet. Admission happens in the <a href="/bank">bank dashboard</a>.</p></div>
         <div id="cu-create" hidden>
-          <p class="cu-add"><button class="btn btn--outline" type="button" id="cu-add-toggle">Add an AI agent</button></p>
+          <p class="cu-add cu-add--top"><button class="btn btn--outline" type="button" id="cu-add-toggle">Add an AI agent</button></p>
           <div id="cu-add-form" hidden>
             <label class="label" for="cu-model">Product</label><select class="input" id="cu-model"></select>
             <p class="small cu-model-level" id="cu-model-level"></p>
@@ -49,13 +47,14 @@
             <p class="error" id="cu-create-error" hidden></p>
           </div>
         </div>
+        <div id="cu-agents"></div>
+        <div class="empty" id="cu-empty"><p>Your bank has not admitted any AI product yet. Admission happens in the <a href="/bank">bank dashboard</a>.</p></div>
       </div>
     </div>
 
     <div class="fx-col fx-col--mid">
       <section class="pane" aria-labelledby="fx-stats-h">
         <h2 class="ws-h" id="fx-stats-h">Statistics <span class="ws-h__meta fx-range" id="fx-stats-range">AI agent payments, this session</span></h2>
-        <div class="fx-chart"><canvas id="chart-customer" aria-label="AI agent payments over the session" role="img"></canvas><p class="fx-chart__empty" id="fx-chart-empty" hidden>No AI agent payment yet this session.</p></div>
         <ul class="stats" id="fx-cu-stats"></ul>
       </section>
 
@@ -88,8 +87,15 @@
     </section>
   </div>
 
+  <div id="cu-event" class="fx-section" hidden>
+    <p class="fx-back"><a class="back" href="/customer">Back to the overview</a></p>
+    <div id="cu-event-body"><p class="small">Loading the record…</p></div>
+  </div>
+
   <div id="cu-mandate" class="fx-section" hidden>
+    <p class="fx-back"><a class="back" href="/customer">Back to the overview</a></p>
     <h2 class="ws-h ws-h--wide">Mandate for <span class="mono" id="cu-ref"></span></h2>
+    <ul class="stats cu-agent-stats" id="cu-agent-stats"></ul>
     <dl class="kv kv--card" id="cu-agent-kv"></dl>
     <div class="mandate" id="cu-card">
       <div class="mandate__head"><span>Payment mandate · <span class="mono" id="cu-id"></span></span><span id="cu-state"></span></div>
@@ -141,4 +147,4 @@
   </div>
 </div>
 {% endblock %}
-{% block scripts %}<script src="/static/vendor/chart.umd.js"></script><script>AP.customer(); AP.customerExtras();</script>{% endblock %}
+{% block scripts %}<script>AP.customer(); AP.customerExtras();</script>{% endblock %}
