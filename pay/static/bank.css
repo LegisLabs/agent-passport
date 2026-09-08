@@ -520,3 +520,8 @@ body[data-bkpage="agents"] #bk-page-overview, body[data-bkpage="agents"] #bk-pag
 body[data-bkpage="agents"] .fx .fx-grid.bd-cols.bk-two { display: grid; grid-template-columns: minmax(0, 44rem); }
 .fx-col--left > .pane, .fx-col--mid > .bd-stats { flex: 0 0 auto; }
 .fx-col--left > .pane:last-child { flex: 1 1 auto; }
+/* the add-product form on its own page */
+body:not([data-bkpage="add-product"]) #bk-page-add-product { display: none; }
+body[data-bkpage="add-product"] #bk-page-overview, body[data-bkpage="add-product"] #bk-page-products, body[data-bkpage="add-product"] #bd-trail-page, body[data-bkpage="add-product"] #bk-page-agents { display: none; }
+.bk-form-page { max-width: 34rem; }
+.fx .ws-h__meta .btn { vertical-align: middle; }

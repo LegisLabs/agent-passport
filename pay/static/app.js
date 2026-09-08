@@ -177,6 +177,7 @@ const AP = (() => {
     let a = p ? state.registrations.find(x => x.id === p.registration_id) : (q.get('ref') ? state.registrations.find(x => x.ref === q.get('ref') && x.status !== 'draft') || null : null);
     const mode = p ? 'agent' : a ? 'case' : 'dash';
     document.body.dataset.bkpage = q.get('trail') ? 'activity' : (q.get('page') || 'overview');
+    if (document.body.dataset.bkpage === 'add-product') { const bk = document.querySelector('.fx-hdr-back'); if (bk) { bk.href = '/bank?page=products'; bk.textContent = 'Back to AI products'; } }
     let selectedVid = null;
     render();
 
@@ -492,8 +493,7 @@ const AP = (() => {
         await api('PUT', `/api/registrations/${reg.id}/fields`, { fields: f });
         await api('POST', `/api/registrations/${reg.id}/submit`);
         await api('POST', `/api/registrations/${reg.id}/admission`, { decision: 'admit', note: `Entered and approved by ${who()}: ${name} by ${provider}, ${level}, hold above £${hold.toLocaleString('en-GB')}.`, hold_above: hold });
-        $('ap-note').textContent = `${name} is on the bank's list.`; ['ap-name', 'ap-provider', 'ap-model'].forEach(id => { $(id).value = ''; });
-        await refresh();
+        location.href = '/bank?page=products';
       } catch (e) { err.textContent = e.message; err.hidden = false; $('ap-note').textContent = ''; }
       finally { b.disabled = false; }
     };
@@ -687,7 +687,7 @@ const AP = (() => {
   ];
   async function customer() {
     const STATIC = !new URLSearchParams(location.search).get('live');
-    let snap = STATIC ? await api('GET', '/api/customer/snapshot').catch(() => null) : null;
+    let snap = STATIC && !new URLSearchParams(location.search).get('new') ? await api('GET', '/api/customer/snapshot').catch(() => null) : null;
     const loadState = async () => snap ? snap.state : api('GET', '/api/bank/state');
     const loadAudit = async () => snap ? snap.audit : api('GET', '/api/bank/audit');
     let state = await loadState();
@@ -953,7 +953,8 @@ const AP = (() => {
       </div>`;
     }
     function render() {
-      const products = (state.products || []).filter(m => m.admission_status === 'admitted');
+      const liveIds = new Set((state.products || []).map(m => m.product_id));
+      const products = [...(state.products || []).filter(m => m.admission_status === 'admitted'), ...(state.register || []).filter(m => m.bank && m.bank.decision === 'admitted' && !liveIds.has(m.product_id)).map(m => ({ registration_id: 'reg:' + m.product_id, product_id: m.product_id, product_name: m.product, provider: m.provider, assurance_level: m.assurance_level, admission_status: 'admitted', condition: { hold_above: { amount: m.bank.hold_above_gbp } }, ceilings: {} }))];
       renderCards();
       $('cu-empty').hidden = !!(products.length || p);
       $('cu-create').hidden = !products.length;
@@ -961,7 +962,7 @@ const AP = (() => {
       const sel = $('cu-model'); const chosen = sel.value; sel.innerHTML = products.map(m => `<option value="${m.registration_id}">${esc(m.product_name)} · ${esc(m.provider)} · ${esc((LEVELS[m.assurance_level] || ['no level'])[0].toLowerCase())}</option>`).join('');
       if (chosen && products.some(m => String(m.registration_id) === chosen)) sel.value = chosen;
       const showLevel = () => { const m = products.find(y => String(y.registration_id) === sel.value); if ($('cu-model-level')) $('cu-model-level').innerHTML = m ? `${levelTag(m.assurance_level)} <span class="small">assurance level the provider declared with its evidence</span>` : ''; document.querySelectorAll('#cu-products .cu-product').forEach(c => c.setAttribute('aria-checked', String(c.dataset.id === sel.value))); }; sel.onchange = showLevel;
-      const pl = $('cu-products'); if (pl) { pl.innerHTML = products.map(m => { const c = ((m.ceilings || {}).per_payment_ceiling || {}).amount; return `<button type="button" class="cu-product" role="radio" data-id="${m.registration_id}" aria-checked="${String(m.registration_id) === sel.value}"><span class="cu-product__mark" aria-hidden="true"></span><span class="cu-product__body"><b>${esc(m.product_name)}</b><span class="small">by ${esc(m.provider)}${(m.payment_intent || {}).label ? ` · ${esc(m.payment_intent.label)}` : ''}</span><span class="cu-product__meta">${levelTag(m.assurance_level)}${m.condition && m.condition.hold_above ? `<span class="small">bank holds anything above ${gbp(m.condition.hold_above.amount)}</span>` : ''}${c ? `<span class="small">up to ${gbp(c)} a payment</span>` : ''}<span class="small">UK data protection ${m.uk_gdpr_compliant === 'yes' ? 'declared' : 'not declared'}${m.retention_label ? ` · personal data kept ${esc(m.retention_label.toLowerCase())}` : ''}</span></span></span></button>`; }).join('') || '<p class="small">Your bank has not admitted any AI product yet.</p>'; pl.onclick = (ev) => { const c = ev.target.closest('.cu-product'); if (!c) return; sel.value = c.dataset.id; showLevel(); }; }
+      const pl = $('cu-products'); if (pl) { pl.innerHTML = products.map(m => { const c = ((m.ceilings || {}).per_payment_ceiling || {}).amount; return `<button type="button" class="cu-product" role="radio" data-id="${m.registration_id}" aria-checked="${String(m.registration_id) === sel.value}"><span class="cu-product__avatar" aria-hidden="true">${esc(initials(m.product_name))}</span><span class="cu-product__body"><b>${esc(m.product_name)}</b><span class="small">${esc(m.provider)} · ${esc((LEVELS[m.assurance_level] || ['no level'])[0].toLowerCase())}</span></span><span class="cu-product__mark" aria-hidden="true"></span></button>`; }).join('') || '<p class="small">Your bank has not admitted any AI product yet.</p>'; pl.onclick = (ev) => { const c = ev.target.closest('.cu-product'); if (!c) return; sel.value = c.dataset.id; showLevel(); }; }
       showLevel();
       if ($('cu-legend')) $('cu-legend').hidden = true;
       if (!$('cu-agent-name').value) $('cu-agent-name').value = (state.agent_draft || {}).agent_name || '';
@@ -991,7 +992,7 @@ const AP = (() => {
     $('cu-add-toggle').onclick = () => { if (subpage !== 'new') location.href = '/customer?new=1'; };
     $('btn-create-agent').onclick = async () => {
       const b = $('btn-create-agent'); b.disabled = true; $('cu-create-error').hidden = true; $('cu-create-note').textContent = 'generating key, signing the bank\'s challenge…';
-      try { const np = await api('POST', '/api/agents', { registration_id: Number($('cu-model').value), agent_name: $('cu-agent-name').value.trim() || null }); location.href = `/customer?ref=${np.passport_id}`; return; }
+      try { const v = $('cu-model').value; const np = await api('POST', '/api/agents', { ...(v.startsWith('reg:') ? { product_id: v.slice(4) } : { registration_id: Number(v) }), agent_name: $('cu-agent-name').value.trim() || null }); location.href = `/customer?ref=${np.passport_id}`; return; }
       catch (e) { $('cu-create-error').textContent = e.message; $('cu-create-error').hidden = false; }
       finally { b.disabled = false; $('cu-create-note').textContent = ''; }
     };

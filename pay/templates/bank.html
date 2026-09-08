@@ -118,12 +118,16 @@
   </div>
 
   <div id="bk-page-products">
-    <div class="fx-grid bd-cols bk-two">
-      <section class="ws-sec pane">
-        <h2 class="ws-h">AI products <span class="ws-h__meta">every product on the register, and whether it is on this bank's list</span></h2>
-        <div class="dash-wrap"><table class="dash" id="bk-register"><thead><tr><th>Product</th><th>Provider</th><th>Assurance level</th><th>Filed</th><th>Your decision</th></tr></thead><tbody></tbody></table></div>
-        <div hidden><table id="bk-products"><tbody></tbody></table></div>
-      </section>
+    <section class="ws-sec pane">
+      <h2 class="ws-h">AI products <span class="ws-h__meta"><a class="btn btn--small" href="/bank?page=add-product">Add an AI product</a></span></h2>
+      <p class="small">Every product on the register and whether it is on this bank's list. Customers can delegate payments only to products on the list.</p>
+      <div class="dash-wrap"><table class="dash" id="bk-register"><thead><tr><th>Product</th><th>Provider</th><th>Assurance level</th><th>Filed</th><th>Your decision</th></tr></thead><tbody></tbody></table></div>
+      <div hidden><table id="bk-products"><tbody></tbody></table></div>
+    </section>
+  </div>
+
+  <div id="bk-page-add-product">
+    <div class="bk-form-page">
       <section class="pane" id="bk-add-product">
         <h2 class="ws-h">Add an AI product</h2>
         <p class="small">You enter the product, the bank checks it against the register rules and, if it is independently verified or audited, admits it to the bank's list with a hold condition. Customers can then delegate payments to it.</p>
