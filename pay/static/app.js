@@ -175,7 +175,7 @@ const AP = (() => {
     let p = q.get('passport') ? issued().find(x => x.passport_id === q.get('passport')) || null : null;
     let a = p ? state.registrations.find(x => x.id === p.registration_id) : (q.get('ref') ? state.registrations.find(x => x.ref === q.get('ref') && x.status !== 'draft') || null : null);
     const mode = p ? 'agent' : a ? 'case' : 'dash';
-    document.body.dataset.bkpage = q.get('trail') ? 'trail' : 'overview';
+    document.body.dataset.bkpage = q.get('trail') ? 'trail' : (q.get('page') || 'overview');
     let selectedVid = null;
     render();
 
@@ -262,6 +262,7 @@ const AP = (() => {
       $('bd-attention-more').textContent = attention.length > 5 ? `and ${attention.length - 5} more in the full log` : '';
       $('bd-attention-meta').textContent = attention.length ? `${heldOpen.length} held · ${fraudRows.length} fraud indicator${fraudRows.length === 1 ? '' : 's'}` : '';
       $('bd-attention-list').hidden = !attention.length; $('bd-attention-empty').hidden = !!attention.length;
+      if ($('fx-att-count')) { $('fx-att-count').textContent = String(attention.length); $('fx-att-count').hidden = !attention.length; }
       // active agents: the bank's access dashboard for AI agents
       const lastBy = {}; verifies.forEach(r => { if (!lastBy[r.subject]) lastBy[r.subject] = r; });
       const box = $('bk-agents'); box.innerHTML = '';
@@ -343,6 +344,8 @@ const AP = (() => {
       const bi = o.by_intent || {}; const il = Object.keys(bi).map(k => (intents.find(x => x.id === k) || { label: k }).label), iv = Object.values(bi);
       ring('chart-intent', il, iv, (v_) => gbp(v_)); legend('bk-intent-legend', il, iv, PALETTE);
       const br = o.by_region || {}; bars('chart-region', Object.keys(br), Object.values(br), (v_) => gbp(v_));
+      const bm = o.by_model_provider || {}; ring('chart-provider', Object.keys(bm), Object.values(bm), (v_) => gbp(v_)); legend('bk-provider-legend', Object.keys(bm), Object.values(bm), PALETTE);
+      const bp = o.by_product || {}; bars('chart-product', Object.keys(bp), Object.values(bp), (v_) => gbp(v_));
       const held = verifies.filter(r => r.entry.decision === 'ESCALATE').length, proc = verifies.filter(r => r.entry.decision === 'ALLOW').length, nf = viol.filter(x => x.failure_class === 'fraud').length, ne = viol.filter(x => x.failure_class !== 'fraud').length;
       const ol = ['Processed', 'Held for a person', 'Refused, fraud indicator', 'Refused, agent error'], ov = [proc, held, nf, ne], oc = ['#1f8a4c', '#b45f06', '#c62828', '#97a39f'];
       chartOnce('chart-outcome', { type: 'doughnut', data: { labels: ol, datasets: [{ data: ov, backgroundColor: oc, borderWidth: 2, borderColor: '#fff' }] }, options: { cutout: '68%', responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f1a17', cornerRadius: 10, padding: 10 } } } });
@@ -484,7 +487,7 @@ const AP = (() => {
       $('bk-filenote').value = a.file_note || '';
       $('btn-bk-prefill').onclick = () => { $('bk-context').hidden = false; $('bk-context').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
       $('btn-bk-prefill-cancel').onclick = () => { $('bk-context').hidden = true; };
-      $('btn-bk-prefill-go').onclick = () => { $('bk-context').hidden = true; $('bk-condition').value = pol.hold_above_gbp || 5000; $('bk-condition').dataset.touched = '1'; if (!$('bk-officer-note').value.trim()) $('bk-officer-note').value = `Six filing checks pass. Independent Assurance Evidence covers invoice payment. Admitted with the ${gbp(pol.hold_above_gbp || 5000)} hold condition.`; };
+      $('btn-bk-prefill-go').onclick = () => { $('bk-context').hidden = true; $('bk-condition').value = pol.hold_above_gbp || 5000; $('bk-condition').dataset.touched = '1'; if (!$('bk-officer-note').value.trim()) $('bk-officer-note').value = `Seven filing checks pass. Independent Assurance Evidence covers invoice payment. Admitted with the ${gbp(pol.hold_above_gbp || 5000)} hold condition.`; };
       if (a.review) renderReview(a.review); else if (!a._reviewing) { a._reviewing = true; runReview(true); }
       $('bk-decide').hidden = !(!a.admission_status || a.admission_status === 'info_requested' || a.admission_status === 'declined');
       renderProduct();
@@ -527,7 +530,7 @@ const AP = (() => {
       const hist = $('bk-history'); hist.innerHTML = '';
       if (!a) return;
       const lines = [];
-      if (a.submitted_at) lines.push([a.submitted_at, `${a.ref} filed on the register by the provider; accountable principal declared it accurate; checks F.1 to F.6 recorded; receipt signed by the register.`]);
+      if (a.submitted_at) lines.push([a.submitted_at, `${a.ref} filed on the register by the provider; accountable principal declared it accurate; checks F.1 to F.7 recorded; receipt signed by the register.`]);
       if (a.officer_note) lines.push([a.admitted_at || a.submitted_at, `${a.officer}: ${String(a.admission_status || '').replace('_', ' ')}. “${a.officer_note}”`]);
       if (p && p.mandate_signed_at) lines.push([p.mandate_signed_at, `${(p.mandate.signed_by || {}).name}, ${(p.mandate.signed_by || {}).role} (customer): wrote and signed the mandate in the bank's app; within the ceilings. Passport issued.`]);
       (p ? p.history : []).forEach(h => lines.push([h.ts, `${h.officer}: ${h.from ? h.from + ' → ' : ''}${h.to}. ${h.reason}`]));

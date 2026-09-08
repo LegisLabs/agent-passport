@@ -1,5 +1,5 @@
 {
-  "id": "payments-2026.09.6",
+  "id": "payments-2026.09.7",
   "title": "Agent Passport rule pack, B2B payment initiation (APS 1001 revision 3, bank-first)",
   "jurisdiction": "United Kingdom (proposed industry standard; no current legal requirement)",
   "register": "agent-passport-register-demo",
@@ -21,6 +21,8 @@
     "max_validity": "2027-03-31",
     "ceilings_note": "Agent-channel ceilings: the account type sets the product ceiling, the provider's assurance level scales the bank's admission ceiling, and every mandate must sit at or below the lower of the two. Containment is checked when the customer signs.",
     "hold_above_gbp": 5000,
+    "review_everything": true,
+    "review_note": "No instruction is refused outright. A check that fails holds the instruction for a person: the instruction is not executed, the failed check and its class are recorded as the reason for review, and a named person approves or declines it with a written note. Both outcomes are receipted chain entries.",
     "min_insurance_cover_gbp": 1000000,
     "incident_deny_threshold": 3,
     "pattern_threshold": {

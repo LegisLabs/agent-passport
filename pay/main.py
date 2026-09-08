@@ -245,7 +245,7 @@ def put_fields(reg_id: int, body: FieldsIn):
 @app.post("/api/registrations/{reg_id}/submit")
 def submit(reg_id: int):
     """The provider files its registration. Filing is a declaration by the accountable principal that the filing is
-    accurate. The register runs completeness checks F.1 to F.6, records the result and signs a receipt. Nobody reviews it."""
+    accurate. The register runs completeness checks F.1 to F.7, records the result and signs a receipt. Nobody reviews it."""
     a = db.get_registration(reg_id) or _404()
     if not a.get("fields"):
         _400("fill in the registration first")
@@ -262,7 +262,7 @@ def submit(reg_id: int):
         "meaning": "on the register: identity and accountability recorded; no quality judgement made",
     }, typ="registration-receipt+jwt")
     a = db.update_registration(reg_id, status="registered", submitted_at=db.now_iso(), checks=checks, registration_jwt=receipt)
-    audit.record("check", a["ref"], {"event": "AI product filed on the register; accountable principal declared the filing accurate; filing checks F.1 to F.6 run; receipt signed by the register",
+    audit.record("check", a["ref"], {"event": "AI product filed on the register; accountable principal declared the filing accurate; filing checks F.1 to F.7 run; receipt signed by the register",
                                      "passed": sum(c["result"] == "pass" for c in checks), "flagged": [c["id"] for c in checks if c["result"] != "pass"], "register_kid": crypto.signer("register")["kid"]})
     return public_reg(a)
 
@@ -938,10 +938,11 @@ def verify(body: VerifyIn):
     daily = db.daily_count(body.passport_id)
     first = first_under_mandate(p)
     res = rules.verify_action(env, pp_status, req, ledger_total, nonce_seen=seen, daily_count=daily, first_under_mandate=first)
-    fclass = rules.classify_refusal(res["code"]) if res["decision"] == "DENY" else None
+    failed = bool(res.get("failed_check"))
+    fclass = rules.classify_refusal(res["code"]) if failed else None
     entry = {"event": "verification", "passport_id": body.passport_id, "instruction": req, "passport_status": pp_status, "presented_envelope": env,
              "ledger_total_before": ledger_total, "daily_count_before": daily, "nonce_seen_before": seen, "first_under_mandate_before": first, "instruction_hash": crypto.sha256_hex(rules.request_signing_input(req)),
-             "decision": res["decision"], "rule": res["rule"], "code": res["code"], "reason": res["reason"], "failure_class": fclass["id"] if fclass else None, "trace": res["trace"], "rule_pack": res["rule_pack"]}
+             "decision": res["decision"], "rule": res["rule"], "code": res["code"], "reason": res["reason"], "failure_class": fclass["id"] if fclass else None, "failed_check": failed, "trace": res["trace"], "rule_pack": res["rule_pack"]}
     rec = audit.record("verify", body.passport_id, entry, receipt_for={"passport_id": body.passport_id, "decision": res["decision"], "rule": res["rule"], "code": res["code"], "instruction_hash": entry["instruction_hash"]})
     r4 = next((t for t in res["trace"] if t["rule"] == "R.4"), None)
     agent_kid = None
@@ -961,7 +962,7 @@ def verify(body: VerifyIn):
         s = vouch.settle_payment(req)
         pay = db.insert_payment(body.passport_id, str(req.get("payee_account_ref")), float(req.get("amount") or 0), str(req.get("currency") or "GBP"), req.get("invoice_ref"), rec["id"], s["rail"], s.get("ref"))
         out["settlement"] = {**s, "ledger_total_after": ledger_total + float(req.get("amount") or 0), "payment_id": pay["id"]}
-    elif res["decision"] == "DENY" and p:
+    elif failed and p:
         vio = db.insert_violation(body.passport_id, p["admission"].get("agent_id"), res["rule"], res["code"], req, body.evidence, rec["id"], fclass["id"] if fclass else None)
         out["violation"] = {"id": vio["id"], "status": vio["status"], "failure_class": fclass}
         n = db.denies_since_last_incident(body.passport_id)
@@ -985,6 +986,7 @@ def audit_list():
 class DecideIn(BaseModel):
     decision: str            # release | refuse
     reason: str | None = None
+    by: str | None = None    # customer | bank (who reviewed; default the bank's officer)
 
 
 def held_decision(audit_id: int) -> dict | None:
@@ -1013,17 +1015,29 @@ def decide_held(audit_id: int, body: DecideIn):
     approver = (p.get("mandate") or {}).get("signed_by") or mp.get("authorising_officer") or {}
     hold = ((p.get("admission") or {}).get("condition") or {}).get("hold_above", {})
     outcome = "RELEASED" if body.decision == "release" else "REFUSED"
-    entry = {"event": "held payment released by approver" if outcome == "RELEASED" else "held payment refused by approver",
+    failed = bool(e["entry"].get("failed_check"))
+    by_customer = (body.by or "").lower() == "customer"
+    officer = f"{approver.get('name')}, {approver.get('role')} ({config.CUSTOMER})" if by_customer else f"{config.BANK_OFFICER}, {config.BANK_TEAM}"
+    what = "approved after review" if outcome == "RELEASED" else "declined after review"
+    entry = {"event": f"held payment {what}" + (f" (the check that held it: {e['entry'].get('rule')} {e['entry'].get('code')})" if failed else " (above the hold condition)"),
              "held_audit_id": audit_id, "outcome": outcome, "instruction": req, "instruction_hash": e["entry"].get("instruction_hash"),
-             "hold_above": hold, "rule": e["entry"].get("rule"), "code": e["entry"].get("code"),
-             "officer": f"{config.BANK_OFFICER}, {config.BANK_TEAM}", "approver": {"name": approver.get("name"), "role": approver.get("role")},
-             "reason": body.reason or ("held payment refused by approver" if outcome == "REFUSED" else "confirmed by the customer's named approver")}
+             "hold_above": hold, "rule": e["entry"].get("rule"), "code": e["entry"].get("code"), "failed_check": failed, "reviewed_by": "customer" if by_customer else "bank",
+             "officer": officer, "approver": {"name": approver.get("name"), "role": approver.get("role")}, "decided_by": {"name": approver.get("name"), "role": approver.get("role")} if by_customer else {"name": config.BANK_OFFICER, "role": config.BANK_TEAM},
+             "reason": body.reason or ("held payment declined by the reviewer" if outcome == "REFUSED" else "held payment approved by the reviewer")}
     rec = audit.record("decision", e["subject"], entry, receipt_for={"passport_id": e["subject"], "decision": outcome, "held_audit_id": audit_id, "instruction_hash": entry["instruction_hash"]})
     out = {"audit_id": rec["id"], "hash": rec["hash"], "receipt": rec["receipt"], "outcome": outcome, "held_audit_id": audit_id, "officer": entry["officer"], "approver": entry["approver"], "settlement": None}
     if outcome == "RELEASED":
         out["settlement"] = _execute_held(e["subject"], req, rec["id"])
         if first_under_mandate(p):   # a named approver releasing the first payment is the customer's confirmation of it
             db.set_first_confirmed(e["subject"], int((p.get("mandate") or {}).get("version", 1) or 1))
+        if failed:   # a payment a person approved after review closes its flag
+            v = next((x for x in db.list_violations(e["subject"]) if x.get("audit_id") == audit_id), None)
+            if v:
+                db.set_violation_status_by_id(v["id"], "RESOLVED", f"approved after review: {entry['reason']}")
+    elif failed:
+        v = next((x for x in db.list_violations(e["subject"]) if x.get("audit_id") == audit_id), None)
+        if v:
+            db.set_violation_status_by_id(v["id"], "RESOLVED", f"declined after review: {entry['reason']}")
     return out
 
 
@@ -1185,8 +1199,7 @@ def demo_seed(stage: str = "issued"):
     """Restore the exact pre-demo baseline between takes. stage=registered: the product is filed on the register and the bank's
     review has run, ready for the officer. stage=issued (default): admitted, customer mandate signed, passport ACTIVE,
     no payments, no violations. stage=history: issued, then the first payment held and confirmed by the customer, two payments
-    executed, one altered invoice refused (payee not on the mandate, the demo's one refusal), one instruction held above the
-    hold condition.
+    executed, one instruction over the per-payment limit held for the customer's review (nothing is refused outright).
     Deterministic: fixture values, the customer's draft mandate, the default hold condition."""
     if stage not in ("registered", "issued", "history", "busy"):
         _400("stage must be registered, issued, history or busy")
@@ -1200,7 +1213,7 @@ def demo_seed(stage: str = "issued"):
     r = run_review(a["id"], ReviewIn())
     out = {"ok": True, "stage": stage, "registration": r["registration"]["ref"], "recommendation": r["review"]["steps"][4]["data"]["verdict"]}
     if stage in ("issued", "history", "busy"):
-        admission_decision(a["id"], AdmissionIn(decision="admit", note="Baseline: six filing checks pass, Independent Assurance Evidence covers the use case, sandbox 5 of 5, hold above £5,000.", hold_above=rules.pack()["policy"]["hold_above_gbp"]))
+        admission_decision(a["id"], AdmissionIn(decision="admit", note="Baseline: seven filing checks pass, Independent Assurance Evidence covers the use case, sandbox 5 of 5, hold above £5,000.", hold_above=rules.pack()["policy"]["hold_above_gbp"]))
         p = create_agent(AgentIn(registration_id=a["id"]))
         p = sign_mandate(p["passport_id"], MandateIn())
         pid = p["passport_id"]
@@ -1215,14 +1228,11 @@ def demo_seed(stage: str = "issued"):
         confirmed = confirm_first(first["audit_id"], ConfirmFirstIn(decision="confirm"))   # the customer reviews and confirms the first payment under the mandate
         paid = agent_act(ActIn(passport_id=pid, supplier_name=ashby["name"], payee_account_ref=ashby["account_ref"], amount=1240, invoice_ref="AI-3302"))
         paid2 = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=450, invoice_ref="CG-0862"))
-        refused = agent_invoice(InvoiceIn(passport_id=pid, invoice_id="INV-9001-poisoned"))["result"]   # the one refusal: the altered invoice, payee not on the mandate
-        held = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=5600, invoice_ref="CG-0871"))
+        over = agent_act(ActIn(passport_id=pid, supplier_name=ashby["name"], payee_account_ref=ashby["account_ref"], amount=12000, invoice_ref="AI-3310"))   # more than the mandate allows: held for the customer's review
         out["history"] = [{"event": "first_held", "decision": first["decision"], "rule": first["rule"], "code": first["code"], "audit_id": first["audit_id"]},
                           {"event": "first_confirmed", "decision": confirmed["outcome"], "audit_id": confirmed["audit_id"]},
                           {"event": "paid", "decision": paid["decision"]}, {"event": "paid", "decision": paid2["decision"]},
-                          {"event": "refused", "decision": refused["decision"], "rule": refused["rule"], "code": refused["code"]},
-                          {"event": "held", "decision": held["decision"], "rule": held["rule"], "audit_id": held["audit_id"]}]
-    # stage=busy is the history stage; the bank's other customers are synthetic and served only to the bank's views (see bank_extras)
+                          {"event": "review", "decision": over["decision"], "rule": over["rule"], "code": over["code"], "audit_id": over["audit_id"]}]
     out["audit_entries"] = len(db.list_audit())
     return out
 

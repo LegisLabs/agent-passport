@@ -462,3 +462,24 @@ body[data-bkpage="trail"] .bd-trail { flex: 1 0 auto; }
 body[data-bkpage="trail"] .fx .fx-grid.bd-cols { display: none; }
 .fx-col--right > * { flex: 0 0 auto; }
 .bk-legend { grid-template-columns: minmax(0, 1fr); }
+
+/* ── the overview is statistics only; cases live on their own pages ── */
+body[data-bkpage="overview"] #bk-page-attention, body[data-bkpage="overview"] #bk-page-agents, body[data-bkpage="overview"] #bd-trail-page { display: none; }
+body[data-bkpage="attention"] #bk-page-overview, body[data-bkpage="attention"] #bk-page-agents, body[data-bkpage="attention"] #bd-trail-page { display: none; }
+body[data-bkpage="agents"] #bk-page-overview, body[data-bkpage="agents"] #bk-page-attention, body[data-bkpage="agents"] #bd-trail-page { display: none; }
+body[data-bkpage="trail"] #bk-page-overview, body[data-bkpage="trail"] #bk-page-attention, body[data-bkpage="trail"] #bk-page-agents { display: none; }
+body:not([data-bkpage="overview"]) .fx .fx-hdr-back { display: inline-flex; order: -1; flex-basis: 100%; margin: 0; }
+body:not([data-bkpage="overview"]) .fx-pill { display: none; }
+body[data-bkpage="trail"] .fx .fx-grid.bd-cols { display: grid; }
+.fx-pill--att b { display: inline-grid; place-items: center; min-width: 20px; height: 20px; padding: 0 6px; margin-left: 8px; border-radius: 999px; background: var(--fx-red); color: #fff; font-size: .7rem; }
+.pane--strip { margin: 0 0 20px; }
+.pane--strip .bd-tiles { grid-template-columns: repeat(6, minmax(0, 1fr)); }
+.bk-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 20px; }
+.bk-grid .pane--wide { grid-column: span 2; }
+.bk-grid > * { min-width: 0; }
+.fx .fx-grid.bd-cols.bk-two { grid-template-columns: minmax(0, 7fr) minmax(0, 5fr); }
+.fx .bd-stats .chartbox { height: 210px; } .fx .bd-stats .chartbox__canvas { height: 180px; }
+.fx #bk-stats li:nth-child(5), .fx #bk-stats li:nth-child(6) { display: grid; }
+.fx #bk-stats li:nth-child(2) { order: -1; }
+@media (max-width: 1100px) { .bk-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); } .pane--strip .bd-tiles { grid-template-columns: repeat(3, minmax(0, 1fr)); } .fx .fx-grid.bd-cols.bk-two { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .bk-grid { grid-template-columns: minmax(0, 1fr); } .bk-grid .pane--wide { grid-column: auto; } .pane--strip .bd-tiles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }

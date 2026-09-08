@@ -62,7 +62,7 @@ def register_entries() -> list[dict]:
 
 
 def run_registration_checks(fields: dict, reg: dict | None = None, today: date | None = None) -> list[dict]:
-    """F.1 to F.6 over the fields the provider filed plus public records. Completeness and accountability only.
+    """F.1 to F.7 over the fields the provider filed plus public records. Completeness and accountability only.
     A flag does not stop the filing; it is visible to every bank that reads the register."""
     reg = reg or public_records()
     today = today or date.today()
@@ -178,7 +178,11 @@ def _rule(rid: str) -> dict:
 
 
 def _result(rid: str, decision: str, code: str, reason: str, trace: list[dict]) -> dict:
-    return {"decision": decision, "rule": rid, "code": code, "reason": reason, "trace": trace, "rule_pack": pack()["id"]}
+    out = {"decision": decision, "rule": rid, "code": code, "reason": reason, "trace": trace, "rule_pack": pack()["id"], "failed_check": False}
+    if decision == "DENY" and pack()["policy"].get("review_everything", True):
+        # nothing is refused outright: a failed check holds the instruction for a person, who approves or declines it with a note
+        out["decision"] = "ESCALATE"; out["failed_check"] = True; out["reason"] = reason + "; held for a person to review"
+    return out
 
 
 REQUEST_FIELDS = ("passport_id", "action_type", "payee_account_ref", "supplier_name", "amount", "currency", "invoice_ref", "nonce")

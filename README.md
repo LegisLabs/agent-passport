@@ -1,6 +1,6 @@
 # Agent Passport
 
-Bank-side verification of AI agent payments. Lexis Labs entry to the C:\>DIR Global 'Agentic Regulator' Hackathon 2026, Know Your Agent problem space. Live at **https://cdir.legislabs.uk**. Proposed industry standard: [APS 1001, revision 4](pay/static/APS_1001.pdf).
+Bank-side verification of AI agent payments. Lexis Labs entry to the C:\>DIR Global 'Agentic Regulator' Hackathon 2026, Know Your Agent problem space. Live at **https://cdir.legislabs.uk**. Proposed industry standard: [APS 1001, revision 5](pay/static/APS_1001.pdf).
 
 **Identity is not authority.** An AI agent that can be identified can still act beyond what its principal allowed. Agent Passport separates the two and puts the check where the money and the liability are: at the bank.
 
@@ -8,7 +8,7 @@ Bank-side verification of AI agent payments. Lexis Labs entry to the C:\>DIR Glo
 
 | Layer | Who | What | How often |
 |---|---|---|---|
-| 1 Register | The provider (OpenPay Ltd) | Files its AI product on an industry register: identity, accountable principal, insurance, Independent Assurance Evidence for the use case. Completeness checks F.1 to F.6 are recorded; the register signs a receipt. Nobody reviews it. | Once |
+| 1 Register | The provider (OpenPay Ltd) | Files its AI product on an industry register: identity, accountable principal, insurance, the payment intent it is filed for, its UK data protection declaration and retention period, Independent Assurance Evidence for the use case. Completeness checks F.1 to F.7 are recorded; the register signs a receipt. Nobody reviews it. | Once |
 | 2 Admit | The bank (Meridian Bank, demo) | Decides which registered products its customers may delegate to, with ceilings and a hold condition. A commercial risk decision by a named officer, assisted by a deterministic review tool that never decides. | Once |
 | 3 Mandate | The customer (Northgate Joinery Ltd) | Inside its bank's app: picks an admitted product, a key pair is generated and possession proven, signs a mandate (payee accounts, per-payment limit, 30-day limit per account, expiry) within the bank's ceilings. The passport is issued at signing. | Once |
 | 4 Check | The bank | Verifies passport and mandate on every instruction, R.1 to R.9, deny by default, and writes a signed audit entry either way. | Every payment |
@@ -98,7 +98,7 @@ Every refusal carries a failure class: fraud indicator (redirection, copied pass
 ## API
 
 ```
-POST /api/registrations · /{id}/prefill · PUT /{id}/fields · POST /{id}/submit     the provider files (F.1 to F.6, register receipt)
+POST /api/registrations · /{id}/prefill · PUT /{id}/fields · POST /{id}/submit     the provider files (F.1 to F.7, register receipt)
 POST /api/registrations/{id}/review                                                the bank's admission review assistant (six steps, never decides)
 POST /api/registrations/{id}/admission            {decision: admit|request_info|decline, note, hold_above}
 POST /api/registrations/{id}/admission/status     {status: suspended|active|revoked, reason}: cascades to every passport on the product
@@ -135,7 +135,7 @@ fixtures/pay/ registration_fixture.json · register.json · registry.json · cus
 scripts/      demo_reset.sh · vouch_kit_replay.py
 tests/        test_pay.py · test_rules.py (offline) · ui/walk_bank_first.py (Playwright)
 deploy/       Dockerfile · pay.Dockerfile · docker-compose.yml · *.caddy · publish.sh
-docs/         v6_bank_first/APS_1001 (revision 4) · earlier briefs and revisions
+docs/         v6_bank_first/APS_1001 (revision 5) · earlier briefs and revisions
 ```
 
 ## Where the model sits

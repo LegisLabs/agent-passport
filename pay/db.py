@@ -447,7 +447,7 @@ def denies_since_last_incident(passport_id: str) -> int:
         last = con.execute("SELECT id FROM audit WHERE kind='incident' AND subject=? ORDER BY id DESC LIMIT 1", (passport_id,)).fetchone()
         after = last["id"] if last else 0
         rows = con.execute("SELECT entry_json FROM audit WHERE kind='verify' AND subject=? AND id>?", (passport_id, after)).fetchall()
-        return sum(1 for r in rows if json.loads(r["entry_json"]).get("decision") == "DENY")
+        return sum(1 for r in rows if (lambda e: e.get("failed_check") or e.get("decision") == "DENY")(json.loads(r["entry_json"])))
 
 
 # ── violations (the exception log; mutable status, unlike the audit chain) ──
@@ -485,6 +485,11 @@ def set_violation_status(passport_id: str, status: str, resolution: str | None =
     with tx() as con:
         q = f"UPDATE violations SET status=?, resolution=COALESCE(?, resolution) WHERE passport_id=? AND status IN ({','.join('?' * len(only_status))})"
         return con.execute(q, (status, resolution, passport_id, *only_status)).rowcount
+
+
+def set_violation_status_by_id(vid: int, status: str, resolution: str | None = None) -> int:
+    with tx() as con:
+        return con.execute("UPDATE violations SET status=?, resolution=COALESCE(?, resolution) WHERE id=?", (status, resolution, vid)).rowcount
 
 
 def pattern_alerts(count: int, window_hours: int) -> list[dict]:

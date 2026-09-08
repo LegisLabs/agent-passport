@@ -1,7 +1,7 @@
 ---
 title: "Agent Passport: project summary"
 subtitle: "Bank-side verification of AI agent payments. Legis Labs entry to the C:\\>DIR Global 'Agentic Regulator' Hackathon 2026, Know Your Agent problem space."
-date: "8 September 2026. Repository state: branch bank-first-pivot at e0a608d, 192 commits. Live at https://cdir.legislabs.uk"
+date: "8 September 2026. Repository state: branch bank-first-pivot, 8 September 2026. Live at https://cdir.legislabs.uk"
 ---
 
 # 1. What the product is
@@ -10,13 +10,13 @@ Agent Passport is a pre-authorisation checkpoint for payments initiated by AI ag
 
 The buyer is the bank. The bank offers the capability to its business customers who let AI agents pay suppliers. The commercial reason is authorised push payment fraud: £576 million in the UK last year, up 19 percent, and since 2024 the sending bank reimburses most of it. The regulator is involved only by exception: it reads evidence when it asks for it. Nothing in the product approves, certifies, licenses or endorses anything, and no regulator operates any part of it.
 
-The proposed industry standard behind the product is APS 1001 (2026), revision 4, written as a candidate standard for an industry body on the Open Banking Implementation Entity model. The site is its reference implementation.
+The proposed industry standard behind the product is APS 1001 (2026), revision 5, written as a candidate standard for an industry body on the Open Banking Implementation Entity model. The site is its reference implementation.
 
 # 2. The three-layer model
 
 Three parties sign, one party checks, one party reads.
 
-1. **The provider files the AI product on an industry register.** Once. A filing records the legal entity, an accountable principal with a signed declaration, insurance in force, the product with a pinned model version, Independent Assurance Evidence with a declared assurance level, and the intended use. The register runs six completeness checks, F.1 to F.6, records the results next to the entry and signs a receipt. Nobody reviews the filing for quality. A filing that fails a check is still filed with the flag recorded.
+1. **The provider files the AI product on an industry register.** Once. A filing records the legal entity, an accountable principal with a signed declaration, insurance in force, the product with a pinned model version, Independent Assurance Evidence with a declared assurance level, the payment intent it is filed for (one of six enumerated intents), and a UK data protection declaration (UK GDPR and the Data Protection Act 2018, ICO registration, personal data retention period, DPIA reference). The register runs seven completeness checks, F.1 to F.7, records the results next to the entry and signs a receipt. Nobody reviews the filing for quality. A filing that fails a check is still filed with the flag recorded.
 2. **The bank admits the product to its own list.** Once. A named officer at the bank decides whether the bank's customers may delegate payments to the product. The admission sets ceilings every customer mandate must sit within (per payment, per payee account in 30 days, payments per day, expiry, permitted actions, currency) and a hold condition above which an instruction is held for a named person. A deterministic review assistant reads the filing, maps the bank's requirements, runs adversarial tests and a sandbox, and recommends; it never decides. The bank may require a minimum assurance level and scales its ceilings by the level declared.
 3. **The customer signs the mandate inside its bank's app.** Once per version. The customer registers its AI agent deployment (a key pair the agent alone holds, proof of possession against a challenge, a configuration hash), writes its mandate (payee accounts, per-payment limit, 30-day limit per payee account, payments per day, expiry, currency) and signs it with the customer key. The bank checks containment against the lower of the admission ceilings and the account-type tier before the signature is accepted. Signing issues the passport: the bank signs the admission, the list shows the passport active, and a voucher is minted on the vouch.finance rail.
 4. **The bank checks every payment.** Nine ordered checks, deny by default, no model inference at execution time. Every verification writes a chain entry with a bank-signed receipt and the exact inputs it used, so the decision can be replayed later.
@@ -96,7 +96,7 @@ The bank's operational view, styled as a fintech app card: a greeting header wit
 - **Evidence trail**: every chain entry, chain status and head, "Replay every verification" with the count replayed identically, evidence bundle exports per passport.
 - **Admissions, the register and supervisory access**: admitted products with hold and agent counts; the register with assurance badges and the bank's decision per product and a "Register an AI product" button; supervisory access exports with the sentence "A regulator does not operate this dashboard and approves nothing in it."
 
-The admission page for one registration shows what the provider filed, the six filing checks, the review assistant's six steps, the ceilings implied by the declared level and its multiplier, and the decision card, whose inputs start empty with one prefill and a context panel. The passport page shows the three-signer envelope verified live, the vouch rail status, lifecycle controls (suspend with a reason, reinstate, two-step revoke), the refusals table with classes, incidents and history.
+The admission page for one registration shows what the provider filed, the seven filing checks, the review assistant's six steps, the ceilings implied by the declared level and its multiplier, and the decision card, whose inputs start empty with one prefill and a context panel. The passport page shows the three-signer envelope verified live, the vouch rail status, lifecycle controls (suspend with a reason, reinstate, two-step revoke), the refusals table with classes, incidents and history.
 
 # 10. The customer dashboard
 
@@ -146,7 +146,7 @@ FastAPI and Jinja2 with SQLite from the standard library, PyJWT and cryptography
 | Path | Role |
 |---|---|
 | `pay/main.py` | Routes, views, seed, verify, decisions, mandate sign, amend and revoke, evidence bundles |
-| `pay/rules.py` | Filing checks F.1 to F.6, runtime checks R.1 to R.9, containment, effective limits, refusal classification |
+| `pay/rules.py` | Filing checks F.1 to F.7, runtime checks R.1 to R.9, containment, effective limits, refusal classification |
 | `pay/crypto.py` | Ed25519 key pairs, JWT sign and verify, envelope verification, nonces, JWK thumbprints |
 | `pay/audit.py` | Hash chain and bank-signed receipts, chain verification |
 | `pay/db.py` | Schema: registrations, passports (with mandate versions and revocation), payments, audit, violations, nonces, kv; migrations |

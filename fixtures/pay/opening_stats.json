@@ -29,5 +29,18 @@
   "South East": 214600,
   "Scotland": 128700,
   "Wales and South West": 96400
+ },
+ "by_model_provider": {
+  "Anthropic": 1093400,
+  "OpenAI": 684200,
+  "Google": 371600,
+  "Mistral": 162800,
+  "Meta": 78100,
+  "Other": 28200
+ },
+ "by_product": {
+  "PayGPT 6.0 (OpenPay Ltd)": 1284700,
+  "LedgerLine Payables 3": 736900,
+  "OpenPay 5.6": 396700
  }
 }

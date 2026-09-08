@@ -111,7 +111,7 @@ def test_oracle(client, issued, case):
             env[case["tamper"]] = env[case["tamper"]][:-4] + "AAAA"
             pa = db.get_passport(pid)["agent"]
             req = {"passport_id": pid, "action_type": case["action_type"], "payee_account_ref": case["payee_account_ref"], "supplier_name": case["supplier_name"],
-                   "amount": case["amount"], "currency": "GBP", "invoice_ref": "INV-T", "nonce": "n"}
+                   "amount": case["amount"], "currency": "GBP", "invoice_ref": "INV-T", "nonce": f"n-{case['id']}"}   # a held instruction spends its nonce, so each tamper case needs its own
             req["agent_signature"] = crypto.sign_bytes(pa["private_pem"], rules.request_signing_input(req))
             res = client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": env}).json()
         elif case.get("replay"):
@@ -135,7 +135,7 @@ def test_ledger_limit_in_mandate_total_at_bank(client):
     pid = p["passport_id"]
     fen = {"action_type": "pay_invoice", "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 4900}
     decisions = [act(client, pid, fen)["decision"] for _ in range(5)]
-    assert decisions == ["ALLOW", "ALLOW", "ALLOW", "ALLOW", "DENY"]  # 19,600 allowed, 24,500 refused
+    assert decisions == ["ALLOW", "ALLOW", "ALLOW", "ALLOW", "ESCALATE"]  # 19,600 allowed, 24,500 refused
     full = client.get(f"/api/passports/{pid}").json()
     assert full["ledger"]["60-11-22 10101010"]["total"] == 19600 and full["payments"] == 5   # four to Fenwick plus the confirmed first payment
     # another account is unaffected
@@ -271,7 +271,7 @@ def test_clean_invoice_allows_and_poisoned_invoice_is_refused_with_violation(cli
     r = client.post("/api/agent/invoice", json={"passport_id": pid, "invoice_id": "INV-9001-poisoned"}).json()
     assert r["on_allowlist"] is False and r["registered_payee"] == "60-11-22 10101010"
     assert r["instruction"]["payee_account_ref"] == "60-11-22 99887766"
-    assert r["result"]["decision"] == "DENY" and r["result"]["rule"] == "R.6" and r["result"]["code"] == "PAYEE_NOT_ON_MANDATE"
+    assert r["result"]["decision"] == "ESCALATE" and r["result"]["rule"] == "R.6" and r["result"]["code"] == "PAYEE_NOT_ON_MANDATE"
     vid = r["result"]["violation"]["id"]
     v = db.get_violation(vid)
     assert v["status"] == "OPEN" and v["rule"] == "R.6" and v["evidence"]["invoice"] == "INV-9001-poisoned"
@@ -306,7 +306,7 @@ def test_review_six_steps_sandbox_uses_real_engine_and_never_decides(client):
     rule_map = rv["steps"][1]["data"]
     assert [x["id"] for x in rule_map["rules"]] == [f"F.{i}" for i in range(1, 8)] and rule_map["uncovered"] == [] and rule_map["flagged"] == []
     sb = rv["steps"][3]["data"]
-    assert [(t["decision"], t["rule"]) for t in sb] == [("DENY", "R.6"), ("DENY", "R.7"), ("DENY", "R.2"), ("DENY", "R.4"), ("ESCALATE", "R.9")]
+    assert [(t["decision"], t["rule"]) for t in sb] == [("ESCALATE", "R.6"), ("ESCALATE", "R.7"), ("ESCALATE", "R.2"), ("ESCALATE", "R.4"), ("ESCALATE", "R.9")]
     assert all(t["pass"] for t in sb)
     rec = rv["steps"][4]["data"]
     assert rec["verdict"] == "ADMIT WITH CONDITIONS" and rec["decides"] is False
@@ -420,7 +420,7 @@ def test_valid_chain_passes_and_is_visible(client):
 def test_action_outside_narrowest_scope_refused_at_c_c(client):
     p, _ = issue_one(client)
     r = chain_act(client, p["passport_id"], {"delegate_amount": 4000, "amount": 4500})
-    assert r["decision"] == "DENY" and r["rule"] == "C.c" and r["code"] == "ACTION_OUTSIDE_DELEGATION"
+    assert r["decision"] == "ESCALATE" and r["rule"] == "C.c" and r["code"] == "ACTION_OUTSIDE_DELEGATION"
     assert r["chain"]["checks"][1]["ok"] is True and r["chain"]["checks"][2]["ok"] is False
     assert r["violation"]["status"] == "OPEN"
 
@@ -428,7 +428,7 @@ def test_action_outside_narrowest_scope_refused_at_c_c(client):
 def test_expanding_delegation_refused_at_c_b(client):
     p, _ = issue_one(client)
     r = chain_act(client, p["passport_id"], {"delegate_amount": 12000})
-    assert r["decision"] == "DENY" and r["rule"] == "C.b" and r["code"] == "DELEGATION_EXPANDS_SCOPE" and "above the root" in r["reason"]
+    assert r["decision"] == "ESCALATE" and r["rule"] == "C.b" and r["code"] == "DELEGATION_EXPANDS_SCOPE" and "above the root" in r["reason"]
     # a delegation to a beneficiary the customer never signed for is also an expansion
     r = chain_act(client, p["passport_id"], {"delegate_amount": 4000, "delegate_account": "60-11-22 99887766", "payee_account_ref": "60-11-22 99887766"})
     assert r["rule"] == "C.b" and "beneficiary outside the root mandate" in r["reason"]
@@ -438,7 +438,7 @@ def test_poisoned_invoice_with_chain_refused(client):
     p, _ = issue_one(client)
     r = client.post("/api/agent/invoice", json={"passport_id": p["passport_id"], "invoice_id": "INV-9001-poisoned", "chain": True}).json()
     assert r["chain"] is True and r["delegation"]["scope"]["beneficiaries"] == ["60-11-22 99887766"] and r["delegation"]["iss"].startswith("northgate-openpay-paygpt-6")
-    assert r["result"]["decision"] == "DENY" and r["result"]["rule"] == "C.b"
+    assert r["result"]["decision"] == "ESCALATE" and r["result"]["rule"] == "C.b"
     ok = client.post("/api/agent/invoice", json={"passport_id": p["passport_id"], "invoice_id": "INV-9001-clean", "chain": True}).json()
     assert ok["result"]["decision"] == "ALLOW" and ok["result"]["chain"]["ok"] is True
 
@@ -479,7 +479,7 @@ def test_flipping_one_byte_of_the_signed_payload_fails_r4(client):
     req = _signed_instruction(client, pid)
     tampered = dict(req); tampered["invoice_ref"] = "INV-9002"          # one character in a signed field
     r = client.post("/api/verify", json={"passport_id": pid, "instruction": tampered}).json()
-    assert r["decision"] == "DENY" and r["rule"] == "R.4" and r["signature"]["verified"] is False
+    assert r["decision"] == "ESCALATE" and r["rule"] == "R.4" and r["signature"]["verified"] is False
     tampered = dict(req); tampered["amount"] = 2501                     # one unit on the amount
     assert client.post("/api/verify", json={"passport_id": pid, "instruction": tampered}).json()["rule"] == "R.4"
     tampered = dict(req); sig = crypto.b64u_decode(req["agent_signature"]); sig = bytes([sig[0] ^ 1]) + sig[1:]  # one bit of the signature
@@ -508,7 +508,7 @@ def test_envelope_tamper_each_signer_flips_one_byte(client):
         raw = bytearray(crypto.b64u_decode(payload)); raw[5] ^= 1        # one bit inside the signed payload
         bad[part] = f"{header}.{crypto.b64u(bytes(raw))}.{sig}"
         r = client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": bad}).json()
-        assert r["decision"] == "DENY" and r["rule"] == rule, (part, r["rule"])
+        assert r["decision"] == "ESCALATE" and r["rule"] == rule, (part, r["rule"])
     assert client.post("/api/verify", json={"passport_id": pid, "instruction": req, "passport": env}).json()["decision"] == "ALLOW"
 
 
@@ -579,7 +579,7 @@ def test_demo_seed_history_has_one_refusal_and_one_held(client):
     """stage=history: first payment confirmed by the customer, two payments executed, the altered invoice refused at R.6
     (fraud indicator, the demo's only refusal), one instruction held above the hold condition."""
     r = client.post("/api/demo/seed?stage=history").json()
-    assert [h["decision"] for h in r["history"]] == ["ESCALATE", "RELEASED", "ALLOW", "ALLOW", "DENY", "ESCALATE"]
+    assert [h["decision"] for h in r["history"]] == ["ESCALATE", "RELEASED", "ALLOW", "ALLOW", "ESCALATE", "ESCALATE"]
     assert r["history"][0]["code"] == "FIRST_PAYMENT_CONFIRMATION_REQUIRED" and r["history"][4]["code"] == "PAYEE_NOT_ON_MANDATE"
     st = client.get("/api/state").json()
     assert [v["failure_class"] for v in st["violations"]] == ["fraud"] and st["violations"][0]["evidence"]["invoice"] == "INV-9001-poisoned"
@@ -734,7 +734,7 @@ def test_mandate_amendment_is_a_new_version_enforced_at_once(client):
     assert row["kind"] == "mandate" and "amended" in row["entry"]["event"] and row["entry"]["version"] == 2
     assert {"field": "per_payment_limit", "from": 10000.0, "to": 3000.0} in row["entry"]["changes"]
     deny = client.post("/api/agent/act", json={"passport_id": pid, "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 3200, "invoice_ref": "FT-1043"}).json()
-    assert deny["decision"] == "DENY" and deny["rule"] == "R.7", "the newest version is enforced immediately"
+    assert deny["decision"] == "ESCALATE" and deny["rule"] == "R.7", "the newest version is enforced immediately"
     assert client.get(f"/api/passports/{pid}").json()["first_payment_confirmed"] is False, "an amended mandate asks for its first payment to be confirmed again"
     assert client.get("/api/audit").json()["chain"]["ok"]
     # over-ceiling amendment refused with the problems named
@@ -752,7 +752,7 @@ def test_mandate_revocation_has_its_own_chain_entry_and_refusal(client):
     assert rows[1]["kind"] == "mandate" and "revoked" in rows[1]["entry"]["event"] and rows[1]["entry"]["reason"] == "supplier relationship ended"
     assert rows[0]["kind"] == "vouch" and "revoked" in rows[0]["entry"]["event"]
     deny = client.post("/api/agent/act", json={"passport_id": pid, "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 100, "invoice_ref": "FT-1050"}).json()
-    assert deny["decision"] == "DENY" and deny["rule"] == "R.5" and deny["code"] == "MANDATE_REVOKED" and deny["failure_class"]["id"] == "agent_error"
+    assert deny["decision"] == "ESCALATE" and deny["rule"] == "R.5" and deny["code"] == "MANDATE_REVOKED" and deny["failure_class"]["id"] == "agent_error"
     assert client.post(f"/api/passports/{pid}/mandate/revoke").status_code == 400
     assert client.post(f"/api/passports/{pid}/mandate/amend", json=_current_mandate_body(p)).status_code == 400
 

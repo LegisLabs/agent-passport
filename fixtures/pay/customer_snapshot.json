@@ -809,7 +809,7 @@
     "admission_status": "admitted",
     "admitted_at": "2026-09-08T20:11:50Z",
     "officer": "A. Ferreira, Payments Risk",
-    "officer_note": "Baseline: six filing checks pass, Independent Assurance Evidence covers the use case, sandbox 5 of 5, hold above \u00a35,000.",
+    "officer_note": "Baseline: seven filing checks pass, Independent Assurance Evidence covers the use case, sandbox 5 of 5, hold above \u00a35,000.",
     "file_note": null,
     "fields": {
      "company": {
@@ -1721,7 +1721,7 @@
     "entry": {
      "event": "AI product admitted to the bank's list; ceilings and hold condition set",
      "officer": "A. Ferreira, Payments Risk",
-     "note": "Baseline: six filing checks pass, Independent Assurance Evidence covers the use case, sandbox 5 of 5, hold above \u00a35,000.",
+     "note": "Baseline: seven filing checks pass, Independent Assurance Evidence covers the use case, sandbox 5 of 5, hold above \u00a35,000.",
      "condition": {
       "hold_above": {
        "amount": 5000.0,
@@ -1766,7 +1766,7 @@
     "hash": "59c498ea5eaacf0eda5282aed50b2b3494bd93ea3eda57017a3195f0d7f85b6a",
     "receipt": null,
     "entry": {
-     "event": "AI product filed on the register; accountable principal declared the filing accurate; filing checks F.1 to F.6 run; receipt signed by the register",
+     "event": "AI product filed on the register; accountable principal declared the filing accurate; filing checks F.1 to F.7 run; receipt signed by the register",
      "passed": 6,
      "flagged": [],
      "register_kid": "VZJjcDtjhRIeoCXS",

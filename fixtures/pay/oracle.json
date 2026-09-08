@@ -23,7 +23,7 @@
    "supplier_name": "Fenwick Timber Ltd",
    "payee_account_ref": "60-11-22 99887766",
    "amount": 2750,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.6",
    "expected_code": "PAYEE_NOT_ON_MANDATE"
   },
@@ -36,7 +36,7 @@
    "supplier_name": "Ashby Ironmongery Ltd",
    "payee_account_ref": "30-98-76 22334455",
    "amount": 12000,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.7",
    "expected_code": "PER_PAYMENT_LIMIT_EXCEEDED"
   },
@@ -63,7 +63,7 @@
    "payee_account_ref": "60-11-22 10101010",
    "amount": 4900,
    "ledger_before": 17900,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.8",
    "expected_code": "MONTHLY_LIMIT_EXCEEDED"
   },
@@ -90,7 +90,7 @@
    "supplier_name": "Fenwick Timber Ltd",
    "payee_account_ref": "60-11-22 10101010",
    "amount": 1150,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.4",
    "expected_code": "AGENT_SIGNATURE_INVALID"
   },
@@ -103,7 +103,7 @@
    "supplier_name": "Fenwick Timber Ltd",
    "payee_account_ref": "60-11-22 10101010",
    "amount": 3200,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.6",
    "expected_code": "OUT_OF_SCOPE"
   },
@@ -116,7 +116,7 @@
    "supplier_name": "Fenwick Timber Ltd",
    "payee_account_ref": "60-11-22 10101010",
    "amount": 3200,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.1",
    "expected_code": "PASSPORT_NOT_ISSUED"
   },
@@ -129,7 +129,7 @@
    "supplier_name": "Fenwick Timber Ltd",
    "payee_account_ref": "60-11-22 10101010",
    "amount": 3200,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.2",
    "expected_code": "PASSPORT_NOT_ACTIVE"
   },
@@ -142,7 +142,7 @@
    "supplier_name": "Fenwick Timber Ltd",
    "payee_account_ref": "60-11-22 10101010",
    "amount": 3200,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.2",
    "expected_code": "PASSPORT_NOT_ACTIVE"
   },
@@ -156,7 +156,7 @@
    "supplier_name": "Fenwick Timber Ltd",
    "payee_account_ref": "60-11-22 10101010",
    "amount": 3200,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.1",
    "expected_code": "ADMISSION_SIGNATURE_INVALID"
   },
@@ -170,7 +170,7 @@
    "supplier_name": "Fenwick Timber Ltd",
    "payee_account_ref": "60-11-22 10101010",
    "amount": 3200,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.3",
    "expected_code": "AGENT_IDENTITY_SIGNATURE_INVALID"
   },
@@ -184,7 +184,7 @@
    "supplier_name": "Fenwick Timber Ltd",
    "payee_account_ref": "60-11-22 10101010",
    "amount": 3200,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.5",
    "expected_code": "MANDATE_SIGNATURE_INVALID"
   },
@@ -210,7 +210,7 @@
    "supplier_name": "Fenwick Timber Ltd",
    "payee_account_ref": "60-11-22 10101010",
    "amount": 10001,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.7",
    "expected_code": "PER_PAYMENT_LIMIT_EXCEEDED"
   },
@@ -237,7 +237,7 @@
    "payee_account_ref": "60-11-22 10101010",
    "amount": 3200,
    "currency": "USD",
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.6",
    "expected_code": "CURRENCY_NOT_PERMITTED"
   },
@@ -251,7 +251,7 @@
    "supplier_name": "Fenwick Timber Ltd",
    "payee_account_ref": "60-11-22 10101010",
    "amount": 1000,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.4",
    "expected_code": "REPLAY_DETECTED"
   },
@@ -265,7 +265,7 @@
    "supplier_name": "Ashby Ironmongery Ltd",
    "payee_account_ref": "30-98-76 22334455",
    "amount": 500,
-   "expected_decision": "DENY",
+   "expected_decision": "ESCALATE",
    "expected_rule": "R.8",
    "expected_code": "DAILY_COUNT_EXCEEDED"
   }

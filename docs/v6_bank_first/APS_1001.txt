@@ -1,5 +1,5 @@
 Agent Passport Standards Series                               T. Cvikl
-APS 1001 (2026), revision 4                                   A. Tran
+APS 1001 (2026), revision 5                                   A. Tran
 Series 1000: Payment Rails                                     B. Liu
 Category: Proposed Industry Standard                      J. Burnazyan
                                                      Legis Labs Ltd
@@ -31,6 +31,10 @@ Status of this Memo
    velocity limits and account-type tiers on mandates, replay
    protection by nonce, two classes of refusal, and a check of
    payees against the public company register.
+   Revision 5 adds the enumerated payment intent a product is
+   filed for, which bounds every admission and mandate on it, and
+   the UK data protection declaration with completeness check
+   F.7.
 
 Abstract
 
@@ -109,9 +113,17 @@ Abstract
         filing is accurate, insurance in force at or above the
         minimum cover, the product and its pinned model version, the
         location of its documentation, Independent Assurance
-        Evidence naming the use case it covers, and the assurance
-        level declared with that evidence.  A filing MUST NOT name a
-        customer or contain any mandate content.
+        Evidence naming the use case it covers, the assurance level
+        declared with that evidence, the payment intent the product
+        is filed for (one of an enumerated list: supplier invoices,
+        salaries and contractors, recurring subscriptions, tax and
+        duties, customer refunds, card and wallet top-ups), and a UK
+        data protection declaration: compliance with the UK GDPR and
+        the Data Protection Act 2018, the provider's ICO registration
+        number, the retention period for personal data the product
+        processes, and any data protection impact assessment
+        reference.  A filing MUST NOT name a customer or contain any
+        mandate content.
 
    3.2  The register MUST run completeness checks and record each
         result next to the entry:
@@ -125,6 +137,10 @@ Abstract
            F.5  Independent Assurance Evidence attached, with its
                 assurance level, covering the registered use case
            F.6  product not already on the register
+           F.7  UK data protection declared: compliance stated, ICO
+                registration number well formed, retention period
+                given (the declaration is the provider's; the
+                register verifies nothing about compliance)
 
         F.1 SHOULD be answered from the public company register
         (Companies House in the UK), which reports what companies
@@ -144,8 +160,8 @@ Abstract
    3.4  An admission MUST state the ceilings that every mandate on
         the product at that bank must satisfy (maximum per-payment
         limit, maximum rolling limit per payee account, maximum
-        payments per day, maximum validity, permitted actions,
-        currency) and a hold condition (an amount above which the
+        payments per day, maximum validity, permitted actions, which
+        MUST NOT exceed the payment intent filed, currency) and a hold condition (an amount above which the
         bank holds the instruction for a named person at the
         customer).  A bank MAY require a minimum assurance level and
         MAY scale its ceilings by the level declared.
