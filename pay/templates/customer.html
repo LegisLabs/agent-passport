@@ -9,21 +9,19 @@
     </div>
     <div class="acct__bal"><span>Balance</span><b class="num" id="ac-balance">£84,213.50</b><small>Available <span class="num" id="ac-avail">£79,713.50</span></small></div>
   </div>
-  <nav class="acct__tabs" aria-label="Account sections"><a href="#ac-transactions">Transactions</a><a href="#ac-agents">AI agents</a><a href="#ac-trail">Evidence trail</a></nav>
+  <nav class="acct__tabs" role="tablist" aria-label="Account sections">
+    <button type="button" role="tab" class="acct__tab acct__tab--desktop" data-tab="live" aria-selected="true">AI agents and evidence</button>
+    <button type="button" role="tab" class="acct__tab acct__tab--mobile" data-tab="agents" aria-selected="false">AI agents</button>
+    <button type="button" role="tab" class="acct__tab acct__tab--mobile" data-tab="trail" aria-selected="false">Evidence trail</button>
+    <button type="button" role="tab" class="acct__tab" data-tab="transactions" aria-selected="false">Transactions</button>
+  </nav>
 </div>
 
-<div class="ws ws--acct">
-  <div class="ws__main">
-    <section class="ws-sec" id="ac-transactions">
-      <h2 class="ws-h">Transactions <span class="ws-h__meta">September 2026</span></h2>
-      <div class="dash-wrap dash-wrap--plain"><table class="dash txns" id="ac-txns"><thead><tr><th>Date</th><th>Description</th><th class="num">Money out</th><th class="num">Money in</th><th class="num">Balance</th></tr></thead><tbody></tbody></table></div>
-      <p class="hint hint--after">Payments marked <b>AI agent</b> were made by your AI agent within the mandate you signed. Blocked attempts never left the account. Watch one happen in the <a href="/terminal">Action Terminal</a>.</p>
-    </section>
-  </div>
-  <aside class="ws__side" id="ac-agents">
+<div class="cu-split" id="ac-live">
+  <div class="cu-split__agents" id="ac-agents">
     <section class="ws-sec">
       <h2 class="ws-h">AI agents</h2>
-      <table class="dash" id="cu-agents"><thead><tr><th>Agent</th><th class="num">Paid, 30 days</th><th>Status</th></tr></thead><tbody></tbody></table>
+      <div id="cu-agents"></div>
       <div class="empty" id="cu-empty"><p>Your bank has not admitted any AI product yet. Admission happens in the <a href="/bank">bank dashboard</a>.</p></div>
       <div id="cu-create" hidden>
         <h3 class="h3">Add an AI agent</h3>
@@ -34,11 +32,21 @@
         <p class="error" id="cu-create-error" hidden></p>
       </div>
     </section>
-  </aside>
-    <section class="ws-sec" id="ac-trail">
-      <h2 class="ws-h">Evidence trail <span class="ws-h__meta">this account's AI agents · <a href="/audit">full trail</a></span></h2>
-      <table class="checks audit" id="ac-audit"><thead><tr><th>Time</th><th>What happened</th><th>Proof</th></tr></thead><tbody></tbody></table>
+  </div>
+  <div class="cu-split__trail" id="ac-trail">
+    <section class="ws-sec">
+      <h2 class="ws-h">Evidence trail <span class="ws-h__meta"><span class="live-dot live-dot--small" aria-hidden="true"></span> live · this account's AI agents · <a href="/audit">full trail</a></span></h2>
+      <div class="cu-trail-wrap"><table class="checks audit" id="ac-audit"><thead><tr><th>Time</th><th>What happened</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
     </section>
+  </div>
+</div>
+
+<div id="ac-transactions" hidden>
+  <section class="ws-sec">
+    <h2 class="ws-h">Transactions <span class="ws-h__meta">September 2026</span></h2>
+    <div class="dash-wrap dash-wrap--plain"><table class="dash txns" id="ac-txns"><thead><tr><th>Date</th><th>Description</th><th class="num">Money out</th><th class="num">Money in</th><th class="num">Balance</th></tr></thead><tbody></tbody></table></div>
+    <p class="hint hint--after">Payments marked <b>AI agent</b> were made by your AI agent within the mandate you signed. Blocked attempts never left the account. Watch one happen in the <a href="/terminal">Action Terminal</a>.</p>
+  </section>
 </div>
 
 <div id="cu-mandate" hidden>

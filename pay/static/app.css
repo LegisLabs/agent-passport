@@ -1382,8 +1382,10 @@ body[data-view="console"] .masthead__tag { color: #fff; }
 .acct__bal b { font-size: 2.25rem; font-weight: 700; line-height: 1.1; }
 .acct__bal small { font-size: 1rem; color: rgba(255,255,255,.85); }
 .acct__tabs { display: flex; gap: 0; margin-top: 20px; border-top: 1px solid rgba(255,255,255,.25); }
-.acct__tabs a { color: #fff; text-decoration: none; padding: 14px 0 12px; margin-right: 30px; font-weight: 700; font-size: 1.0625rem; border-bottom: 4px solid transparent; }
-.acct__tabs a:hover { border-bottom-color: #fff; }
+.acct__tab { appearance: none; background: none; border: 0; border-bottom: 4px solid transparent; color: #fff; padding: 14px 0 12px; margin-right: 30px; font: inherit; font-weight: 700; font-size: 1.0625rem; cursor: pointer; white-space: nowrap; }
+.acct__tab:hover { border-bottom-color: rgba(255,255,255,.6); }
+.acct__tab[aria-selected="true"] { border-bottom-color: #fff; }
+.acct__tab--mobile { display: none; }
 
 .txns td:first-child { white-space: nowrap; color: var(--ink-2); }
 .txns .num { white-space: nowrap; }
@@ -1474,3 +1476,45 @@ tr.is-new > td, li.is-new { animation: arrive 900ms cubic-bezier(.2,.9,.2,1) bot
 @keyframes arrive { from { background: var(--amber-soft); } to { background: transparent; } }
 @media (prefers-reduced-motion: reduce) { .live-dot { animation: none; } tr.is-new > td, li.is-new { animation: none; } }
 @media (max-width: 900px) { .bd-detail__grid { grid-template-columns: minmax(0, 1fr); } .triage__item { grid-template-columns: minmax(0, 1fr); gap: .2rem; } }
+
+/* two columns: the agents the bank has let in, and everything they asked to do */
+.bd-cols { display: grid; grid-template-columns: minmax(0, 5fr) minmax(0, 7fr); gap: 0 48px; align-items: start; }
+.bd-col { min-width: 0; }
+.agent { border: 3px solid var(--ink); margin: 0 0 1.25rem; background: #fff; }
+.agent--off { border-color: var(--line); }
+.agent__head { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .7rem 1rem; background: var(--ink); color: #fff; font-weight: 700; flex-wrap: wrap; }
+.agent__head a { color: #fff; }
+.agent__head .mono { color: var(--line); font-weight: 400; }
+.agent__head .tag { background: #fff; }
+.agent--off .agent__head { background: var(--line); color: var(--ink); } .agent--off .agent__head a { color: var(--ink); }
+.agent__kv { margin: 0; padding: .3rem 1rem 0; }
+.agent__kv div { display: grid; grid-template-columns: 7.5rem minmax(0, 1fr); gap: .5rem; padding: .45rem 0; border-bottom: 1px solid var(--line-soft); font-size: 1rem; }
+.agent__kv dt { color: var(--ink-2); }
+.agent__kv dd { margin: 0; overflow-wrap: anywhere; }
+.agent .meters { padding: .6rem 1rem .3rem; }
+.agent .meters > div { font-size: .95rem; }
+.agent__foot { display: flex; justify-content: space-between; align-items: center; gap: 1rem; padding: .7rem 1rem; border-top: 1px solid var(--line); font-size: 1rem; flex-wrap: wrap; }
+.agent__foot .bad { color: var(--red); }
+.bd-filters { display: flex; align-items: center; gap: .4rem; flex-wrap: wrap; margin: 0 0 .8rem; }
+.bd-filter { appearance: none; border: 1px solid var(--line); background: var(--panel); padding: .35rem .8rem; font: inherit; font-size: 1rem; cursor: pointer; }
+.bd-filter[aria-pressed="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+.bd-filters__hint { flex-basis: 100%; margin: .4rem 0 0; }
+.bd-detail__grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.bd-col--log .bd-log th:nth-child(3), .bd-col--log .bd-log td:nth-child(3) { min-width: 12rem; }
+@media (max-width: 1100px) { .bd-cols { grid-template-columns: minmax(0, 1fr); } }
+@media (max-width: 640px) { .agent__kv div { grid-template-columns: minmax(0, 1fr); gap: .1rem; } }
+
+/* customer: agents beside the live evidence trail; tabs below 900px */
+.cu-split { display: grid; grid-template-columns: minmax(18rem, 5fr) minmax(0, 7fr); gap: 0 40px; align-items: start; }
+.cu-split__agents, .cu-split__trail { min-width: 0; }
+.cu-card { border-top: 1px solid var(--line); padding: .8rem 0; }
+.cu-card--current { border-left: 5px solid var(--blue); padding-left: .8rem; }
+.cu-card__head { display: flex; justify-content: space-between; align-items: baseline; gap: .6rem; flex-wrap: wrap; font-weight: 700; font-size: 1.0625rem; }
+.cu-card__line { margin-top: .2rem; font-size: 1rem; }
+.cu-trail-wrap { max-height: 70vh; overflow: auto; }
+.cu-trail-wrap .audit thead th { position: sticky; top: 0; background: var(--ground); }
+.live-dot--small { display: inline-block; width: 9px; height: 9px; vertical-align: 1px; margin-right: 4px; }
+@media (max-width: 899px) { .cu-split { display: block; } .acct__tab--desktop { display: none; } .acct__tab--mobile { display: inline-block; } body[data-actab="agents"] .cu-split__trail, body[data-actab="trail"] .cu-split__agents { display: none; } }
+/* bank: the log keeps its own scroll so the sections beneath stay in reach */
+.bd-col--log .dash-wrap { max-height: 78vh; overflow: auto; }
+.bd-col--log .bd-log thead th { position: sticky; top: 0; background: var(--ground); z-index: 1; }

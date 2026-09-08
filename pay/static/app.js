@@ -154,7 +154,7 @@ const AP = (() => {
       renderIncidents();
       renderHistory();
     }
-    let auditRows = [], seenIds = null, expandedId = null, timer = null, simTimer = null;
+    let auditRows = [], seenIds = null, expandedId = null, timer = null, simTimer = null, logFilter = 'all';
     async function renderDash() {
       const data = await api('GET', '/api/audit'); auditRows = data.rows;
       const regs = state.registrations.filter(x => x.status !== 'draft'), live = issued(), viol = state.violations || [], inc = state.incidents || [];
@@ -173,10 +173,29 @@ const AP = (() => {
       items.sort((a, b) => (a.cls === 'triage--pattern') - (b.cls === 'triage--pattern') || (a.ts < b.ts ? 1 : -1)).reverse();
       items.forEach(it => { const li = el('li', 'triage__item ' + it.cls, `<time>${t(it.ts)}</time>${it.tag}<span>${it.text}</span>`); if (seenIds && it.id && !seenIds.has(it.id)) li.classList.add('is-new'); tl.append(li); });
       $('bd-triage-meta').textContent = items.length ? `${items.length} items` : '';
-      if (!items.length) tl.append(el('li', 'triage__empty', 'Nothing needs attention. Every instruction in the last 24 hours was within its mandate.'));
-      // active agents
+      $('bd-triage').hidden = !items.length;
+      // active agents: the bank's access dashboard for AI agents
       const lastBy = {}; verifies.forEach(r => { if (!lastBy[r.subject]) lastBy[r.subject] = r; });
-      rows('bk-agents', live.map(x => { const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}; const tot = Object.values(x.ledger || {}).reduce((s, y) => s + y.total, 0); const nv = viol.filter(y => y.passport_id === x.passport_id).length; const last = lastBy[x.passport_id]; return { cells: [`<a href="/bank?passport=${x.passport_id}">${esc(x.passport_id)}</a>`, esc(ag.name || ''), esc((mp.customer || {}).legal_name || ''), esc(ag.product_name || ''), gbp(tot), nv ? `<span class="tag tag--${nv >= 2 ? 'red' : 'amber'}">${nv}</span>` : '0', last ? `<span class="small">${t(last.ts)} · ${last.entry.decision === 'ALLOW' ? 'paid' : last.entry.decision === 'ESCALATE' ? 'held' : 'refused ' + esc(last.entry.rule)}</span>` : '<span class="small">none yet</span>', tag(x.status)] }; }), 8, 'No AI agent has a passport on your list yet.');
+      const box = $('bk-agents'); box.innerHTML = '';
+      $('bd-agents-meta').textContent = `${live.filter(x => x.status === 'active').length} active`;
+      live.forEach(x => {
+        const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}, m = x.mandate || {}, ad = ((m.authorization_details || mp.authorization_details) || [{}])[0];
+        const per = Number((ad.per_payment_limit || {}).amount || 0), monthly = Number((ad.monthly_limit_per_account || {}).amount || 0);
+        const nv = viol.filter(y => y.passport_id === x.passport_id), open = nv.filter(y => y.status === 'OPEN').length; const last = lastBy[x.passport_id];
+        const meters = (ad.supplier_allowlist || []).map(sp => { const used = ((x.ledger || {})[sp.account_ref] || {}).total || 0; const pct = monthly ? Math.min(100, Math.round(used / monthly * 100)) : 0; return `<div><span class="meters__k">${esc(sp.name)} <span class="mono small">${esc(sp.account_ref)}</span></span><span class="meters__v">${gbp(used)} of ${gbp(monthly)}</span><span class="meter"><span class="meter__fill${pct >= 100 ? ' over' : pct >= 75 ? ' warn' : ''}" style="transform: scaleX(${pct / 100})"></span></span></div>`; }).join('');
+        const card = el('article', 'agent' + (x.status !== 'active' ? ' agent--off' : ''), `
+          <header class="agent__head"><span><a href="/bank?passport=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a> <span class="mono small">${esc(x.passport_id)}</span></span>${tag(x.status)}</header>
+          <dl class="agent__kv">
+            <div><dt>Owner</dt><dd>${esc((mp.customer || {}).legal_name || '')} · mandate signed by ${esc((m.signed_by || mp.authorising_officer || {}).name || '')}, ${esc((m.signed_by || mp.authorising_officer || {}).role || '')} on ${d(x.mandate_signed_at)} · valid to ${esc(mp.valid_until || '')}</dd></div>
+            <div><dt>Product</dt><dd>${esc(ag.product_name || '')} by ${esc(ag.provider || '')} · admitted ${d((x.admission.product_ref || {}).admitted_at)} · hold above ${gbp(((x.admission.condition || {}).hold_above || {}).amount)}</dd></div>
+            <div><dt>Authentication</dt><dd>key <span class="mono small">${esc((x.agent || {}).kid || '')}</span> · possession proven · three signatures verified on every instruction</dd></div>
+            <div><dt>Permitted</dt><dd>${esc((ad.actions || []).join(', '))} · up to ${gbp(per)} a payment · ${gbp(monthly)} an account in 30 days · ${(ad.supplier_allowlist || []).length} payee accounts</dd></div>
+          </dl>
+          <div class="meters">${meters}</div>
+          <footer class="agent__foot"><span>${nv.length ? `<b class="${open ? 'bad' : ''}">${nv.length} refusal${nv.length === 1 ? '' : 's'}</b>${open ? `, ${open} open` : ''}` : 'no refusals'} · last ${last ? `${t(last.ts)} ${last.entry.decision === 'ALLOW' ? 'paid' : last.entry.decision === 'ESCALATE' ? 'held' : 'refused ' + esc(last.entry.rule)}` : 'none'}</span><a class="btn btn--secondary btn--small" href="/bank?passport=${esc(x.passport_id)}">Manage</a></footer>`);
+        box.append(card);
+      });
+      if (!live.length) box.append(el('p', 'empty', 'No AI agent holds a passport on this bank yet. A customer adds one in its own dashboard once a product is admitted.'));
       // transaction log
       renderLog(verifies, viol);
       // admissions, register, supervisory access
@@ -195,18 +214,19 @@ const AP = (() => {
     function renderLog(verifies, viol) {
       const tb = $('bd-log').querySelector('tbody'); tb.innerHTML = '';
       const vById = {}; viol.forEach(x => { if (x.audit_id) vById[x.audit_id] = x; });
+      const shown = verifies.filter(r => logFilter === 'all' || r.entry.decision === logFilter);
       $('bd-log-meta').textContent = `${verifies.length} instructions`;
-      verifies.slice(0, 40).forEach(r => {
+      shown.slice(0, 40).forEach(r => {
         const e = r.entry, i = e.instruction || {}; const dec = e.decision;
-        const tr = el('tr', 'bd-log__row', `<td class="mono small">${t(r.ts)}</td><td>${tag(dec === 'ALLOW' ? 'active' : dec === 'ESCALATE' ? 'pending' : 'revoked', dec === 'ALLOW' ? 'paid' : dec === 'ESCALATE' ? 'held' : 'refused')}</td><td><span class="small">${esc(r.subject || '')}</span></td><td>${esc(i.supplier_name || '')} <span class="mono small">${esc(i.payee_account_ref || '')}</span></td><td class="num">${gbp(i.amount)}</td><td>${dec === 'ALLOW' ? '<span class="small">all nine</span>' : `<b class="rule">${esc(e.rule)}</b> <span class="small">${esc((e.code || '').toLowerCase().replace(/_/g, ' '))}</span>`}</td><td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`);
+        const tr = el('tr', 'bd-log__row', `<td class="mono small">${t(r.ts)}</td><td>${tag(dec === 'ALLOW' ? 'active' : dec === 'ESCALATE' ? 'pending' : 'revoked', dec === 'ALLOW' ? 'paid' : dec === 'ESCALATE' ? 'held' : 'refused')}</td><td>${esc(i.supplier_name || '')} <span class="mono small">${esc(i.payee_account_ref || '')}</span><br><span class="small">${esc(r.subject || '')}</span></td><td class="num">${gbp(i.amount)}</td><td>${dec === 'ALLOW' ? '<span class="small">all nine</span>' : `<b class="rule">${esc(e.rule)}</b> <span class="small">${esc((e.code || '').toLowerCase().replace(/_/g, ' '))}</span>`}</td><td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`);
         tr.tabIndex = 0; tr.setAttribute('role', 'button'); tr.setAttribute('aria-expanded', String(expandedId === r.id));
         if (seenIds && !seenIds.has('a' + r.id)) tr.classList.add('is-new');
         const open = () => { expandedId = expandedId === r.id ? null : r.id; renderLog(verifies, viol); };
         tr.onclick = open; tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } };
         tb.append(tr);
-        if (expandedId === r.id) tb.append(el('tr', 'bd-detail', `<td colspan="7">${detailHtml(r, vById[r.id])}</td>`));
+        if (expandedId === r.id) tb.append(el('tr', 'bd-detail', `<td colspan="6">${detailHtml(r, vById[r.id])}</td>`));
       });
-      if (!verifies.length) tb.append(el('tr', null, '<td colspan="7" class="empty-row">No instruction yet. Turn on simulated traffic or run the Action Terminal.</td>'));
+      if (!shown.length) tb.append(el('tr', null, `<td colspan="6" class="empty-row">${verifies.length ? 'Nothing in this filter.' : 'No instruction yet. Turn on simulated traffic or run the Action Terminal.'}</td>`));
     }
     function detailHtml(r, vio) {
       const e = r.entry, i = e.instruction || {}; const env = e.presented_envelope || {};
@@ -219,6 +239,7 @@ const AP = (() => {
           <div class="actions"><button class="btn btn--secondary btn--small" type="button" data-replay="${r.id}">Replay this decision</button>${vio ? `<a class="btn btn--secondary btn--small" href="/api/evidence/violations/${vio.id}" target="_blank" rel="noopener">Export the evidence bundle</a>` : `<a class="btn btn--secondary btn--small" href="/api/evidence/passports/${esc(r.subject)}" target="_blank" rel="noopener">Export the passport bundle</a>`}<span class="actions__note" id="bd-replay-${r.id}"></span></div></div>
       </div>`;
     }
+    document.querySelectorAll('.bd-filter').forEach(bt => { bt.onclick = () => { logFilter = bt.dataset.filter; document.querySelectorAll('.bd-filter').forEach(x => x.setAttribute('aria-pressed', String(x === bt))); renderLog(auditRows.filter(r => r.kind === 'verify'), state.violations || []); }; });
     $('bd-log').addEventListener('click', async (ev) => { const b = ev.target.closest('[data-replay]'); if (!b) return; ev.stopPropagation(); const id = +b.dataset.replay; const rp = await api('POST', `/api/audit/${id}/replay`); $(`bd-replay-${id}`).innerHTML = rp.identical ? '<b class="ok">Replayed identically</b> from the stored inputs' : '<b class="bad">Replay differs</b>'; });
     // simulated traffic: the customer's AI agent keeps paying invoices; most are fine, some are not
     async function simTick() {
@@ -428,6 +449,14 @@ const AP = (() => {
     const d0 = state.mandate_draft || { customer: {}, authorising_officer: {} };
     const draft = JSON.parse(JSON.stringify(d0)); let checkTimer = null;
     render(); renderAccount();
+    // tabs: the split view on desktop, one section at a time below 900px
+    const wide = () => window.innerWidth >= 900;
+    function setTab(name) { document.body.dataset.actab = name; document.querySelectorAll('.acct__tab').forEach(bt => bt.setAttribute('aria-selected', String(bt.dataset.tab === name))); $('ac-live').hidden = name === 'transactions'; $('ac-transactions').hidden = name !== 'transactions'; }
+    document.querySelectorAll('.acct__tab').forEach(bt => { bt.onclick = () => setTab(bt.dataset.tab); });
+    setTab(wide() ? 'live' : 'agents');
+    window.addEventListener('resize', () => { const cur = document.body.dataset.actab; if (wide() && (cur === 'agents' || cur === 'trail')) setTab('live'); if (!wide() && cur === 'live') setTab('agents'); });
+    // live: the trail and the agents refresh while the page is open
+    let acTimer = setInterval(async () => { if (document.hidden) return; state = await api('GET', '/api/state'); if (p) p = state.passports.find(x => x.passport_id === p.passport_id) || p; renderCards(); renderAccount(); }, 5000);
 
     async function renderAccount() {
       const data = await api('GET', '/api/audit');
@@ -447,9 +476,19 @@ const AP = (() => {
     }
     const gbp2 = (n) => '£' + Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 
+    function renderCards() {
+      const box = $('cu-agents'); box.innerHTML = '';
+      state.passports.forEach(x => {
+        const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}, ad = (((x.mandate || mp).authorization_details) || [{}])[0];
+        const tot = Object.values(x.ledger || {}).reduce((s, y) => s + y.total, 0);
+        const summary = x.mandate_signed ? `up to ${gbp((ad.per_payment_limit || {}).amount)} a payment · ${gbp((ad.monthly_limit_per_account || {}).amount)} per supplier account in 30 days · valid to ${esc(mp.valid_until || '')} · ${(ad.supplier_allowlist || []).length} permitted supplier accounts` : 'mandate not signed yet';
+        box.append(el('div', 'cu-card' + (x.passport_id === (p || {}).passport_id ? ' cu-card--current' : ''), `<div class="cu-card__head"><a href="/customer?ref=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a>${x.status === 'pending' ? tag('unsigned', 'awaiting your signature') : tag(x.status, x.status)}</div><div class="cu-card__line">${esc(ag.product_name || '')} by ${esc(ag.provider || '')} · <span class="mono">${esc(x.passport_id)}</span> · paid ${gbp(tot)} in 30 days</div><div class="cu-card__line small">${summary}</div>`));
+      });
+      if (!state.passports.length) box.append(el('p', 'small', 'No AI agent yet.'));
+    }
     function render() {
       const products = (state.products || []).filter(m => m.admission_status === 'admitted');
-      rows('cu-agents', state.passports.map(x => { const ag = (x.agent_identity || {}).agent || {}; const tot = Object.values(x.ledger || {}).reduce((s, y) => s + y.total, 0); return { cells: [`<a href="/customer?ref=${x.passport_id}">${esc(ag.name || x.passport_id)}</a><br><span class="small">${esc(ag.product_name || '')} · <span class="mono">${esc(x.passport_id)}</span></span>`, gbp(tot), x.status === 'pending' ? tag('unsigned', 'awaiting your signature') : tag(x.status, x.status)] }; }), 3, 'No AI agent yet.');
+      renderCards();
       $('cu-empty').hidden = !!(products.length || p);
       $('cu-create').hidden = !products.length;
       const sel = $('cu-model'); sel.innerHTML = products.map(m => `<option value="${m.registration_id}">${esc(m.product_name)} · ${esc(m.provider)}</option>`).join('');

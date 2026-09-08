@@ -21,7 +21,7 @@ with sync_playwright() as pw:
     check("does not certify" in low(page, "main"), "register framing sentence")
     print("== 2 · Bank: admission decision")
     page.goto(BASE + "/bank"); page.wait_for_selector("#bk-stats li")
-    check("awaits your admission decision" in low(page, "#bk-todo") and page.locator("#bk-supervisory").count() == 1 and "transaction log" in low(page, "main") and "needs attention" in low(page, "main"), "dashboard: pending admission, triage, transaction log, supervisory access")
+    check("awaits your admission decision" in low(page, "#bk-todo") and page.locator("#bk-supervisory").count() == 1 and "transaction log" in low(page, "main") and page.locator("#bd-triage").count() == 1, "dashboard: pending admission, triage, transaction log, supervisory access")
     page.goto(BASE + f"/bank?ref={seed['registration']}"); page.wait_for_selector("#review > li")
     check(page.locator("#review > li").count() == 6 and "5 of 5 as expected" in low(page, "#review") and "admit with conditions" in low(page, "#review") and "the officer decides" in low(page, "#review"), "admission review assistant: six steps, sandbox 5 of 5, recommendation labelled")
     check("independent assurance evidence" in low(page, "#bk-summary") and "minimum assurance requirements" in low(page, "main"), "evidence shown; framing question")
