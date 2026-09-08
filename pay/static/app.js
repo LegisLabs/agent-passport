@@ -21,7 +21,7 @@ const AP = (() => {
   const NUMERIC = new Set(['hold_above_gbp', 'cover_gbp']);
   const jwtPayload = (tok) => { try { const b = tok.split('.')[1].replace(/-/g, '+').replace(/_/g, '/'); return JSON.parse(new TextDecoder().decode(Uint8Array.from(atob(b), c => c.charCodeAt(0)))); } catch (e) { return null; } };
   const rows = (id, list, cols, empty = 'None yet.') => { const tb = $(id).querySelector('tbody'); tb.innerHTML = ''; const numCols = [...$(id).querySelectorAll('thead th')].map(th => th.classList.contains('num')); list.forEach(x => { const tr = el('tr', null, x.cells.map((c, i) => `<td${numCols[i] ? ' class="num"' : ''}>${c}</td>`).join('')); if (x.attrs) Object.assign(tr.dataset, x.attrs); tb.append(tr); }); if (!list.length) tb.append(el('tr', null, `<td class="empty-row" colspan="${cols}">${esc(empty)}</td>`)); };
-  const admissionTag = (a) => a.admission_status ? tag(a.admission_status, { admitted: 'admitted', suspended: 'suspended', revoked: 'removed', declined: 'declined', info_requested: 'information requested' }[a.admission_status] || a.admission_status) : (a.status === 'registered' ? tag('grey', 'not yet decided') : tag('grey', '—'));
+  const admissionTag = (a) => a.admission_status ? tag(a.admission_status, { admitted: 'Bank approved', suspended: 'suspended', revoked: 'removed', declined: 'declined', info_requested: 'information requested' }[a.admission_status] || a.admission_status) : (a.status === 'registered' ? tag('grey', 'awaiting approval') : tag('grey', '—'));
   const regTag = (a) => a.status === 'registered' ? tag('active', 'on the register') : tag('draft', 'draft');
   const modeLabel = (m) => m === 'gemini' ? 'Gemini (live)' : m === 'fixture' ? 'fixture (deterministic stand-in)' : 'fixture after Gemini failed';
   const holdOf = (a) => (((a && a.condition) || {}).hold_above || {}).amount;
@@ -87,7 +87,7 @@ const AP = (() => {
       const regs = state.registrations, prior = state.register || [];
       rows('pv-products', [
         ...regs.map(x => ({ cells: [`<a href="/provider?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(x.fields, 'product', 'product_name') || 'Untitled'), esc(v(x.fields, 'company', 'legal_name') || ''), levelTag(v(x.fields, 'assurance_evidence', 'level')), d(x.submitted_at), regTag(x), admissionTag(x)] })),
-        ...prior.map(m => ({ cells: [esc(m.registration), esc(m.product), esc(m.provider), levelTag(m.assurance_level), d(m.registered), tag(m.status, m.status === 'active' ? 'on the register' : m.status), m.bank ? tag('admitted', 'admitted') : '<span class="small">no decision</span>'] })),
+        ...prior.map(m => ({ cells: [esc(m.registration), esc(m.product), esc(m.provider), levelTag(m.assurance_level), d(m.registered), tag(m.status, m.status === 'active' ? 'on the register' : m.status), m.bank ? tag('admitted', 'Bank approved') : '<span class="small">no decision</span>'] })),
       ], 7);
       const has = !!a, draft = has && a.status === 'draft';
       $('pv-form').hidden = !has;
@@ -150,7 +150,7 @@ const AP = (() => {
     const kv = (rws) => `<dl class="envelope__kv">${rws.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('')}</dl>`;
     return `
       <section>
-        <span class="envelope__who">Signed by the bank · from its admission decision, when the customer signs</span>
+        <span class="envelope__who">Signed by the bank · from its approval decision, when the customer signs</span>
         <h3 class="envelope__title">Admission ${sig(ver.admission, 'bank')}</h3>
         ${kv([['Product', `${esc(a.product_ref.product_name)} <span class="mono">${esc(a.product_ref.product_id)}</span> · ${esc(a.product_ref.provider)} · register <span class="mono small">${esc(a.product_ref.registration)}</span>`], ['Filing checks', `${a.admission.filing_checks_passed} passed${a.admission.filing_checks_flagged.length ? ', flagged ' + esc(a.admission.filing_checks_flagged.join(', ')) : ''}`], ['Hold condition', `hold above ${gbp(a.condition.hold_above.amount)}`], ['Ceilings', `≤ ${gbp(a.ceilings.per_payment_ceiling.amount)} per payment · ≤ ${gbp(a.ceilings.monthly_per_account_ceiling.amount)} per account in 30 days`], ['Accountable principal', `${esc(a.accountable_principal.name)}, ${esc(a.accountable_principal.role)} · ${esc(a.accountable_principal.covers)}`], ['Assurance evidence', `${esc(a.assurance_evidence.issuer)} <span class="mono small">${esc(a.assurance_evidence.reference)}</span>`], ['Valid until', esc(a.valid_until)], ['Bound to', `agent identity <span class="mono small">${esc(a.binds.agent_identity_sha256.slice(0, 12))}…</span>`]])}
       </section>
@@ -176,7 +176,7 @@ const AP = (() => {
     let p = q.get('passport') ? issued().find(x => x.passport_id === q.get('passport')) || null : null;
     let a = p ? state.registrations.find(x => x.id === p.registration_id) : (q.get('ref') ? state.registrations.find(x => x.ref === q.get('ref') && x.status !== 'draft') || null : null);
     const mode = p ? 'agent' : a ? 'case' : 'dash';
-    document.body.dataset.bkpage = q.get('trail') ? 'trail' : (q.get('page') || 'overview');
+    document.body.dataset.bkpage = q.get('trail') ? 'activity' : (q.get('page') || 'overview');
     let selectedVid = null;
     render();
 
@@ -196,7 +196,7 @@ const AP = (() => {
       renderIncidents();
       renderHistory();
     }
-    let auditRows = [], seenIds = null, expandedId = null, expandedAtt = null, timer = null, simTimer = null, logFilter = 'all', logAll = document.body.dataset.bkpage === 'activity', pendingDecide = null;
+    let auditRows = [], seenIds = null, expandedId = null, expandedTrail = null, expandedAtt = null, timer = null, simTimer = null, logFilter = 'all', logAll = document.body.dataset.bkpage === 'activity', pendingDecide = null;
     const customerName = (pid) => { const x = issued().find(y => y.passport_id === pid); return x ? ((((x.mandate_proposed || {}).customer) || {}).legal_name || '') : ''; };
     const pause = (ms) => new Promise(res => setTimeout(res, ms));
     const num = (n) => Number(n || 0).toLocaleString('en-GB');
@@ -243,7 +243,7 @@ const AP = (() => {
       $('bk-stats').innerHTML = [[num((o.processed || 0) + pays.length), 'Payments processed'], [gbp((o.value_gbp || 0) + value), 'Value moved'], [num(heldOpen.length), 'Awaiting a person'], [num((o.refused_fraud || 0) + nFraud), 'Flagged · fraud indicator'], [num((o.refused_agent_error || 0) + nErr), 'Flagged · agent error'], [num((o.agents_on_list || 0) + live.filter(x => x.status === 'active').length), 'AI agents on the list']].map(([n, l]) => `<li><b class="mono">${n}</b><span>${l}</span></li>`).join('');
       $('bd-seam').innerHTML = o.processed ? `Totals for ${esc(o.label || 'the agent channel before this session')}: <b class="mono">${num(o.processed)}</b> payments and <b class="mono">${gbp(o.value_gbp)}</b> carried forward as figures, <b class="mono">${num(pays.length)}</b> processed in this session. Every row on this console is this session's; nothing carried forward is shown as a row.` : '';
       $('bk-todo').hidden = !todo.length;
-      $('bk-todo').innerHTML = todo.map(x => `<span><strong>${esc(v(x.fields, 'product', 'product_name') || x.ref)}</strong> by ${esc(v(x.fields, 'company', 'legal_name') || '')} is on the register and awaits your admission decision.</span><a class="btn btn--small" href="/bank?ref=${x.ref}">Open ${esc(x.ref)}</a>`).join('');
+      $('bk-todo').innerHTML = todo.map(x => `<span><strong>${esc(v(x.fields, 'product', 'product_name') || x.ref)}</strong> by ${esc(v(x.fields, 'company', 'legal_name') || '')} is on the register and awaits your approval.</span><a class="btn btn--small" href="/bank?ref=${x.ref}">Open ${esc(x.ref)}</a>`).join('');
       // needs attention: every held instruction awaiting a person and every fraud-class refusal, newest first; agent errors never appear here
       const fraudRows = heldOpen.filter(r => r.entry.failed_check && classId(r.entry.failure_class) === 'fraud');
       const attention = heldOpen.slice().sort((a, b) => (a.ts < b.ts ? 1 : -1));
@@ -285,11 +285,11 @@ const AP = (() => {
       // admissions, register, supervisory access
       rows('bk-products', [
         ...regs.filter(x => x.admission_status && x.admission_status !== 'declined' && x.admission_status !== 'info_requested').map(x => { const pr = (state.products || []).find(y => y.registration_id === x.id) || { passports: [] }; return { cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a> ${levelTag(v(x.fields, 'assurance_evidence', 'level'))}`, esc(v(x.fields, 'company', 'legal_name') || ''), holdOf(x) != null ? gbp(holdOf(x)) : '—', String(pr.passports.length), admissionTag(x)] }; }),
-        ...(state.register || []).filter(m => m.bank).map(m => ({ cells: [`${esc(m.product)} ${levelTag(m.assurance_level)}`, esc(m.provider), gbp(m.bank.hold_above_gbp), '0', tag('admitted', 'admitted')] })),
+        ...(state.register || []).filter(m => m.bank).map(m => ({ cells: [`${esc(m.product)} ${levelTag(m.assurance_level)}`, esc(m.provider), gbp(m.bank.hold_above_gbp), '0', tag('admitted', 'Bank approved')] })),
       ], 5, 'No product admitted yet.');
       rows('bk-register', [
         ...regs.map(x => ({ cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a>`, esc(v(x.fields, 'company', 'legal_name') || ''), levelTag(v(x.fields, 'assurance_evidence', 'level')), d(x.submitted_at), admissionTag(x)] })),
-        ...(state.register || []).map(m => ({ cells: [esc(m.product), esc(m.provider), levelTag(m.assurance_level), d(m.registered), m.bank ? tag('admitted', 'admitted') : `<span class="small">${m.status === 'active' ? 'not on your list' : esc(m.status)}</span>`] })),
+        ...(state.register || []).map(m => ({ cells: [esc(m.product), esc(m.provider), levelTag(m.assurance_level), d(m.registered), m.bank ? tag('admitted', 'Bank approved') : `<span class="small">${m.status === 'active' ? 'not approved' : esc(m.status)}</span>`] })),
       ], 5);
       renderTrail(data);
       const ev = $('bk-evidence'); ev.innerHTML = '';
@@ -379,7 +379,14 @@ const AP = (() => {
       $('au-summary').innerHTML = `<b>${data.rows.length}</b> entries · chain ${data.chain.ok ? '<b class="ok">intact</b>' : `<b class="bad">broken at #${data.chain.broken_at}</b>`} · head <span class="mono">${esc((data.chain.head || '').slice(0, 12))}</span>${trailRun ? ` · <b class="${trailSame === trailRun ? 'ok' : 'bad'}">${trailSame} of ${trailRun}</b> replayed identically` : ''}`;
       const subjects = [...new Set(data.rows.filter(r => r.subject && r.subject.startsWith('AP-')).map(r => r.subject))];
       $('au-evidence').innerHTML = subjects.map(s => `<a href="/api/evidence/passports/${esc(s)}" target="_blank" rel="noopener">Export the evidence bundle for ${esc(s)}</a>`).join(' · ');
-      data.rows.slice(0, 200).forEach(r => tb.append(el('tr', null, `<td class="mono small">${t(r.ts)}</td><td>${plainEvent(r)}</td><td class="mono small">${esc(r.subject || '')}</td><td class="small" id="au-r-${r.id}"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}${r.kind === 'verify' && !r.synthetic ? (trailState[r.id] ? ` · <span class="${trailState[r.id] === 'same' ? 'ok' : 'bad'}">${trailState[r.id] === 'same' ? 'replayed identically' : 'REPLAY DIFFERS'}</span>` : ` · <button class="link" data-replay="${r.id}" type="button">replay</button>`) : ''}</td>`)));
+      const vById = {}; (state.violations || []).forEach(x => { if (x.audit_id) vById[x.audit_id] = x; });
+      data.rows.slice(0, 300).forEach(r => {
+        const who = r.subject && (r.subject.startsWith('AP-') || r.subject.startsWith('AG-')) ? `<span class="bd-log__cust">${esc(customerName(r.subject.replace('AG-', 'AP-')))}</span><span class="small bd-log__agent">${esc(agentName(r.subject.replace('AG-', 'AP-')))}</span>` : `<span class="small">${esc(r.subject || '')}</span>`;
+        const tr = el('tr', r.kind === 'verify' ? 'bd-log__row' : null, `<td class="mono small">${t(r.ts)}</td><td>${plainEvent(r)}</td><td>${who}</td><td class="small" id="au-r-${r.id}"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}${r.kind === 'verify' && !r.synthetic ? (trailState[r.id] ? ` · <span class="${trailState[r.id] === 'same' ? 'ok' : 'bad'}">${trailState[r.id] === 'same' ? 'replayed identically' : 'REPLAY DIFFERS'}</span>` : ` · <button class="link" data-replay="${r.id}" type="button">replay</button>`) : ''}</td>`);
+        if (r.kind === 'verify') { tr.tabIndex = 0; tr.setAttribute('role', 'button'); tr.setAttribute('aria-expanded', String(expandedTrail === r.id)); const open = () => { expandedTrail = expandedTrail === r.id ? null : r.id; renderTrail(data); }; tr.onclick = (ev) => { if (ev.target.closest('a, button')) return; open(); }; tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } }; }
+        tb.append(tr);
+        if (r.kind === 'verify' && expandedTrail === r.id) tb.append(el('tr', 'bd-detail', `<td colspan="4">${detailHtml(r, vById[r.id])}</td>`));
+      });
       if (!trailBound) {
         trailBound = true;
         tb.addEventListener('click', async (e) => { const b = e.target.closest('[data-replay]'); if (b) { await replayOne(+b.dataset.replay); renderTrail({ rows: auditRows, chain: data.chain }); } });
@@ -393,7 +400,7 @@ const AP = (() => {
       const limit = logAll ? 200 : 6;
       $('bd-log-meta').textContent = `${verifies.length} instructions`;
       $('bd-log-title').textContent = logAll ? 'Activity' : 'Recent activity';
-      $('bd-log-toggle').textContent = logAll ? 'Recent activity only' : `Full log (${verifies.length})`;
+      $('bd-log-toggle').textContent = `All activity (${verifies.length})`;
       $('bd-log-hint').hidden = logAll; $('bd-recent').classList.toggle('bd-col--full', logAll);
       shown.slice(0, limit).forEach(r => {
         const e = r.entry, i = e.instruction || {};
@@ -408,7 +415,7 @@ const AP = (() => {
       if (!shown.length) tb.append(el('tr', null, `<td colspan="7" class="empty-row">${verifies.length ? 'Nothing in this filter.' : 'No instruction yet. Turn on simulated traffic or run the Action Terminal.'}</td>`));
       else if (!logAll && shown.length > limit) tb.append(el('tr', 'bd-log__more', `<td colspan="7" class="small">${shown.length - limit} earlier instruction${shown.length - limit === 1 ? '' : 's'} in the <button class="link" type="button" data-log-all>full log</button></td>`));
     }
-    $('bd-log-toggle').onclick = () => { logAll = !logAll; renderLog(auditRows.filter(r => r.kind === 'verify'), state.violations || []); };
+    $('bd-log-toggle').onclick = () => { location.href = '/bank?page=activity'; };
     function heldHtml(r) {
       const e = r.entry, i = e.instruction || {}; const x = issued().find(y => y.passport_id === r.subject) || {};
       const ad = (((x.mandate || x.mandate_proposed || {}).authorization_details) || [{}])[0]; const hold = (((x.admission || {}).condition || {}).hold_above || {}).amount;
@@ -450,7 +457,7 @@ const AP = (() => {
       </div>`;
     }
     document.querySelectorAll('.bd-filter').forEach(bt => { bt.onclick = () => { logFilter = bt.dataset.filter; document.querySelectorAll('.bd-filter').forEach(x => x.setAttribute('aria-pressed', String(x === bt))); renderLog(auditRows.filter(r => r.kind === 'verify'), state.violations || []); }; });
-    $('bd-log').addEventListener('click', async (ev) => { const b = ev.target.closest('[data-replay]'); if (!b) return; ev.stopPropagation(); const id = +b.dataset.replay; const rp = await api('POST', `/api/audit/${id}/replay`); $(`bd-replay-${id}`).innerHTML = rp.identical ? '<b class="ok">Replayed identically</b> from the stored inputs' : '<b class="bad">Replay differs</b>'; });
+    document.addEventListener('click', async (ev) => { const b = ev.target.closest('#bd-log [data-replay], #au-table .bd-detail [data-replay]'); if (!b) return; ev.stopPropagation(); const id = +b.dataset.replay; const rp = await api('POST', `/api/audit/${id}/replay`); $(`bd-replay-${id}`).innerHTML = rp.identical ? '<b class="ok">Replayed identically</b> from the stored inputs' : '<b class="bad">Replay differs</b>'; });
     // simulated traffic: the customer's AI agent keeps paying invoices; most are fine, a few are not. Every instruction is a real
     // verification with a chain entry; the mix is deliberately quiet so the rows on screen stay few
     async function simTick() {
@@ -470,6 +477,26 @@ const AP = (() => {
     }
     // the bank dashboard is still: no polling, no simulated traffic; it re-renders only after an action on it
     void timer; void simTimer; void simTick;
+    if ($('btn-add-product')) $('btn-add-product').onclick = async () => {
+      const b = $('btn-add-product'), err = $('ap-error'); err.hidden = true; b.disabled = true; $('ap-note').textContent = 'filing on the register, running the checks, admitting…';
+      try {
+        const name = $('ap-name').value.trim(), provider = $('ap-provider').value.trim(), model = $('ap-model').value.trim(), level = $('ap-level').value, hold = Number($('ap-hold').value || 0);
+        if (!name || !provider) throw new Error('give the product a name and a provider');
+        const reg = await api('POST', '/api/registrations');
+        const f = reg.fields || {}; const set = (sec, k, val) => { f[sec] = f[sec] || {}; f[sec][k] = { value: val, source_doc: 'entered by the bank', quote: null }; };
+        const slug = name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+        set('company', 'legal_name', provider); set('company', 'companies_house_number', ''); set('principal', 'name', 'entered by the bank'); set('principal', 'role', 'bank admission'); set('principal', 'declaration_ref', 'BANK-ENTRY');
+        set('product', 'product_name', name); set('product', 'product_id', slug); set('product', 'release', '1.0'); set('product', 'model_provider', (model.split(' ')[0] || 'unknown')); set('product', 'model_version', model.split(' ').slice(1).join(' ') || '1.0'); set('product', 'documentation_url', 'https://example.invalid/docs');
+        set('assurance_evidence', 'level', level); set('assurance_evidence', 'use_case', 'pay_invoice'); set('assurance_evidence', 'issuer', level === 'self-declared' ? '' : 'independent assessor (bank entry)'); set('assurance_evidence', 'reference', level === 'self-declared' ? '' : 'IAE-BANK'); set('assurance_evidence', 'date', new Date().toISOString().slice(0, 10)); set('assurance_evidence', 'report_url', 'https://example.invalid/report');
+        set('intended_use', 'action_type', 'pay_invoice'); set('intended_use', 'payment_intent', 'pay_invoice'); set('intended_use', 'description', 'entered by the bank');
+        await api('PUT', `/api/registrations/${reg.id}/fields`, { fields: f });
+        await api('POST', `/api/registrations/${reg.id}/submit`);
+        await api('POST', `/api/registrations/${reg.id}/admission`, { decision: 'admit', note: `Entered and approved by ${who()}: ${name} by ${provider}, ${level}, hold above £${hold.toLocaleString('en-GB')}.`, hold_above: hold });
+        $('ap-note').textContent = `${name} is on the bank's list.`; ['ap-name', 'ap-provider', 'ap-model'].forEach(id => { $(id).value = ''; });
+        await refresh();
+      } catch (e) { err.textContent = e.message; err.hidden = false; $('ap-note').textContent = ''; }
+      finally { b.disabled = false; }
+    };
     function renderCase() {
       $('bk-ref').textContent = a.ref;
       $('bk-status').innerHTML = admissionTag(a);
@@ -479,7 +506,7 @@ const AP = (() => {
         ['Accountable principal', `${esc(v(f, 'principal', 'name'))}, ${esc(v(f, 'principal', 'role'))} · declaration <span class="mono">${esc(v(f, 'principal', 'declaration_ref'))}</span> · accountable for the accuracy of the filing`],
         ['Insurance', `${esc(v(f, 'insurance', 'insurer'))} · policy <span class="mono">${esc(v(f, 'insurance', 'policy_ref'))}</span> · cover ${gbp(v(f, 'insurance', 'cover_gbp'))} · in force until ${esc(v(f, 'insurance', 'expires'))}`],
         ['AI product', `<strong>${esc(v(f, 'product', 'product_name'))}</strong> <span class="mono">${esc(v(f, 'product', 'product_id'))}</span> · release ${esc(v(f, 'product', 'release'))} · ${esc(v(f, 'product', 'model_provider'))} <span class="mono">${esc(v(f, 'product', 'model_version'))}</span> · <a href="${esc(v(f, 'product', 'documentation_url'))}">documentation</a>`],
-        ['Independent Assurance Evidence', `${levelTag(v(f, 'assurance_evidence', 'level'))} ${esc(v(f, 'assurance_evidence', 'issuer'))} · <span class="mono">${esc(v(f, 'assurance_evidence', 'reference'))}</span> · ${esc(v(f, 'assurance_evidence', 'date'))} · use case <span class="mono">${esc(v(f, 'assurance_evidence', 'use_case'))}</span><span class="sub">${esc(v(f, 'assurance_evidence', 'summary'))} · <a href="${esc(v(f, 'assurance_evidence', 'report_url'))}">report</a> · the level is declared by the provider with its evidence; this bank admits at ${esc((LEVELS[(state.policy || {}).min_assurance_level_for_admission] || ['?'])[0]).toLowerCase()} or above</span>`],
+        ['Independent Assurance Evidence', `${levelTag(v(f, 'assurance_evidence', 'level'))} ${esc(v(f, 'assurance_evidence', 'issuer'))} · <span class="mono">${esc(v(f, 'assurance_evidence', 'reference'))}</span> · ${esc(v(f, 'assurance_evidence', 'date'))} · use case <span class="mono">${esc(v(f, 'assurance_evidence', 'use_case'))}</span><span class="sub">${esc(v(f, 'assurance_evidence', 'summary'))} · <a href="${esc(v(f, 'assurance_evidence', 'report_url'))}">report</a> · the level is declared by the provider with its evidence; this bank approves at ${esc((LEVELS[(state.policy || {}).min_assurance_level_for_admission] || ['?'])[0]).toLowerCase()} or above</span>`],
         ['Registered use', `<strong>${esc((((state.payment_intents || []).find(x => x.id === v(f, 'intended_use', 'payment_intent')) || {}).label) || v(f, 'intended_use', 'payment_intent') || 'no intent')}</strong> · ${esc(v(f, 'intended_use', 'description'))} · no customer named: each customer writes its own mandate within your ceilings`],
         ['UK data protection', `${v(f, 'data_protection', 'uk_gdpr_compliant') === 'yes' ? '<span class="tag tag--green">declared</span>' : '<span class="tag tag--red">not declared</span>'} UK GDPR and DPA 2018 · ICO <span class="mono">${esc(v(f, 'data_protection', 'ico_registration') || 'none')}</span> · personal data retained ${esc((((state.retention_periods || []).find(x => x.id === v(f, 'data_protection', 'retention_period')) || {}).label || 'not declared').toLowerCase())}${v(f, 'data_protection', 'dpia_reference') ? ` · DPIA <span class="mono">${esc(v(f, 'data_protection', 'dpia_reference'))}</span>` : ''} · declared by the provider; the register verifies nothing about compliance`],
         ['Register receipt', a.registration_jwt ? `signed by the register <span class="mono small">${esc(a.registration_jwt.slice(0, 24))}…</span> · filed ${d(a.submitted_at)}` : '—'],
@@ -491,7 +518,7 @@ const AP = (() => {
       $('bk-filenote').value = a.file_note || '';
       $('btn-bk-prefill').onclick = () => { $('bk-context').hidden = false; $('bk-context').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
       $('btn-bk-prefill-cancel').onclick = () => { $('bk-context').hidden = true; };
-      $('btn-bk-prefill-go').onclick = () => { $('bk-context').hidden = true; $('bk-condition').value = pol.hold_above_gbp || 5000; $('bk-condition').dataset.touched = '1'; if (!$('bk-officer-note').value.trim()) $('bk-officer-note').value = `Seven filing checks pass. Independent Assurance Evidence covers invoice payment. Admitted with the ${gbp(pol.hold_above_gbp || 5000)} hold condition.`; };
+      $('btn-bk-prefill-go').onclick = () => { $('bk-context').hidden = true; $('bk-condition').value = pol.hold_above_gbp || 5000; $('bk-condition').dataset.touched = '1'; if (!$('bk-officer-note').value.trim()) $('bk-officer-note').value = `Seven filing checks pass. Independent Assurance Evidence covers invoice payment. Approved with the ${gbp(pol.hold_above_gbp || 5000)} hold condition.`; };
       if (a.review) renderReview(a.review); else if (!a._reviewing) { a._reviewing = true; runReview(true); }
       $('bk-decide').hidden = !(!a.admission_status || a.admission_status === 'info_requested' || a.admission_status === 'declined');
       renderProduct();
@@ -1226,7 +1253,7 @@ const AP = (() => {
       case 'incident': return `<b class="bad">Incident raised</b> · ${e.denies} instructions held for review`;
       case 'issue': return 'Passport issued: admission signed by the bank, list active';
       case 'mandate': return e.revoked ? `<b class="hold">Mandate revoked</b> by ${esc((e.signer || {}).name || 'the customer')} · ${esc(e.reason || '')}` : (e.version || 1) > 1 ? `<b>Mandate amended</b>: version ${e.version} signed by ${esc((e.signer || {}).name || 'the customer')}, supersedes version ${e.supersedes} · ${(e.changes || []).map(c => c.added ? `added ${esc(c.added.name)}` : c.removed ? `removed ${esc(c.removed.name)}` : `${esc(c.field.replace(/_/g, ' '))} ${esc(String(c.from))} to ${esc(String(c.to))}`).join(', ') || 'no field changed'}` : `Mandate signed by ${esc((e.signer || {}).name || 'the customer')} · ${e.suppliers} payees · ${gbp(e.per_payment_limit)} a payment`;
-      case 'admission': return e.condition ? `Product admitted by ${esc(e.officer || 'the bank')} · hold above ${gbp(e.condition.hold_above.amount)}` : esc(e.event);
+      case 'admission': return e.condition ? `Product approved by ${esc(e.officer || 'the bank')} · hold above ${gbp(e.condition.hold_above.amount)}` : esc(e.event);
       case 'check': return `Product filed on the register · ${e.passed} of ${e.total || 7} checks pass · receipt signed`;
       case 'registration': return 'Registration started by the provider';
       case 'review': return `Admission review run · sandbox ${e.sandbox_passed} of ${e.sandbox_total} · ${esc(e.recommendation)}`;
@@ -1279,7 +1306,7 @@ const AP = (() => {
       document.addEventListener('click', (e) => { if (!mp.hidden && !e.target.closest('#menu-panel, #menu-toggle')) close(); });
     }
     const rb = $('demo-reset');
-    if (rb) rb.onclick = async () => { if (confirm('Reset the demo to its baseline? Everything is deleted, then one AI product is filed on the register, admitted by the bank, and the customer mandate signed, so one passport is ACTIVE with a short history: the first payment confirmed by the customer, two payments made, one instruction over the mandate held for the customer\'s review.')) { rb.disabled = true; rb.textContent = 'seeding…'; await api('POST', '/api/demo/seed?stage=history'); location.href = '/terminal'; } };
+    if (rb) rb.onclick = async () => { if (confirm('Reset the demo to its baseline? Everything is deleted, then one AI product is filed on the register, approved by the bank, and the customer mandate signed, so one passport is ACTIVE with a short history: the first payment confirmed by the customer, two payments made, one instruction over the mandate held for the customer\'s review.')) { rb.disabled = true; rb.textContent = 'seeding…'; await api('POST', '/api/demo/seed?stage=history'); location.href = '/terminal'; } };
   });
 
   // ───────────── the dashboards' extras: greeting, balance toggle, the customer's chart, the quiet pane ─────────────

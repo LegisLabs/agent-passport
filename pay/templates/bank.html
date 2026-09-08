@@ -11,8 +11,7 @@
     <a class="back fx-hdr-back" href="/bank">Back to the overview</a>
     <div class="fx-tools">
       <a class="fx-pill" href="/bank?page=activity">Activity</a>
-      <a class="fx-pill" href="/bank?page=products">Admitted products</a>
-      <a class="fx-pill" href="/bank?trail=1">Evidence trail</a>
+      <a class="fx-pill" href="/bank?page=products">AI products</a>
       <a class="fx-icon" href="/provider" title="Register an AI product" aria-label="Register an AI product"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>
       <a class="fx-icon" href="/customer" title="Customer dashboard" aria-label="Customer dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></a>
     </div>
@@ -25,13 +24,12 @@
   <div class="todo" id="bk-todo" hidden></div>
 
   <div id="bd-trail-page">
-      <section class="bd-panel bd-trail" id="bd-trail" aria-labelledby="bd-trail-h">
-        <h2 class="ws-h" id="bd-trail-h">Evidence trail <span class="ws-h__meta">every event, hash-chained; verifications replay from their recorded inputs</span></h2>
-        <p class="au-summary" id="au-summary"></p>
-        <div class="actions"><button class="btn btn--secondary btn--small" id="btn-replay-all" type="button">Replay every verification</button><span class="actions__note" id="replay-note"></span><span class="actions__note" id="au-evidence"></span></div>
-        <div class="dash-wrap bd-trail__wrap"><table class="checks audit" id="au-table"><thead><tr><th>Time</th><th>What happened</th><th>Subject</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
-      </section>
-
+    <section class="bd-panel bd-trail" id="bd-trail" aria-labelledby="bd-trail-h">
+      <h2 class="ws-h" id="bd-trail-h">Activity <span class="ws-h__meta">every event today, in order and hash-chained; open an instruction for the full record</span></h2>
+      <p class="au-summary" id="au-summary"></p>
+      <div class="actions"><button class="btn btn--secondary btn--small" id="btn-replay-all" type="button">Replay every verification</button><span class="actions__note" id="replay-note"></span><span class="actions__note" id="au-evidence"></span></div>
+      <div class="dash-wrap bd-trail__wrap"><table class="checks audit" id="au-table"><thead><tr><th>Time</th><th>What happened</th><th>Customer · AI agent</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
+    </section>
   </div>
   <div id="bk-page-overview">
   <div class="fx-grid bd-cols">
@@ -45,7 +43,7 @@
       <div class="bd-col glass" id="bk-agents-pane">
         <h2 class="ws-h">Active AI agents <span class="ws-h__meta" id="fx-agents-meta"></span></h2>
         <div id="bk-agents"></div>
-        <div class="actions"><a class="btn btn--secondary btn--small" href="/bank?page=products">Admit a new AI product</a></div>
+        <div class="actions"><a class="btn btn--secondary btn--small" href="/bank?page=products">Register a new AI product</a></div>
       </div>
     </div>
 
@@ -117,40 +115,38 @@
 
   <div id="bk-page-products">
     <div class="fx-grid bd-cols bk-two">
-      <div class="fx-col">
-        <section class="ws-sec pane">
-          <h2 class="ws-h">Admitted products <span class="ws-h__meta">on this bank's list</span></h2>
-          <div class="dash-wrap"><table class="dash" id="bk-products"><thead><tr><th>Product</th><th>Provider</th><th class="num">Hold above</th><th class="num">Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
-        </section>
-        <section class="ws-sec pane">
-          <h2 class="ws-h">The register <span class="ws-h__meta">every AI product filed, and your decision on each</span></h2>
-          <div class="dash-wrap"><table class="dash" id="bk-register"><thead><tr><th>Product</th><th>Provider</th><th>Assurance level</th><th>Filed</th><th>Your decision</th></tr></thead><tbody></tbody></table></div>
-        </section>
-      </div>
-      <div class="fx-col">
-        <section class="pane">
-          <h2 class="ws-h">Admit a product</h2>
-          <p class="small">A provider files its AI product on the industry register. The bank then decides, product by product, whether its customers may delegate payments to it, sets the ceilings every mandate must sit within and a hold condition. Open a filing from the register to run the review and decide.</p>
-          <div class="actions"><a class="btn btn--secondary" href="/provider">File a product on the register</a></div>
-        </section>
-      </div>
+      <section class="ws-sec pane">
+        <h2 class="ws-h">AI products <span class="ws-h__meta">every product on the register, and whether it is on this bank's list</span></h2>
+        <div class="dash-wrap"><table class="dash" id="bk-register"><thead><tr><th>Product</th><th>Provider</th><th>Assurance level</th><th>Filed</th><th>Your decision</th></tr></thead><tbody></tbody></table></div>
+        <div hidden><table id="bk-products"><tbody></tbody></table></div>
+      </section>
+      <section class="pane" id="bk-add-product">
+        <h2 class="ws-h">Add an AI product</h2>
+        <p class="small">You enter the product, the bank checks it against the register rules and, if it is independently verified or audited, admits it to the bank's list with a hold condition. Customers can then delegate payments to it.</p>
+        <label class="label" for="ap-name">Product</label><input class="input" id="ap-name" placeholder="e.g. Ledgerly Payables 2">
+        <label class="label" for="ap-provider">Provider</label><input class="input" id="ap-provider" placeholder="e.g. Ledgerly Software Ltd">
+        <label class="label" for="ap-model">Foundation model</label><input class="input" id="ap-model" placeholder="e.g. Anthropic claude-sonnet-5">
+        <label class="label" for="ap-level">Assurance level</label><select class="input" id="ap-level"><option value="independently-audited">Independently audited</option><option value="independently-verified">Independently verified</option><option value="self-declared">Self-declared</option></select>
+        <label class="label" for="ap-hold">Hold payments above (£)</label><input class="input" id="ap-hold" type="number" min="0" step="100" value="5000">
+        <div class="actions"><button class="btn" id="btn-add-product" type="button">Add and admit</button><span class="actions__note" id="ap-note"></span></div>
+        <p class="error" id="ap-error" hidden></p>
+      </section>
     </div>
   </div>
-
 </div>
 
 <div id="bk-case" hidden>
   <a class="back" href="/bank">Back to the console</a>
-  <h1 class="h1">Admission decision <span id="bk-ref" class="mono">—</span> <span id="bk-status"></span></h1>
-  <p class="lede lede--tight">The provider filed this AI product on the register. Whether your customers may delegate payments to it is your decision: a commercial risk decision by a named officer, with the ceilings every mandate must sit within and a hold condition your verifier enforces on every payment.</p>
+  <h1 class="h1">Approval decision <span id="bk-ref" class="mono">—</span> <span id="bk-status"></span></h1>
+  <p class="lede lede--tight">The bank registered this AI product. Whether your customers may delegate payments to it is your decision: a commercial risk decision by a named officer, with the ceilings every mandate must sit within and a hold condition your verifier enforces on every payment.</p>
 
-  <h2 class="h2">What the provider filed</h2>
+  <h2 class="h2">What was registered</h2>
   <dl class="summary" id="bk-summary"></dl>
 
   <h2 class="h2">Filing checks <span class="h2__meta">recorded on the register · rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
   <div class="dash-wrap dash-wrap--plain"><table class="checks" id="bk-checks"><thead><tr><th>Rule</th><th>Check</th><th>Source</th><th>Result</th></tr></thead><tbody></tbody></table></div>
 
-  <h2 class="h2">Admission review assistant <span class="h2__meta">your tool · deterministic · rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
+  <h2 class="h2">Approval review assistant <span class="h2__meta">your tool · deterministic · rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
   <p class="hint">Does this product meet the minimum assurance requirements for this use case? Six steps over the filing and your own payment engine. The assistant recommends; you decide.</p>
   <div class="actions"><button class="btn btn--secondary btn--small" id="btn-review">Run the six steps</button><span class="actions__note" id="review-note"></span></div>
   <ol class="stepper" id="review" hidden></ol>
@@ -169,13 +165,13 @@
       <p><strong>Meridian Bank</strong> is a synthetic bank. Its Payments Risk officer, <strong>A. Ferreira</strong>, has read what OpenPay Ltd filed about PayGPT 6.0 and the six-step review above. The decision is the bank's own: whether its customers may delegate invoice payments to this product, within ceilings the bank sets. Prefill enters the demo hold condition of £5,000 and a file note; the officer then admits, asks for information or declines.</p>
       <div class="actions"><button class="btn" id="btn-bk-prefill-go" type="button">Fill the inputs and continue</button><button class="btn btn--secondary" id="btn-bk-prefill-cancel" type="button">Cancel</button></div>
     </div>
-    <p class="small">Ceilings this admission sets for every customer mandate on the product: <span id="bk-ceilings" class="mono"></span></p>
+    <p class="small">Ceilings this approval sets for every customer mandate on the product: <span id="bk-ceilings" class="mono"></span></p>
     <label class="label" for="bk-condition">Hold condition: hold instructions above (£) for the customer's named approver</label>
     <div class="condition"><input class="input" id="bk-condition" type="number" min="0" step="100" placeholder="e.g. 5000"> <span class="small">The verifier returns ESCALATE above this amount, even inside the customer's limits.</span></div>
     <label class="label" for="bk-officer-note">Officer note</label>
-    <textarea class="textarea" id="bk-officer-note" rows="3" placeholder="e.g. Six filing checks pass. Independent Assurance Evidence covers invoice payment. Admitted with the £5,000 hold condition."></textarea>
+    <textarea class="textarea" id="bk-officer-note" rows="3" placeholder="e.g. Six filing checks pass. Independent Assurance Evidence covers invoice payment. Approved with the £5,000 hold condition."></textarea>
     <div class="actions">
-      <button class="btn" id="btn-admit">Admit to the bank's list</button>
+      <button class="btn" id="btn-admit">Approve for the bank's list</button>
       <button class="btn btn--secondary" id="btn-info">Request information</button>
       <button class="btn btn--warning" id="btn-decline">Decline</button>
     </div>

@@ -311,7 +311,7 @@ body[data-view="bank"] {
 .fx #bd-seam, .fx #bk-stats li:nth-child(5), .fx #bk-stats li:nth-child(6), .fx #bd-stats-totals li:nth-child(2), .fx #bd-stats-totals li:nth-child(4), .fx #bd-stats-totals li:nth-child(6), .fx .bd-stats__note, .fx #bd-log-hint, .fx #bd-legend { display: none; }
 .fx .bd-log thead th:nth-child(7), .fx .bd-log tr.bd-log__row > td:nth-child(7) { display: none; }
 .fx .bd-log tr.bd-log__row > td:nth-child(4) br, .fx .bd-log tr.bd-log__row > td:nth-child(4) .mono.small:last-child { display: none; }
-.fx #au-table th:nth-child(3), .fx #au-table td:nth-child(3) { display: none; }
+.fx #au-table th:nth-child(3), .fx #au-table td:nth-child(3) { white-space: nowrap; }
 .fx .bd-stats .chartbox { height: 190px; }
 .fx .bd-stats__agents { display: none; }
 .fx #bk-supervisory > p { display: none; }
@@ -444,8 +444,8 @@ body[data-actab="agent"] .fx-nav { visibility: hidden; }
 body[data-bkpage="trail"] .fx .fx-hdr-back { display: inline-flex; order: -1; flex-basis: 100%; margin: 0; }
 body[data-bkpage="overview"] #bd-trail-page { display: none; }
 body[data-bkpage="trail"] .fx-grid, body[data-bkpage="trail"] .bd-more, body[data-bkpage="trail"] #bk-todo, body[data-bkpage="trail"] .fx-pill { display: none; }
-body[data-bkpage="trail"] #au-table tbody tr:nth-child(n+11) { display: table-row; }
-body[data-bkpage="trail"] .bd-trail { flex: 1 0 auto; }
+body[data-bkpage="activity"] #au-table tbody tr:nth-child(n+11) { display: table-row; }
+body[data-bkpage="activity"] .bd-trail { flex: 1 0 auto; }
 .bd-graphs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
 .bk-chart { position: relative; height: 170px; }
 .bk-chart--tall { height: 200px; }
@@ -492,15 +492,14 @@ body[data-bkpage="overview"] #bk-todo, body[data-bkpage="attention"] #bk-todo, b
 @media (max-width: 640px) { .fx-tools { flex-wrap: wrap; } .fx-pill { height: 34px; padding: 0 12px; } }
 /* the activity page */
 body:not([data-bkpage="activity"]) #bk-page-activity { display: none; }
-body[data-bkpage="activity"] #bk-page-attention, body[data-bkpage="activity"] #bk-page-agents, body[data-bkpage="activity"] #bk-page-products, body[data-bkpage="activity"] #bd-trail-page { display: none; }
+body[data-bkpage="activity"] #bk-page-overview, body[data-bkpage="activity"] #bk-page-products { display: none; }
+body:not([data-bkpage="activity"]) #bd-trail-page { display: none; }
 .fx .bd-log__cust { display: block; font-weight: 600; white-space: nowrap; }
 .fx .bd-log__agent { display: block; white-space: nowrap; }
 .fx #bd-recent.bd-col--full .dash-wrap { max-height: none; }
 body[data-bkpage="attention"] .bd-attention { max-width: 44rem; }
 
 /* ── back to the three-column overview; Activity and Admitted products as pages ── */
-body[data-bkpage="activity"] #bk-page-overview > .fx-grid > :not(.fx-col--mid), body[data-bkpage="activity"] .fx-col--mid > :not(#bd-recent), body[data-bkpage="activity"] #bk-page-products, body[data-bkpage="activity"] #bd-trail-page { display: none; }
-body[data-bkpage="activity"] .fx .fx-grid.bd-cols { grid-template-columns: minmax(0, 1fr); }
 body[data-bkpage="products"] #bk-page-overview { display: none; }
 body[data-bkpage="products"] .fx .fx-grid.bd-cols.bk-two { display: grid; }
 /* the customer column and the time only on the activity page */
@@ -509,3 +508,9 @@ body[data-bkpage="activity"] .fx .bd-log tr.bd-log__row > td:nth-child(3), body[
 body[data-bkpage="activity"] #bd-log-hint, body[data-bkpage="activity"] .bd-log__more { display: none; }
 .fx-col--right > * { flex: 0 0 auto; }
 .fx-col--right > .bd-attention { flex: 1 1 auto; }
+/* activity: the chain with expandable instruction rows; the products page with the bank's own entry form */
+.fx #au-table tr.bd-log__row { cursor: pointer; }
+.fx #au-table tr.bd-log__row:hover td { background: var(--fx-tint); }
+.fx #au-table .bd-detail td { white-space: normal; }
+.fx #bk-add-product .label:first-of-type { margin-top: 0; }
+.fx #bk-add-product .input { max-width: none; }
