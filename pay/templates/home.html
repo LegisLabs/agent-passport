@@ -6,7 +6,7 @@
     <div>
       <h1 class="hero__h1">Know the AI agent before it pays.</h1>
       <p class="hero__lede">Businesses are handing their invoices to AI agents that read, decide and pay. When one of them pays, the bank cannot see which agent acted, on whose authority, or who answers for it. Agent Passport gives the bank those three answers before money moves, and a record afterwards that stands up on its own.</p>
-      <p class="hero__actions"><a class="btn btn--inverse" href="/customer">Customer dashboard</a><a class="btn btn--ghost" href="/bank">Bank dashboard</a><a class="hero__link" href="/about">How it works</a></p>
+      <p class="hero__actions"><a class="btn btn--inverse" href="/customer">Customer dashboard</a><a class="btn btn--ghost" href="/bank">Bank dashboard</a></p>
     </div>
     <figure class="hero__photo"><img src="/static/photos/boe.jpg" alt="The City of London" width="1920" height="1291"><figcaption>Photo: It's No Game, CC BY 2.0</figcaption></figure>
   </div>
@@ -72,9 +72,9 @@ flowchart LR
   <h2 class="h2">The result</h2>
   <div class="evd-split">
     <div class="evd-split__text">
-    <p class="home__lede">When the AI agent tries to pay the altered invoice, the bank refuses it at the payee check and money never moves. What remains is a record the bank produced itself: who asked to pay whom, how much, which check stopped it and why, signed by the bank and chained to every earlier entry. The provider answers for its filing, the customer for its mandate, the bank for the check. A supervisor can read that record without operating any of it.</p>
+    <p class="home__lede">When the AI agent tries to pay the altered invoice, the bank holds it at the payee check for a person to review, and money never moves. What remains is a record the bank produced itself: who asked to pay whom, how much, which check stopped it and why, signed by the bank and chained to every earlier entry. The provider answers for its filing, the customer for its mandate, the bank for the check. A supervisor can read that record without operating any of it.</p>
     </div>
-  <article class="rec" aria-label="Evidence of the refused transaction">
+  <article class="rec" aria-label="Evidence of the held transaction">
     <header class="rec__head">
       <div><span class="rec__k">Evidence of transaction</span><b>Meridian Bank (demo) · Payments Risk</b></div>
       <div class="rec__ref"><b class="mono">EV-2026-0017</b><span class="rec__k">8 September 2026</span></div>
@@ -84,7 +84,7 @@ flowchart LR
       <div><dt>By</dt><dd>PayGPT 6.0, AI agent, passport <span class="mono">AP-2026-0107</span>, signature verified</dd></div>
       <div><dt>To</dt><dd>Fenwick Timber Ltd, account <span class="mono rec__bad">60-11-22 99887766</span>, not on the mandate</dd></div>
       <div><dt>Amount</dt><dd><span class="mono">£2,500.00</span></dd></div>
-      <div><dt>Result</dt><dd><b class="rec__bad">Refused. Money did not move.</b> Check R.6: the mandate allows Fenwick Timber Ltd at <span class="mono">60-11-22 10101010</span> only.</dd></div>
+      <div><dt>Result</dt><dd><b class="rec__bad">Held for review. Money did not move.</b> Check R.6: the mandate allows Fenwick Timber Ltd at <span class="mono">60-11-22 10101010</span> only.</dd></div>
     </dl>
     <p class="rec__foot">Signed by the bank, Ed25519 · chain entry #17 <span class="mono">9c1e4b7d2a60f3e1</span> · synthetic record; <a href="/api/evidence/passports/AP-2026-0107">the live bundle</a> carries every signature and hash.</p>
   </article>
