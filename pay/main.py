@@ -962,8 +962,8 @@ def demo_seed(stage: str = "issued"):
     """Restore the exact pre-demo baseline between takes. stage=registered: the product is filed on the register and the bank's
     review has run, ready for the officer. stage=issued (default): admitted, customer mandate signed, passport ACTIVE,
     no payments, no violations. Deterministic: fixture values, the customer's draft mandate, the default hold condition."""
-    if stage not in ("registered", "issued"):
-        _400("stage must be registered or issued")
+    if stage not in ("registered", "issued", "history"):
+        _400("stage must be registered, issued or history")
     db.reset_all()
     audit.record("system", None, {"event": "demo baseline seeded", "stage": stage})
     n = db.count_registrations() + 14
@@ -973,12 +973,22 @@ def demo_seed(stage: str = "issued"):
     a = submit(a["id"])
     r = run_review(a["id"], ReviewIn())
     out = {"ok": True, "stage": stage, "registration": r["registration"]["ref"], "recommendation": r["review"]["steps"][4]["data"]["verdict"]}
-    if stage == "issued":
+    if stage in ("issued", "history"):
         admission_decision(a["id"], AdmissionIn(decision="admit", note="Baseline: six filing checks pass, Independent Assurance Evidence covers the use case, sandbox 5 of 5, hold above £5,000.", hold_above=rules.pack()["policy"]["hold_above_gbp"]))
         p = create_agent(AgentIn(registration_id=a["id"]))
         p = sign_mandate(p["passport_id"], MandateIn())
         pid = p["passport_id"]
         out.update({"passport_id": pid, "status": p["status"], "mandate_signed": p["mandate_signed"], "vouch": {"voucher_id": p.get("vouch_voucher_id"), "mode": p.get("vouch_mode")}})
+    if stage == "history":
+        # A short history so the log shows every kind of event before anyone touches the Action Terminal: one payment executed,
+        # the same signed instruction presented again (a replay, refused at R.4, a fraud indicator), and one instruction in the wrong
+        # currency (refused at R.6, an agent error). Coastline Glass, £600, so the terminal's Fenwick totals are untouched.
+        coastline = next(s for s in p["mandate"]["authorization_details"][0]["supplier_allowlist"] if "Coastline" in s["name"])
+        first = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=600, invoice_ref="CG-0860"))
+        replayed = agent_replay(ReplayIn(passport_id=pid))
+        usd = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=600, currency="USD", invoice_ref="CG-0861"))
+        out["history"] = [{"event": "paid", "decision": first["decision"]}, {"event": "replayed", "decision": replayed["decision"], "rule": replayed["rule"], "code": replayed["code"]},
+                          {"event": "usd", "decision": usd["decision"], "rule": usd["rule"], "code": usd["code"]}]
     out["audit_entries"] = len(db.list_audit())
     return out
 

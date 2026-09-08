@@ -81,6 +81,20 @@ with sync_playwright() as pw:
     check("intact" in low(page, "#au-summary") and "replayed identically" in low(page, "#replay-note") and not low(page, "#replay-note").startswith("0 of"), f"evidence trail: {page.locator('#replay-note').inner_text()}")
     ev = page.request.get(BASE + f"/api/evidence/passports/{pid}").json()
     check(ev["chain"]["ok"] and ev["register_entry"]["receipt_verified"] and ev["envelope_verification"]["admission"] and len(ev["violations"]) >= 3, "evidence bundle verifies: chain, register receipt, admission")
+
+    # final pass: the seeded history shows both refusal classes and the replay without anyone touching the terminal
+    h = page.request.post(BASE + "/api/demo/seed?stage=history").json(); check([x["decision"] for x in h["history"]] == ["ALLOW", "DENY", "DENY"], "history seed: paid, replay refused, USD refused")
+    page.goto(BASE + "/bank"); page.wait_for_selector("#bd-log tbody tr.bd-log__row"); log = low(page, "#bd-log")
+    check("fraud indicator" in log and "agent error" in log and "replay detected" in log, "bank log: refused rows carry their class; the replay is refused with its own reason")
+    check(page.locator("#bd-triage-list .triage--fraud").count() >= 1 and page.locator("#bd-triage-list .triage--agent_error").count() == 0, "attention strip carries the fraud indicator only; the agent error stays in the log")
+    page.locator("#bd-log tbody tr.bd-log__row").filter(has_text="replay").first.click(); page.wait_for_selector("#bd-log .bd-detail")
+    check("nonce" in low(page, "#bd-log .bd-detail") and "already spent" in low(page, "#bd-log .bd-detail"), "evidence record names the spent nonce")
+    page.click(".bd-more summary"); check("assurance level" in low(page, "#bk-register thead") and "independently audited" in low(page, "#bk-register"), "bank register table shows the assurance level")
+    page.goto(BASE + "/customer"); page.wait_for_selector("#ac-audit tbody tr"); trail = low(page, "#ac-audit")
+    check("fraud indicator" in trail and "agent error" in trail, "customer trail: same class labels")
+    check("independently audited" in low(page, "#cu-model"), "customer product picker shows the assurance level")
+    page.goto(BASE + "/about"); ab = low(page, "body")
+    check("carries a nonce" in ab and "determinism:" in ab and "replay protection:" in ab and ab.count("planned fields") == 1, "about: nonce in the envelope, determinism and replay protection side by side, planned fields once")
     print("== 8 · Language sweep and 390px")
     m = b.new_context(viewport={"width": 390, "height": 844}).new_page()
     for path in ("", "customer", f"customer?ref={pid}", "bank", f"bank?ref={seed['registration']}", f"bank?passport={pid}", "terminal", "terminal?console=1", "audit", "provider", "about"):

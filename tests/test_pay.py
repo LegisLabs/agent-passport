@@ -559,6 +559,25 @@ def test_demo_seed_twice_gives_identical_baselines(client):
     assert client.post("/api/demo/seed?stage=nope").status_code == 400
 
 
+def test_demo_seed_history_puts_both_refusal_classes_on_the_log(client):
+    """stage=history: one payment executed, its byte-for-byte replay refused at R.4 (fraud indicator), one USD instruction
+    refused at R.6 (agent error). The nonce is recorded with the refusal so the evidence names what was replayed."""
+    r = client.post("/api/demo/seed?stage=history").json()
+    assert [h["decision"] for h in r["history"]] == ["ALLOW", "DENY", "DENY"]
+    assert r["history"][1]["code"] == "REPLAY_DETECTED" and r["history"][2]["code"] == "CURRENCY_NOT_PERMITTED"
+    st = client.get("/api/state").json()
+    classes = sorted(v["failure_class"] for v in st["violations"])
+    assert classes == ["agent_error", "fraud"], classes
+    replay = next(v for v in st["violations"] if v["code"] == "REPLAY_DETECTED")
+    paid = next(x for x in client.get("/api/audit").json()["rows"] if x["kind"] == "verify" and x["entry"]["decision"] == "ALLOW")
+    assert replay["instruction"]["nonce"] == paid["entry"]["instruction"]["nonce"], "the refused replay carries the spent nonce"
+    ev = client.get(f"/api/evidence/violations/{replay['id']}").json()
+    focus = next(e for e in ev["audit_entries"] if e["id"] == replay["audit_id"])
+    assert focus["entry"]["nonce_seen_before"] is True and focus["entry"]["instruction"]["nonce"] == replay["instruction"]["nonce"]
+    # the terminal's Fenwick ledger is untouched by the seeded history
+    assert st["passports"][0]["ledger"].keys() == {"20-45-77 10101010"} or "Fenwick" not in json.dumps(st["passports"][0]["ledger"])
+
+
 # ── Product admission: cascade ─────────────────────────────────────────────────
 def test_product_revoke_cascades_to_passports_and_passport_revoke_is_unchanged(client):
     p1, a = issue_one(client)
