@@ -1539,3 +1539,46 @@ tr.is-new > td, li.is-new { animation: arrive 900ms cubic-bezier(.2,.9,.2,1) bot
 .cu-split .ws-h, .bd-cols .ws-h { margin-bottom: .3rem; }
 .cu-split__agents .empty { margin: .6rem 0 0; }
 .evd-split { grid-template-columns: minmax(0, .85fr) minmax(0, 1.15fr); }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   The two dashboards: a soft tinted field, and two glass panels on it.
+   Agents on the left, the transaction record on the right.
+   ══════════════════════════════════════════════════════════════════════════ */
+body[data-view="bank"], body[data-view="customer"] { background: #eef3f4; position: relative; }
+body[data-view="bank"]::before, body[data-view="customer"]::before { content: ""; position: fixed; inset: 0; z-index: -1; pointer-events: none;
+  background:
+    radial-gradient(60rem 36rem at 8% 12%, rgba(15,107,115,.28), transparent 60%),
+    radial-gradient(48rem 30rem at 92% 18%, rgba(255,196,60,.22), transparent 60%),
+    radial-gradient(56rem 40rem at 60% 100%, rgba(15,107,115,.18), transparent 60%),
+    linear-gradient(180deg, #f3f7f8 0%, #e9f0f1 100%); }
+.glass { position: relative; border-radius: 24px; padding: 22px 26px 26px; background: rgba(255,255,255,.58);
+  -webkit-backdrop-filter: blur(26px) saturate(170%); backdrop-filter: blur(26px) saturate(170%);
+  border: 1px solid rgba(255,255,255,.7);
+  box-shadow: inset 0 1px 0 rgba(255,255,255,.9), inset 0 -1px 0 rgba(15,107,115,.06), 0 1px 2px rgba(11,12,12,.05), 0 18px 40px -22px rgba(15,60,66,.35); }
+.glass::before { content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; background: linear-gradient(160deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,0) 38%, rgba(255,255,255,0) 70%, rgba(255,255,255,.18) 100%); }
+.glass > * { position: relative; }
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .glass { background: rgba(255,255,255,.94); } }
+.glass .ws-h { border-bottom-color: rgba(11,12,12,.7); }
+.glass .dash th, .glass .dash td, .glass .checks th, .glass .checks td { border-bottom-color: rgba(11,12,12,.12); }
+.glass .dash tbody tr:hover td, .glass .bd-log__row:hover td { background: rgba(255,255,255,.45); }
+.glass .bd-log__row[aria-expanded="true"] td { background: rgba(255,255,255,.55); }
+.glass .bd-detail td { background: rgba(255,255,255,.55); }
+.glass .bd-detail__grid .kv div { border-bottom-color: rgba(11,12,12,.1); }
+.glass .agent-row, .glass .cu-card { border-bottom-color: rgba(11,12,12,.12); }
+.bd-col--log .dash-wrap, .cu-trail-wrap { border-radius: 12px; }
+.bd-col--log .bd-log thead th, .cu-trail-wrap .audit thead th { background: rgba(255,255,255,.85); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); }
+.bd-cols { gap: 0 28px; align-items: stretch; }
+.cu-split { gap: 0 28px; align-items: stretch; margin-top: 0; }
+.cu-split .ws-h, .bd-cols .ws-h { margin-top: 0; }
+.acct { border-radius: 24px; box-shadow: 0 18px 40px -22px rgba(15,60,66,.5); margin-bottom: 28px; overflow: hidden; }
+#ac-transactions .glass { margin-top: 0; }
+.bd-head .h1--ws, body[data-view="customer"] .acct__name { letter-spacing: -.01em; }
+.todo, #bd-triage .triage { border-radius: 16px; }
+#bd-triage .triage { background: rgba(255,255,255,.5); border-top: 0; padding: .4rem 1.2rem; margin-bottom: 1.5rem; -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); border: 1px solid rgba(255,255,255,.7); }
+.triage--pattern { margin: 0; padding-left: 0; padding-right: 0; background: transparent; }
+.triage--pattern .tag { background: var(--red); color: #fff; }
+body[data-view="bank"] .footer, body[data-view="customer"] .footer { background: rgba(255,255,255,.6); -webkit-backdrop-filter: blur(20px); backdrop-filter: blur(20px); }
+@media (max-width: 1100px) { .bd-cols .glass + .glass { margin-top: 24px; } }
+@media (max-width: 899px) { .cu-split .glass { margin-bottom: 20px; } }
+@media (max-width: 640px) { .glass { padding: 16px 16px 20px; border-radius: 18px; } .acct { border-radius: 18px; } }
+@media (prefers-reduced-transparency: reduce) { .glass { background: rgba(255,255,255,.95); -webkit-backdrop-filter: none; backdrop-filter: none; } }
