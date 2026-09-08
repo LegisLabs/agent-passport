@@ -44,7 +44,7 @@ with sync_playwright() as pw:
     check("fenwick timber ltd" in low(page, "#cu-ch-0") and "checked against the public register" in low(page, "#cu-ch-0"), "payee checked against the public register (live or labelled demo)")
     pid = page.locator("#cu-id").inner_text()
     page.click("#cu-add"); page.fill("#cu-suppliers [data-i='3'][data-k='name']", "coast"); page.wait_for_function("document.querySelector('#cu-ch-3') && document.querySelector('#cu-ch-3').innerText.toLowerCase().includes('coastline')")
-    page.click("#cu-ch-3 [data-pick]"); page.wait_for_function("document.querySelector('#cu-suppliers [data-i=\"3\"][data-k=\"companies_house_number\"]').value !== ''")
+    page.click("#cu-ch-3 [data-pick]"); page.wait_for_function("document.querySelector('#cu-suppliers [data-i=\"3\"][data-k=\"companies_house_number\"]').value !== ''"); page.wait_for_function("document.querySelector('#cu-ch-3').innerText.toLowerCase().includes('public register')")
     check(page.input_value("#cu-suppliers [data-i='3'][data-k='companies_house_number']") != "" and "coastline glass" in page.input_value("#cu-suppliers [data-i='3'][data-k='name']").lower() and "checked against the public register" in low(page, "#cu-ch-3"), "name first: typing the name lists register matches; picking one fills number, legal name and status")
     page.click("#cu-suppliers [data-remove='3']")
     page.fill("#cu-per", "12000"); page.wait_for_function("document.querySelector('#cu-containment').innerText.toLowerCase().includes('outside')")
