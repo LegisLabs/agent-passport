@@ -7,7 +7,12 @@
   "agent_class": "accounts_payable_agent",
   "policy": {
     "action_types": [
-      "pay_invoice"
+      "pay_invoice",
+      "pay_payroll",
+      "pay_subscription",
+      "pay_tax",
+      "refund_customer",
+      "top_up_wallet"
     ],
     "currency": "GBP",
     "per_payment_ceiling_gbp": 10000,
@@ -165,6 +170,14 @@
       "source": "Agent Passport Register",
       "check": "not_already_registered",
       "fail": "flag"
+    },
+    {
+      "id": "F.7",
+      "title": "UK data protection declared: UK GDPR and Data Protection Act 2018 compliance, ICO registration, personal data retention period",
+      "status": "PROTOTYPE",
+      "source": "Provider declaration signed for by the accountable principal; ICO register of fee payers (format of the registration number only). The register verifies nothing about compliance",
+      "check": "data_protection",
+      "fail": "flag"
     }
   ],
   "runtime_rules": [
@@ -315,6 +328,60 @@
     {
       "field": "escalation_threshold",
       "note": "the hold-for-a-person amount as a first-class passport field the customer can tighten, rather than only the bank's admission condition"
+    }
+  ],
+  "payment_intents": [
+    {
+      "id": "pay_invoice",
+      "label": "Pay supplier invoices",
+      "description": "settle invoices from suppliers on the customer's allow-list"
+    },
+    {
+      "id": "pay_payroll",
+      "label": "Pay salaries and contractors",
+      "description": "payroll runs to named employee and contractor accounts"
+    },
+    {
+      "id": "pay_subscription",
+      "label": "Pay recurring subscriptions",
+      "description": "recurring charges to named service providers"
+    },
+    {
+      "id": "pay_tax",
+      "label": "Pay tax and duties",
+      "description": "HMRC and other statutory payments"
+    },
+    {
+      "id": "refund_customer",
+      "label": "Refund customers",
+      "description": "return money to a customer's own account"
+    },
+    {
+      "id": "top_up_wallet",
+      "label": "Top up cards and wallets",
+      "description": "fund a card or wallet the customer controls"
+    }
+  ],
+  "retention_periods": [
+    {
+      "id": "none",
+      "label": "Not retained after the payment"
+    },
+    {
+      "id": "30d",
+      "label": "30 days"
+    },
+    {
+      "id": "90d",
+      "label": "90 days"
+    },
+    {
+      "id": "12m",
+      "label": "12 months"
+    },
+    {
+      "id": "6y",
+      "label": "6 years (statutory records)"
     }
   ]
 }

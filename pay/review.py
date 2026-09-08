@@ -20,8 +20,7 @@ from . import config, crypto, extraction, rules
 
 RULE_EVIDENCE = {
     "F.1": ("company", "companies_house_number"), "F.2": ("principal", "declaration_ref"), "F.3": ("insurance", "policy_ref"),
-    "F.4": ("product", "model_version"), "F.5": ("assurance_evidence", "reference"), "F.6": ("product", "product_id"),
-}
+    "F.4": ("product", "model_version"), "F.5": ("assurance_evidence", "reference"), "F.6": ("product", "product_id"), "F.7": ("data_protection", "ico_registration")}
 
 
 def _v(fields, *path):
@@ -41,7 +40,8 @@ def step_filing(a: dict) -> dict:
                            "documentation": _v(f, "product", "documentation_url"),
                            "assurance_level": rules.assurance_level(_v(ae, "level"))["label"] + " (declared by the provider with the evidence; the register does not grade it)",
                            "independent_assurance_evidence": f"{_v(ae, 'issuer')} {_v(ae, 'reference')}, {_v(ae, 'date')}, use case {_v(ae, 'use_case')}: {_v(ae, 'summary')}",
-                           "intended_use": f"{_v(f, 'intended_use', 'action_type')}: {_v(f, 'intended_use', 'description')}"},
+                           "intended_use": f"{rules.payment_intent(_v(f, 'intended_use', 'payment_intent'))['label']}: {_v(f, 'intended_use', 'description')}",
+                           "data_protection": f"UK GDPR and DPA 2018 compliance declared: {_v(f, 'data_protection', 'uk_gdpr_compliant')}; ICO {_v(f, 'data_protection', 'ico_registration')}; personal data retained {rules.retention_label(_v(f, 'data_protection', 'retention_period')).lower()}"},
         "register_says": {"note": "The register records identity and accountability. It does not certify that the product is good; it guarantees that someone is accountable when it is bad. The quality judgement is the bank's."},
         "bank_decides": {"admission": "whether customers of this bank may delegate payments to this product, and under what ceilings and hold condition",
                          "ceilings": f"per payment ≤ £{pol['per_payment_ceiling_gbp']:,.0f}; per account in 30 days ≤ £{pol['monthly_per_account_ceiling_gbp']:,.0f}; up to {pol['velocity_ceiling_per_day']} payments a day; expiry ≤ {pol['max_validity']}; actions {', '.join(pol['action_types'])}; scaled by assurance level (self-declared ×0.25, independently verified ×0.5, independently audited ×1)",

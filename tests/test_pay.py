@@ -192,7 +192,7 @@ def test_rule_pack_labels_and_codes():
     for r in pack["registration_rules"] + pack["runtime_rules"]:
         assert r["status"] in ("CURRENT", "PROTOTYPE", "FUTURE") and r["source"]
     assert [r["id"] for r in pack["runtime_rules"]] == [f"R.{i}" for i in range(1, 10)]
-    assert [r["id"] for r in pack["registration_rules"]] == [f"F.{i}" for i in range(1, 7)]
+    assert [r["id"] for r in pack["registration_rules"]] == [f"F.{i}" for i in range(1, 8)]
 
 
 def test_vouch_fixture_adapter_never_touches_network():
@@ -304,7 +304,7 @@ def test_review_six_steps_sandbox_uses_real_engine_and_never_decides(client):
     rv = r["review"]
     assert [s["id"] for s in rv["steps"]] == ["filing", "rule_map", "tests", "sandbox", "recommendation", "signoff"]
     rule_map = rv["steps"][1]["data"]
-    assert [x["id"] for x in rule_map["rules"]] == [f"F.{i}" for i in range(1, 7)] and rule_map["uncovered"] == [] and rule_map["flagged"] == []
+    assert [x["id"] for x in rule_map["rules"]] == [f"F.{i}" for i in range(1, 8)] and rule_map["uncovered"] == [] and rule_map["flagged"] == []
     sb = rv["steps"][3]["data"]
     assert [(t["decision"], t["rule"]) for t in sb] == [("DENY", "R.6"), ("DENY", "R.7"), ("DENY", "R.2"), ("DENY", "R.4"), ("ESCALATE", "R.9")]
     assert all(t["pass"] for t in sb)
@@ -515,7 +515,7 @@ def test_envelope_tamper_each_signer_flips_one_byte(client):
 # ── Iteration 3, Task 3: Issuance Flow v4 — customer writes its own mandate within policy ceilings ──
 def test_registration_carries_no_customer_and_admission_carries_ceilings(client):
     p, a = issue_one(client, sign_mandate=False)
-    assert set(a["fields"]) == {"company", "principal", "insurance", "product", "assurance_evidence", "intended_use"}   # no customer, no agent, no key, no mandate content
+    assert set(a["fields"]) == {"company", "principal", "insurance", "product", "assurance_evidence", "intended_use", "data_protection"}   # no customer, no agent, no key, no mandate content
     assert a["fields"]["product"]["model_version"]["value"] == "claude-sonnet-5"
     assert [c["id"] for c in a["checks"] if c["result"] != "pass"] == []
     assert p["admission"]["ceilings"]["per_payment_ceiling"]["amount"] == 10000 and p["admission"]["ceilings"]["monthly_per_account_ceiling"]["amount"] == 50000

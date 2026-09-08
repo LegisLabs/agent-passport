@@ -126,13 +126,35 @@
   }
  },
  "intended_use": {
-  "action_type": {
+  "payment_intent": {
    "value": "pay_invoice",
    "source_doc": null,
    "quote": null
   },
   "description": {
    "value": "read supplier invoices and initiate payment instructions within a customer-signed mandate",
+   "source_doc": null,
+   "quote": null
+  }
+ },
+ "data_protection": {
+  "uk_gdpr_compliant": {
+   "value": "yes",
+   "source_doc": null,
+   "quote": null
+  },
+  "ico_registration": {
+   "value": "ZB417263",
+   "source_doc": null,
+   "quote": null
+  },
+  "retention_period": {
+   "value": "90d",
+   "source_doc": null,
+   "quote": null
+  },
+  "dpia_reference": {
+   "value": "DPIA-2026-014",
    "source_doc": null,
    "quote": null
   }

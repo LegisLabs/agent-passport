@@ -97,11 +97,20 @@ def run_registration_checks(fields: dict, reg: dict | None = None, today: date |
             ae = fields.get("assurance_evidence", {})
             level = assurance_level(_v(ae, "level"))
             missing = [k for k in ("issuer", "reference", "date", "use_case", "report_url") if not _v(ae, k)] if level["id"] != "self-declared" else [k for k in ("use_case",) if not _v(ae, k)]
-            covers = (_v(ae, "use_case") or "") == (_v(fields, "intended_use", "action_type") or "")
+            covers = (_v(ae, "use_case") or "") == (_v(fields, "intended_use", "payment_intent") or "")
             url_ok = level["id"] == "self-declared" or bool(re.match(r"^https://\S+$", str(_v(ae, "report_url") or "")))
             level_ok = _v(ae, "level") in {x["id"] for x in pol["assurance_levels"]}
             ok = not missing and covers and url_ok and level_ok
             out.append({**_check(rule, ok, f"{level['label']} · {_v(ae, 'issuer') or 'no independent party'} {_v(ae, 'reference') or ''}".strip(), f"assurance level {level['label'].lower()}; evidence dated {_v(ae, 'date')} for use case {_v(ae, 'use_case')}; attached, not assessed by the register" if ok else ("assurance level not declared" if not level_ok else ("missing: " + ", ".join(missing) if missing else ("evidence does not cover the registered use case" if not covers else "report is not an https URL")))), "assurance_level": level["id"]})
+        elif c == "data_protection":
+            dp = fields.get("data_protection", {})
+            ico = str(_v(dp, "ico_registration") or "").strip().upper()
+            ico_ok = bool(re.match(r"^Z[A-Z0-9]\d{6}$|^Z\d{7}$", ico))
+            ret = _v(dp, "retention_period"); ret_ok = ret in {x["id"] for x in pack().get("retention_periods", [])}
+            comp = str(_v(dp, "uk_gdpr_compliant") or "").lower() == "yes"
+            ok = comp and ico_ok and ret_ok
+            out.append(_check(rule, ok, f"declaration · ICO {ico or 'none'}", f"declares UK GDPR and DPA 2018 compliance; ICO registration {ico}; personal data retained {retention_label(ret).lower()}" + (f"; DPIA {_v(dp, 'dpia_reference')}" if _v(dp, "dpia_reference") else "") if ok
+                              else "; ".join(x for x in ["no compliance declaration" if not comp else "", "ICO registration number missing or malformed" if not ico_ok else "", "no retention period" if not ret_ok else ""] if x)))
         elif c == "not_already_registered":
             pid = _v(fields, "product", "product_id")
             clash = next((m for m in register_entries() if m.get("product_id") == pid and m.get("status") == "active"), None)
@@ -120,13 +129,21 @@ def level_meets(level_id: str | None, minimum_id: str | None) -> bool:
     return assurance_level(level_id)["rank"] >= assurance_level(minimum_id)["rank"]
 
 
-def admission_ceilings(level_id: str | None = None) -> dict:
+def payment_intent(intent_id: str | None) -> dict:
+    return next((x for x in pack().get("payment_intents", []) if x["id"] == intent_id), {"id": intent_id, "label": str(intent_id or "no intent"), "description": ""})
+
+
+def retention_label(rid: str | None) -> str:
+    return next((x["label"] for x in pack().get("retention_periods", []) if x["id"] == rid), str(rid or "not declared"))
+
+
+def admission_ceilings(level_id: str | None = None, intents: list[str] | None = None) -> dict:
     """The bank's admission ceilings for a product: the policy ceilings scaled by the provider's assurance level."""
     pol = pack()["policy"]
     f = assurance_level(level_id)["ceiling_factor"] if level_id else 1.0
     return {"per_payment_ceiling": {"amount": float(pol["per_payment_ceiling_gbp"]) * f, "currency": pol["currency"]},
             "monthly_per_account_ceiling": {"amount": float(pol["monthly_per_account_ceiling_gbp"]) * f, "currency": pol["currency"], "window": pol["monthly_window"]},
-            "velocity_ceiling_per_day": int(pol["velocity_ceiling_per_day"]), "max_validity": pol["max_validity"], "action_types": list(pol["action_types"]), "currency": pol["currency"],
+            "velocity_ceiling_per_day": int(pol["velocity_ceiling_per_day"]), "max_validity": pol["max_validity"], "action_types": [x for x in (intents or pol["action_types"]) if x in pol["action_types"]] or list(pol["action_types"]), "currency": pol["currency"],
             "assurance_level": assurance_level(level_id)["id"] if level_id else None, "ceiling_factor": f}
 
 

@@ -17,7 +17,7 @@ with sync_playwright() as pw:
     seed = page.request.post(BASE + "/api/demo/seed?stage=registered").json()
     print("== 1 · Provider: the product is on the register, nobody reviewed it")
     page.goto(BASE + f"/provider?ref={seed['registration']}"); page.wait_for_selector("#pv-checks tbody tr")
-    check("on the register" in low(page, "#pv-status") and page.locator("#pv-checks tbody tr").count() == 6 and "f.5" in low(page, "#pv-checks"), "filed; F.1 to F.6 recorded; F.5 Independent Assurance Evidence")
+    check("on the register" in low(page, "#pv-status") and page.locator("#pv-checks tbody tr").count() == 7 and "f.7" in low(page, "#pv-checks"), "filed; F.1 to F.6 recorded; F.5 Independent Assurance Evidence")
     check("a filing, not an approval" in low(page, "main"), "register framing sentence")
     print("== 2 · Bank: admission decision")
     page.goto(BASE + "/bank"); page.wait_for_selector("#bk-todo:not([hidden])")

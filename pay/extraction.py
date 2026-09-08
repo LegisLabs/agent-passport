@@ -15,7 +15,7 @@ import time
 
 from . import config
 
-SECTIONS = ("company", "principal", "insurance", "product", "assurance_evidence", "intended_use")
+SECTIONS = ("company", "principal", "insurance", "product", "assurance_evidence", "intended_use", "data_protection")
 
 
 def fixture() -> dict:
@@ -104,6 +104,7 @@ def draft_file_note(ref: str, fields: dict, checks: list[dict]) -> tuple[str, st
         "product": f"{fields['product']['product_name']['value']} ({fields['product']['model_provider']['value']} {fields['product']['model_version']['value']})",
         "assurance_evidence": {k: v["value"] for k, v in fields["assurance_evidence"].items()},
         "intended_use": {k: v["value"] for k, v in fields["intended_use"].items()},
+        "data_protection": {k: v["value"] for k, v in fields.get("data_protection", {}).items()},
         "checks": [{"id": c["id"], "title": c["title"], "result": c["result"], "detail": c["detail"]} for c in checks],
     }
     prompt = (
@@ -128,7 +129,7 @@ def _fixture_note(ref, fields, checks, flagged) -> str:
     passed = sum(1 for c in checks if c["result"] == "pass")
     ae = fields.get("assurance_evidence", {})
     s = (f"Registration {ref} from {fields['company']['legal_name']['value']} files {fields['product']['product_name']['value']} "
-         f"({fields['product']['model_provider']['value']}, {fields['product']['model_version']['value']}) for {fields['intended_use']['action_type']['value']}. "
+         f"({fields['product']['model_provider']['value']}, {fields['product']['model_version']['value']}) for {fields['intended_use']['payment_intent']['value']}. "
          f"Independent Assurance Evidence at level {ae.get('level', {}).get('value')} from {ae.get('issuer', {}).get('value')} ({ae.get('reference', {}).get('value')}, {ae.get('date', {}).get('value')}) is attached for the same use case. "
          f"{passed} of {len(checks)} filing checks passed.")
     if flagged:
