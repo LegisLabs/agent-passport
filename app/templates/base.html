@@ -5,15 +5,15 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}Agent Passport{% endblock %} — Agent Passport</title>
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="/static/app.css">
+<link rel="stylesheet" href="{{ root }}/static/app.css">
 <link rel="icon" href="data:,">
 </head>
-<body data-view="{{ view }}">
+<body data-view="{{ view }}" data-root="{{ root }}">
 <a href="#main" class="skip">Skip to main content</a>
 
 <header class="masthead" role="banner">
   <div class="wrap masthead__row">
-    <a class="masthead__brand" href="/operator" aria-label="Agent Passport home">
+    <a class="masthead__brand" href="{{ root }}/operator" aria-label="Agent Passport home">
       <span class="masthead__crest" aria-hidden="true"></span>
       <span class="masthead__name">{{ issuer }} <span class="masthead__sep">·</span> Agent Passport</span>
     </a>
@@ -23,11 +23,11 @@
 
 <nav class="tabs" aria-label="Views">
   <div class="wrap tabs__row">
-    <a class="tabs__tab" href="/operator" {% if view == 'operator' %}aria-current="page"{% endif %}>1 · Apply <span class="tabs__sub">operator · accounting firm</span></a>
-    <a class="tabs__tab" href="/regulator" {% if view == 'regulator' %}aria-current="page"{% endif %}>2 · Review &amp; issue <span class="tabs__sub">authority · case officer</span></a>
-    <a class="tabs__tab" href="/relying" {% if view == 'relying' %}aria-current="page"{% endif %}>3 · Act &amp; check <span class="tabs__sub">relying party · filing gateway</span></a>
-    <a class="tabs__tab" href="/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>4 · Audit <span class="tabs__sub">replayable record</span></a>
-    <a class="tabs__tab" href="/about" {% if view == 'about' %}aria-current="page"{% endif %}>About</a>
+    <a class="tabs__tab" href="{{ root }}/operator" {% if view == 'operator' %}aria-current="page"{% endif %}>1 · Apply <span class="tabs__sub">operator · accounting firm</span></a>
+    <a class="tabs__tab" href="{{ root }}/regulator" {% if view == 'regulator' %}aria-current="page"{% endif %}>2 · Review &amp; issue <span class="tabs__sub">authority · case officer</span></a>
+    <a class="tabs__tab" href="{{ root }}/relying" {% if view == 'relying' %}aria-current="page"{% endif %}>3 · Act &amp; check <span class="tabs__sub">relying party · filing gateway</span></a>
+    <a class="tabs__tab" href="{{ root }}/audit" {% if view == 'audit' %}aria-current="page"{% endif %}>4 · Audit <span class="tabs__sub">replayable record</span></a>
+    <a class="tabs__tab" href="{{ root }}/about" {% if view == 'about' %}aria-current="page"{% endif %}>About</a>
   </div>
 </nav>
 
@@ -42,7 +42,7 @@
   </div>
 </footer>
 
-<script src="/static/app.js"></script>
+<script src="{{ root }}/static/app.js"></script>
 {% block scripts %}{% endblock %}
 </body>
 </html>

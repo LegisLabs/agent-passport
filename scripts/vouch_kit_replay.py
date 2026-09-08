@@ -35,7 +35,7 @@ ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT))
 os.environ.setdefault("PAY_DATA_DIR", tempfile.mkdtemp(prefix="ap-kit-replay-"))  # fresh signer keys, no app data touched
 
-from pay import crypto, rules  # noqa: E402
+from pay import crypto, rules, config# noqa: E402, config  # noqa: E402
 
 GAP_NOTE = {
     "out_of_category": "merchant category is not a v1 mandate field",
@@ -83,9 +83,9 @@ def build_world(m: dict, hold_above: float) -> dict:
         jwk = crypto.public_jwk(pub)
         ident_payload = {"iss": "kit-operator", "typ": "agent_identity", "sub": a["ref"], "iat": crypto.now_ts(),
                          "agent": {"name": a["label"], "agent_id": f"{m['kitId']}:{a['ref']}", "software": "kit", "software_version": "0"}, "cnf": {"jwk": jwk}}
-        ident = crypto.sign_jwt("openpay", ident_payload, typ="agent-identity+jwt")
+        ident = crypto.sign_jwt("northgate", ident_payload, typ="agent-identity+jwt")
         pid = f"KIT-{m['kitId']}-{a['ref']}"
-        admission = crypto.sign_jwt("bank", {"iss": "payments-authority-demo", "typ": "admission", "jti": pid, "iat": crypto.now_ts(), "valid_until": "2099-12-31",
+        admission = crypto.sign_jwt("bank", {"iss": config.BANK_ID, "typ": "admission", "jti": pid, "iat": crypto.now_ts(), "valid_until": "2099-12-31",
                                                   "provider": {"legal_name": "Kit operator", "licence_ref": "KIT"}, "agent_id": a["ref"],
                                                   "condition": {"hold_above": {"amount": hold_above, "currency": m["program"]["currency"]}},
                                                   "binds": {"agent_identity_sha256": crypto.sha256_hex(ident)}}, typ="admission+jwt")
@@ -186,7 +186,7 @@ def main() -> int:
     ap.add_argument("--kits", default="kya-licence,agent-mandate")
     ap.add_argument("--labels", default=None, help="one labels.jsonl from their run-stream.ts (matched by kitScenarioId)")
     ap.add_argument("--labels-dir", default=str(ROOT / "fixtures" / "pay" / "vouch_kits" / "labels"), help="directory with <kitId>.labels.jsonl per kit (default: vendored runs)")
-    ap.add_argument("--human-confirm-above", type=float, default=5000)
+    ap.add_argument("--hold-above", type=float, default=5000)
     ap.add_argument("--json", default=None, help="write the full report here")
     ap.add_argument("--verbose", action="store_true", help="print every instance, not one line per scenario")
     args = ap.parse_args()

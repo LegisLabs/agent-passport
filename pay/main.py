@@ -69,7 +69,8 @@ def view_bank(request: Request):
 
 @app.get("/terminal", response_class=HTMLResponse, include_in_schema=False)
 def view_terminal(request: Request):
-    return templates.TemplateResponse(request, "terminal.html", ctx(request, view="terminal"))
+    view = "console" if request.query_params.get("console") else "terminal"
+    return templates.TemplateResponse(request, "terminal.html", ctx(request, view=view))
 
 
 @app.get("/regulator", include_in_schema=False)

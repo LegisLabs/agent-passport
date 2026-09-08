@@ -1,4 +1,4 @@
-/* Action Terminal · one invoice, two worlds. Every step is a reveal. The "after" world uses the live verifier when a
+/* Action Terminal: one invoice, two worlds. Every step is a reveal. The "after" world uses the live verifier when a
    passport exists on this deployment and falls back to the seeded result otherwise. */
 'use strict';
 const AT = (() => {
@@ -127,10 +127,10 @@ const AT = (() => {
       live = { trace: res.trace.map(t => [t.rule, t.ok, t.note]), decision: res.decision, rule: res.rule, reason: `${res.rule}: ${res.reason}.`, audit_id: res.audit_id, audit_hash: res.audit_hash, passport_id: p.passport_id };
       const m = (await (await fetch(`/api/passports/${p.passport_id}`)).json()).minimal;
       if (m) {
-        $('pp-model').textContent = `${m.model || m.agent}, approved once by the authority`;
+        $('pp-model').textContent = `${m.product || m.agent} by ${m.provider}, registered and admitted by the bank`;
         $('pp-scope').textContent = `£${Number(m.scope.per_payment_limit.amount).toLocaleString('en-GB')} a payment · £${Number(m.scope.monthly_limit_per_account.amount).toLocaleString('en-GB')} an account a month`;
       }
-      $('sc-live-note').textContent = 'The refusal is the live verifier on this deployment; its record is in the Audit.';
+      $('sc-live-note').textContent = 'The refusal is the live verifier on this deployment; its record is in the Evidence trail.';
     } catch (e) { live = null; }
   }
   function init() {

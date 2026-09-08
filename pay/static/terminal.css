@@ -1,13 +1,12 @@
 /* Action Terminal · one invoice, two worlds. Loaded only on /bank without ?console. Overrides the console styling
-   app.css gives body[data-view="bank"], hides the side menu, and takes the page. One family, four sizes, ink + blue
+   app.css gives body[data-view="terminal"], hides the side menu, and takes the page. One family, four sizes, ink + blue
    + red, and green only on the one action. */
-body[data-view="bank"] { background: #fff; color: var(--ink); font-family: var(--font); font-size: 17px; line-height: 1.45; }
-body[data-view="bank"] .shell, body[data-view="bank"] .powered-badge { display: none; }
-body[data-view="bank"] .footer { background: var(--panel); border-top-color: var(--line); color: var(--ink-2); }
-body[data-view="bank"] .footer a, body[data-view="bank"] .footer .link { color: var(--blue); }
-body[data-view="bank"] a { color: var(--blue); text-underline-offset: .15em; }
-body[data-view="bank"] :focus-visible { outline: 3px solid var(--focus); outline-offset: 0; box-shadow: 0 0 0 6px var(--ink); }
-body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink); }
+body[data-view="terminal"] { background: #fff; color: var(--ink); font-family: var(--font); font-size: 17px; line-height: 1.45; }
+body[data-view="terminal"] .shell { display: none; }
+body[data-view="terminal"] .footer { background: var(--panel); border-top-color: var(--line); color: var(--ink-2); }
+body[data-view="terminal"] .footer a, body[data-view="terminal"] .footer .link { color: var(--blue); }
+body[data-view="terminal"] a { color: var(--blue); text-underline-offset: .15em; }
+body[data-view="terminal"] :focus-visible { outline: 3px solid var(--focus); outline-offset: 2px; }
 .sc-page { --w: 1200px; --pad: 32px; }
 .num { font-variant-numeric: tabular-nums; letter-spacing: .01em; }
 
@@ -20,22 +19,22 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
 .sc-worlds::before { content: ""; position: absolute; left: var(--pad); right: var(--pad); top: 50%; margin-top: 14px; border-top: 1px solid var(--line-soft); z-index: -1; }
 .sc-switch__b:first-of-type { border-radius: 999px 0 0 999px; }
 .sc-switch__b:last-of-type { border-radius: 0 999px 999px 0; }
-.sc-switch__b { appearance: none; border: 2px solid var(--ink); background: #fff; color: var(--ink); font: inherit; font-size: 17px; font-weight: 700; padding: 10px 22px; cursor: pointer; transition: background .25s, color .25s, border-color .25s; position: relative; }
+.sc-switch__b { appearance: none; border: 2px solid var(--navy); background: #fff; color: var(--ink); font: inherit; font-size: 17px; font-weight: 700; padding: 10px 22px; cursor: pointer; transition: background .25s, color .25s, border-color .25s; position: relative; }
 .sc-switch__b + .sc-switch__b { margin-left: -2px; }
 .sc-switch__b:hover { color: var(--ink); }
 .sc-switch__b[aria-selected="true"] { color: #fff; background: var(--red); border-color: var(--red); z-index: 1; }
-.sc-switch__b[aria-selected="true"]:nth-child(2) { background: var(--blue); border-color: var(--blue); }
+.sc-switch__b[aria-selected="true"]:nth-child(2) { background: var(--navy); border-color: var(--navy); }
 .sc-run { display: flex; align-items: center; gap: 16px; }
-.sc-run__btn { appearance: none; display: inline-flex; align-items: center; gap: 10px; border: 0; background: var(--green); color: #fff; font: inherit; font-size: 19px; font-weight: 700; padding: 13px 22px; box-shadow: 0 2px 0 var(--green-dark); cursor: pointer; }
-.sc-run__btn:hover { background: #005a30; }
-.sc-run__btn:active { transform: translateY(2px); box-shadow: none; }
+.sc-run__btn { appearance: none; display: inline-flex; align-items: center; gap: 10px; border: 0; border-radius: 8px; background: var(--blue); color: #fff; font: inherit; font-size: 19px; font-weight: 700; padding: 13px 22px; cursor: pointer; }
+.sc-run__btn:hover { background: var(--blue-dark); }
+.sc-run__btn:active { transform: translateY(1px); }
 .sc-skip { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-size: 16px; color: var(--ink-2); text-decoration: underline; text-underline-offset: .15em; cursor: pointer; }
 .sc-skip:hover { color: var(--ink); }
 
 /* stage: three columns, generous space, no boxes around boxes */
 .sc { max-width: var(--w); margin: 0 auto; padding: 28px var(--pad) 40px; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, .85fr) minmax(0, 1.15fr); gap: 40px; align-items: start; }
 .sc-col { min-width: 0; }
-.sc-h { margin: 0 0 14px; font-size: 19px; font-weight: 700; padding-bottom: 8px; border-bottom: 2px solid var(--ink); }
+.sc-h { margin: 0 0 14px; font-size: 17px; font-weight: 700; letter-spacing: .02em; text-transform: uppercase; color: var(--ink-2); padding-bottom: 8px; border-bottom: 2px solid var(--navy); }
 
 /* reveal primitive: one ease, already visible by default for reduced motion */
 .agent, .agent__facts > div, .agent__line, .bank, .pay__cop, .pay__done, .stamp, .close, .pp, .chk, .verdict, .conseq li, .flag, .bank__ask { opacity: 0; transform: translateY(6px); transition: opacity .5s cubic-bezier(.16, 1, .3, 1), transform .5s cubic-bezier(.16, 1, .3, 1); }
@@ -107,11 +106,11 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
 .agent__line--last { padding-top: 12px; border-top: 1px solid var(--line-soft); }
 
 /* the bank */
-.bank { position: relative; background: var(--panel); padding: 20px 22px 22px; }
+.bank { position: relative; background: var(--panel-2); border-radius: 12px; padding: 20px 22px 22px; }
 .pay { display: grid; gap: 12px; font-size: 15px; }
 .pay label { display: grid; gap: 4px; font-weight: 700; font-size: 14px; }
-.pay input { font: inherit; font-size: 17px; padding: 8px 10px; border: 2px solid var(--ink); background: #fff; min-width: 0; caret-color: var(--blue); }
-.pay input.is-type { outline: 3px solid var(--focus); outline-offset: 0; }
+.pay input { font: inherit; font-size: 17px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 6px; background: #fff; min-width: 0; caret-color: var(--blue); }
+.pay input.is-type { outline: 3px solid rgba(0,119,192,.35); outline-offset: 0; border-color: var(--accent); }
 .pay__row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .pay__done { margin: 14px 0 0; font-size: 16px; }
 .stamp { display: block; margin: 14px 0 0; padding: 0; border: 0; text-transform: none; font-size: 44px; line-height: 1; font-weight: 700; letter-spacing: -.02em; color: var(--red); transform: translateY(6px) scale(1.12); }
@@ -122,7 +121,7 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
 /* the bank's desk: incoming, the call, the answer */
 .bank__in, .bank__call, .bank__back { margin: 0 0 12px; opacity: 0; transform: translateY(6px); transition: opacity .5s cubic-bezier(.16, 1, .3, 1), transform .5s cubic-bezier(.16, 1, .3, 1); }
 .bank__in b, .bank__call b, .bank__back b { display: block; }
-.bank__call { padding: 10px 12px; background: #fff; border: 1px solid var(--line); }
+.bank__call { padding: 10px 12px; background: #fff; border: 1px solid var(--line); border-radius: 8px; }
 .bank__call .num { color: var(--blue-dark); }
 .pay { opacity: 0; transition: opacity .4s; } .pay.is-on { opacity: 1; }
 .chk--bank { margin-top: 14px; }
@@ -132,7 +131,7 @@ body[data-view="bank"] ::selection { background: var(--focus); color: var(--ink)
 /* after: the passport, the checks, the verdict */
 .bank__ask { margin: 0 0 12px; font-weight: 700; }
 .bank__src { font-weight: 400; color: var(--ink-2); font-size: 14px; }
-.pp { margin: 0 0 16px; background: #fff; border: 2px solid var(--blue); }
+.pp { margin: 0 0 16px; background: #fff; border: 2px solid var(--blue); border-radius: 8px; }
 .pp > div { display: grid; grid-template-columns: 6em minmax(0, 1fr); gap: 10px; padding: 8px 12px; font-size: 15px; border-bottom: 1px solid var(--line-soft); }
 .pp > div:last-child { border-bottom: 0; }
 .pp dt { color: var(--blue-dark); font-weight: 700; }

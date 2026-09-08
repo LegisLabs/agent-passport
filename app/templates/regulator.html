@@ -6,7 +6,7 @@
     <span class="caption">Case officer · {{ officer }}</span>
     <h1 class="h1">Application <span id="rg-ref" class="mono">—</span> <span id="rg-status"></span></h1>
 
-    <div class="empty" id="rg-empty"><p>No application in the queue. Submit one from <a href="/operator">Apply</a>.</p></div>
+    <div class="empty" id="rg-empty"><p>No application in the queue. Submit one from <a href="{{ root }}/operator">Apply</a>.</p></div>
 
     <div id="rg-case" hidden>
       <h2 class="h2">What was applied for</h2>
@@ -53,7 +53,7 @@
           <button class="btn btn--secondary" id="btn-reinstate" hidden>Reinstate</button>
           <button class="btn btn--warning" id="btn-revoke">Revoke</button>
           <button class="btn btn--secondary" id="btn-renew">Renew for next tax year</button>
-          <a class="btn btn--secondary" href="/relying">Open the filing gateway</a>
+          <a class="btn btn--secondary" href="{{ root }}/relying">Open the filing gateway</a>
         </div>
         <p class="error" id="life-error" hidden></p>
         <details class="jwt">

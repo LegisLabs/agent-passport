@@ -8,8 +8,9 @@ const AP = (() => {
   const t = (iso) => iso ? new Date(iso).toLocaleTimeString('en-GB', { hour12: false }) : '';
   const d = (iso) => iso ? new Date(iso).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '';
   const gbp = (n) => '£' + Number(n || 0).toLocaleString('en-GB');
+  const ROOT = document.body.dataset.root || '';
   async function api(method, url, body) {
-    const r = await fetch(url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
+    const r = await fetch(ROOT + url, { method, headers: { 'Content-Type': 'application/json' }, body: body ? JSON.stringify(body) : undefined });
     const j = await r.json().catch(() => ({}));
     if (!r.ok) throw new Error(j.detail || r.statusText);
     return j;
@@ -216,7 +217,7 @@ const AP = (() => {
     const rl = $('rules'); rules.forEach(r => rl.append(el('li', null, `<code>${esc(r.id)}</code> ${esc(r.title)} → <code>${esc(r.on_fail)}</code> <span class="small">— ${esc(r.data)}</span>`)));
     const lines = $('term-lines');
     const beats = $('beats');
-    if (!p) { $('rp-passport').innerHTML = '<div><dt>Passport</dt><dd>none issued yet — approve an application in <a href="/regulator">Review &amp; issue</a></dd></div>'; }
+    if (!p) { $('rp-passport').innerHTML = '<div><dt>Passport</dt><dd>none issued yet — approve an application in <a href="' + ROOT + '/regulator">Review &amp; issue</a></dd></div>'; }
     else {
       const full = await api('GET', `/api/passports/${p.jti}`); const m = full.minimal;
       $('rp-passport').innerHTML = [['Passport', `<span class="mono">${esc(m.passport_id)}</span>`], ['Issuer', esc(m.issuer)], ['Agent', `<span class="mono">${esc(m.agent_id)}</span>`], ['Scope', `${esc(m.scope.task)} · ${esc(m.scope.tax_year)} · ${esc(m.scope.action_type.replace('_', ' '))} · hold above ${gbp(m.scope.escalation_threshold.amount)}`], ['Valid', `${d(m.issued_at)} → ${d(m.valid_until)}`], ['Status (live)', `<span id="rp-status">${tag(m.status)}</span> <button class="link small" id="rp-recheck" type="button">re-check</button>`], ['Agent key', `<span class="mono small">kid ${esc(m.agent_key_kid)}</span>`], ['Authority signature', `<span class="mono small">EdDSA · kid ${esc(m.signature_kid)}</span>`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
@@ -272,7 +273,7 @@ const AP = (() => {
 
   document.addEventListener('DOMContentLoaded', () => {
     const rb = $('demo-reset');
-    if (rb) rb.onclick = async () => { if (confirm('Reset the whole demo? All applications, passports and audit entries are deleted.')) { await api('POST', '/api/reset'); location.href = '/operator'; } };
+    if (rb) rb.onclick = async () => { if (confirm('Reset the whole demo? All applications, passports and audit entries are deleted.')) { await api('POST', '/api/reset'); location.href = ROOT + '/operator'; } };
   });
 
   return { operator, regulator, relying, audit };

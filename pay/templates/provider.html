@@ -1,39 +1,38 @@
 {% extends "base.html" %}
-{% block title %}Provider Panel{% endblock %}
+{% block title %}Register an AI product{% endblock %}
+{% block role %}<div class="role"><div class="wrap role__row"><span class="role__who"><b>{{ provider }}</b> · AI product provider</span><span class="role__where">{{ register_name }} · filing surface</span></div></div>{% endblock %}
 {% block content %}
-<h1 class="h1">Provider Panel</h1>
-<p class="lede lede--tight">For AI companies. You register a model once: what it is, which version, and the documentation a named person stands behind. The authority reviews it and approves it once. From that moment, any business can put an agent on your model, and the responsibility for what that agent pays rests where it belongs: with the customer who signed its mandate.</p>
+<h1 class="h1">Register an AI product</h1>
+<p class="lede">A registration is a filing, not an approval. You record who you are, who is accountable, your insurance, and Independent Assurance Evidence that the product meets the minimum assurance requirements for its use case. Nobody reviews it; it must be present, complete and declared accurate. Banks then decide for themselves whether to admit the product to their lists.</p>
+<p class="callout">The register does not certify that AI agents are good. It guarantees that someone is accountable when they are bad.</p>
 
-<h2 class="h2">Your models</h2>
-<div class="dash-wrap"><table class="dash" id="pv-models"><thead><tr><th>Registration</th><th>Model</th><th>Submitted</th><th>Status</th></tr></thead><tbody></tbody></table></div>
-<div class="section-actions"><button class="btn btn--start" id="btn-new">Register a model <span class="btn__arrow" aria-hidden="true"></span></button></div>
+<h2 class="h2">Products on the register</h2>
+<div class="dash-wrap"><table class="dash" id="pv-products"><thead><tr><th>Registration</th><th>AI product</th><th>Provider</th><th>Filed</th><th>Register</th><th>{{ bank }}</th></tr></thead><tbody></tbody></table></div>
+<div class="section-actions"><button class="btn" id="btn-new">Register an AI product</button></div>
 
 <div id="pv-form" hidden>
-  <ol class="steps" id="steps">
-    <li class="step" data-step="1">
-      <div class="step__head">
-        <h2 class="h2">Model registration <span class="mono" id="pv-ref"></span> <span id="pv-status"></span></h2>
-        <div class="step__actions">
-          <button class="btn btn--secondary btn--small" id="btn-prefill" hidden>Prefill demo data</button>
-        </div>
-      </div>
-      <div id="facts"></div>
-      <div class="actions"><button class="btn btn--secondary" id="btn-save-fields" hidden>Save</button><span class="actions__note" id="save-note"></span></div>
-    </li>
+  <div class="step__head">
+    <h2 class="h2">Registration <span class="mono" id="pv-ref"></span> <span id="pv-status"></span></h2>
+    <div class="step__actions"><button class="btn btn--secondary btn--small" id="btn-prefill" hidden>Prefill demo values</button></div>
+  </div>
+  <div id="facts"></div>
+  <div class="actions"><button class="btn btn--secondary" id="btn-save-fields" hidden>Save</button><span class="actions__note" id="save-note"></span></div>
 
-    <li class="step" data-step="3" hidden>
-      <h2 class="h2">Submit</h2>
-      <p class="hint">Submitting attests that the documentation is accurate. Nothing more. A model becomes an agent only when a customer gives it a mandate, and the mandate is theirs.</p>
-      <div class="actions">
-        <button class="btn btn--start" id="btn-submit">Submit registration <span class="btn__arrow" aria-hidden="true"></span></button>
-      </div>
-      <div class="panel panel--confirm" id="confirm" hidden>
-        <h2 class="panel__title">Registration submitted</h2>
-        <p class="panel__ref">Your reference<br><strong id="confirm-ref"></strong></p>
-        <p>Automated checks M.1–M.6 have run. A case officer will review the model and decide.</p>
-      </div>
-    </li>
-  </ol>
+  <div id="pv-submit" hidden>
+    <h2 class="h2">File the registration</h2>
+    <p class="hint">Filing is the accountable principal's declaration that this registration is accurate. The register runs completeness checks F.1 to F.6, records the result next to the entry and signs a receipt. No quality judgement is made here; that is each bank's decision.</p>
+    <div class="actions"><button class="btn" id="btn-submit">File the registration</button></div>
+  </div>
+  <div class="panel panel--confirm" id="confirm" hidden>
+    <h2 class="panel__title">On the register</h2>
+    <p class="panel__ref">Reference <strong id="confirm-ref"></strong></p>
+    <p>Completeness checks F.1 to F.6 have run and are recorded next to the entry. A receipt signed by the register's key is below. Any bank can now read the entry and decide whether to admit the product to its list.</p>
+  </div>
+  <div id="pv-checks-wrap" hidden>
+    <h2 class="h2">Completeness checks <span class="h2__meta">recorded on the register · rule pack <span class="mono">{{ rule_pack }}</span></span></h2>
+    <table class="checks" id="pv-checks"><thead><tr><th>Rule</th><th>Check</th><th>Source</th><th>Result</th></tr></thead><tbody></tbody></table>
+    <details class="jwt"><summary>Registration receipt (JWT signed by the register)</summary><pre class="code" id="pv-receipt-payload"></pre><pre class="code code--wrap" id="pv-receipt"></pre></details>
+  </div>
 </div>
 {% endblock %}
 {% block scripts %}<script>AP.provider();</script>{% endblock %}

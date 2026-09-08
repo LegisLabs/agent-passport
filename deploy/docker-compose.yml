@@ -1,7 +1,8 @@
-# Agent Passport: two verticals, two containers, one repo.
-#   cdir      HMRC Self Assessment (cdir.legislabs.uk)      untouched since v1
-#   cdir-pay  B2B payments + vouch rail (pay.cdir.legislabs.uk)
-# Ports 80/443 on the box belong to the Compass Caddy (/opt/compass/deploy); both apps join that
+# Agent Passport: three containers, one repo.
+#   cdir-bank  Agent Passport, bank-first (cdir.legislabs.uk)            branch bank-first-pivot, pay/
+#   cdir-pay   the pre-pivot payments demo (pay.cdir.legislabs.uk)       kept running for comparison; not rebuilt by `publish.sh bank`
+#   cdir       the tax demonstrator (cdir.legislabs.uk/tax/, basic-auth)  app/, frozen since v1, served under a path prefix
+# Ports 80/443 on the box belong to the Compass Caddy (/opt/compass/deploy); all apps join that
 # compose network so Caddy can reverse_proxy to them by container name. Site configs are the
 # drop-ins /opt/caddy-sites/cdir-legislabs.caddy and /opt/caddy-sites/pay-cdir-legislabs.caddy.
 services:
@@ -14,6 +15,7 @@ services:
       GEMINI_API_KEY: ${GEMINI_API_KEY}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       EXTRACTION_MODE: ${EXTRACTION_MODE:-gemini}
+      ROOT_PATH: /tax
     volumes:
       - cdir_data:/data
     restart: unless-stopped
@@ -39,9 +41,31 @@ services:
       - cdir_pay_data:/data
     restart: unless-stopped
 
+  cdir-bank:
+    build:
+      context: ..
+      dockerfile: deploy/pay.Dockerfile
+    container_name: cdir-bank
+    environment:
+      GEMINI_API_KEY: ${GEMINI_API_KEY}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
+      EXTRACTION_MODE: ${EXTRACTION_MODE:-gemini}
+      HACKATHON_ORG_API_KEY: ${HACKATHON_ORG_API_KEY:-}
+      API_BASE_URL: ${API_BASE_URL:-https://cdir.vouch.finance/api/v1}
+      VOUCH_MODE: ${VOUCH_MODE:-fixture}
+      PAYMENT_RAIL: ${PAYMENT_RAIL:-local}
+      VOUCH_PROGRAM_ID: ${VOUCH_PROGRAM_ID:-}
+      VOUCH_PRIVY_USER_ID: ${VOUCH_PRIVY_USER_ID:-}
+      VOUCH_MERCHANTS: ${VOUCH_MERCHANTS:-{}}
+      VOUCH_CATEGORY: ${VOUCH_CATEGORY:-SUPPLIES}
+    volumes:
+      - cdir_bank_data:/data
+    restart: unless-stopped
+
 volumes:
   cdir_data:
   cdir_pay_data:
+  cdir_bank_data:
 
 networks:
   default:

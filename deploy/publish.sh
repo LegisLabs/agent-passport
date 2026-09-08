@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # Publish Agent Passport to the shared Hetzner box.
-#   bash deploy/publish.sh            # both verticals
-#   bash deploy/publish.sh hmrc       # cdir.legislabs.uk only
-#   bash deploy/publish.sh pay        # pay.cdir.legislabs.uk only
+#   bash deploy/publish.sh            # everything: cdir-bank + tax (cdir.legislabs.uk) and cdir-pay (pay.cdir.legislabs.uk)
+#   bash deploy/publish.sh bank       # cdir.legislabs.uk: the bank-first app and the tax demonstrator under /tax/; cdir-pay untouched
+#   bash deploy/publish.sh pay        # pay.cdir.legislabs.uk only (the pre-pivot payments demo)
 # Conventions (compass/DEPLOY.md §0): app in /opt/cdir, never touch /opt/compass,
 # Caddy drop-ins in /opt/caddy-sites, zero-downtime caddy reload, never `down -v`.
 # First publish needs DEMO_PASSWORD=... to create the basic-auth gate; later runs reuse the hash.
@@ -29,7 +29,7 @@ grep -q '^EXTRACTION_MODE=' "$TMP_ENV" || echo 'EXTRACTION_MODE=gemini' >> "$TMP
 scp -q "$TMP_ENV" "$HOST:$APP_DIR/deploy/.env" && rm -f "$TMP_ENV"
 
 SERVICES=""
-[ "$WHICH" = all ] || [ "$WHICH" = hmrc ] && SERVICES="$SERVICES cdir"
+[ "$WHICH" = all ] || [ "$WHICH" = bank ] || [ "$WHICH" = hmrc ] && SERVICES="$SERVICES cdir cdir-bank"
 [ "$WHICH" = all ] || [ "$WHICH" = pay ] && SERVICES="$SERVICES cdir-pay"
 echo "==> build + start:$SERVICES"
 ssh "$HOST" "cd $APP_DIR/deploy && docker compose build $SERVICES && docker compose up -d $SERVICES"
@@ -44,7 +44,7 @@ else
   echo "ERROR: first publish with the gate needs DEMO_PASSWORD=... to create it"; exit 1
 fi
 for SITE in cdir-legislabs pay-cdir-legislabs; do  # pay drop-in has no placeholder: copied as is
-  case "$WHICH:$SITE" in hmrc:pay-*|pay:cdir-*) continue;; esac
+  case "$WHICH:$SITE" in bank:pay-*|hmrc:pay-*|pay:cdir-*) continue;; esac
   ssh "$HOST" "rm -rf /opt/caddy-sites/$SITE; sed 's|__PASSWORD_HASH__|$HASH|' $APP_DIR/deploy/$SITE.caddy > /opt/caddy-sites/$SITE.caddy"
 done
 ssh "$HOST" "cd /opt/compass/deploy && docker compose exec -T caddy caddy reload --config /etc/caddy/Caddyfile"
@@ -52,8 +52,9 @@ ssh "$HOST" "cd /opt/compass/deploy && docker compose exec -T caddy caddy reload
 echo "==> health"
 sleep 3
 for S in $SERVICES; do
-  PORT=8013; [ "$S" = cdir-pay ] && PORT=8014
+  PORT=8013; [ "$S" = cdir ] || PORT=8014
   ssh "$HOST" "docker exec $S curl -sf http://localhost:$PORT/api/health && echo"
 done
-[ "$WHICH" = pay ] || curl -sS -o /dev/null -w "https://cdir.legislabs.uk      HTTP %{http_code} (expect 401 without login)\n" --max-time 30 https://cdir.legislabs.uk/api/health || true
-[ "$WHICH" = hmrc ] || curl -sS -o /dev/null -w "https://pay.cdir.legislabs.uk  HTTP %{http_code} (public; expect 200)\n" --max-time 30 https://pay.cdir.legislabs.uk/api/health || true
+[ "$WHICH" = pay ] || curl -sS -o /dev/null -w "https://cdir.legislabs.uk          HTTP %{http_code} (public; expect 200)\n" --max-time 30 https://cdir.legislabs.uk/api/health || true
+[ "$WHICH" = pay ] || curl -sS -o /dev/null -w "https://cdir.legislabs.uk/tax/     HTTP %{http_code} (expect 401 without login)\n" --max-time 30 https://cdir.legislabs.uk/tax/api/health || true
+[ "$WHICH" = bank ] || [ "$WHICH" = hmrc ] || curl -sS -o /dev/null -w "https://pay.cdir.legislabs.uk      HTTP %{http_code} (public; expect 200)\n" --max-time 30 https://pay.cdir.legislabs.uk/api/health || true

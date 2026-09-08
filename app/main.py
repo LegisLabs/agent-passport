@@ -4,6 +4,8 @@ Flow: Apply (/operator) → Review & issue (/regulator) → Act & check (/relyin
 """
 from __future__ import annotations
 
+import os
+
 import json
 from datetime import date
 from pathlib import Path
@@ -28,16 +30,19 @@ def _startup() -> None:
     crypto.authority_keys()
 
 
+ROOT_PATH = os.environ.get("ROOT_PATH", "").rstrip("/")   # served under a path prefix (cdir.legislabs.uk/tax)
+
+
 def ctx(request: Request, **kw) -> dict:
     a = crypto.authority_keys()
     return {"request": request, "rule_pack": rules.pack()["id"], "issuer": config.ISSUER_NAME, "officer": config.OFFICER,
-            "kid": a["kid"], "version": config.APP_VERSION, "extraction_mode": config.EXTRACTION_MODE, **kw}
+            "kid": a["kid"], "version": config.APP_VERSION, "extraction_mode": config.EXTRACTION_MODE, "root": ROOT_PATH, **kw}
 
 
 # ── Views ──────────────────────────────────────────────────────────────────
 @app.get("/", include_in_schema=False)
 def home():
-    return RedirectResponse("/operator")
+    return RedirectResponse(ROOT_PATH + "/operator")
 
 
 @app.get("/operator", response_class=HTMLResponse, include_in_schema=False)
