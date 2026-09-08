@@ -1,5 +1,5 @@
 {
-  "id": "payments-2026.09.4",
+  "id": "payments-2026.09.5",
   "title": "Agent Passport rule pack, B2B payment initiation (APS 1001 revision 3, bank-first)",
   "jurisdiction": "United Kingdom (proposed industry standard; no current legal requirement)",
   "register": "agent-passport-register-demo",
@@ -275,33 +275,27 @@
   "failure_classes": {
     "fraud": {
       "label": "Fraud indicator",
-      "note": "the instruction points at a destination, key or record the customer never authorised: redirection, a copied passport, a replay, a forged claim",
+      "note": "something the customer never authorised: a payee account not on the mandate, an invalid signature, a passport unknown, suspended or revoked, a replayed instruction, a key or record mismatch. For the bank's risk team",
       "codes": [
         "PAYEE_NOT_ON_MANDATE",
         "AGENT_SIGNATURE_INVALID",
         "REPLAY_DETECTED",
         "ADMISSION_SIGNATURE_INVALID",
         "AGENT_IDENTITY_SIGNATURE_INVALID",
-        "MANDATE_SIGNATURE_INVALID"
+        "MANDATE_SIGNATURE_INVALID",
+        "PASSPORT_NOT_ISSUED",
+        "PASSPORT_NOT_ACTIVE"
       ]
     },
     "agent_error": {
       "label": "Agent error",
-      "note": "the AI agent asked for something outside its own mandate: a wrong amount, currency, action or frequency. An operational quality event for the agent's owner, not a fraud event",
+      "note": "the AI agent's own mistake inside its remit: an amount over a ceiling, a wrong currency or action, velocity exceeded, an expired or unsigned mandate, a malformed instruction. A quality signal for its owner, not a report to anyone",
       "codes": [
         "OUT_OF_SCOPE",
         "CURRENCY_NOT_PERMITTED",
         "PER_PAYMENT_LIMIT_EXCEEDED",
         "MONTHLY_LIMIT_EXCEEDED",
-        "DAILY_COUNT_EXCEEDED"
-      ]
-    },
-    "status": {
-      "label": "Passport status",
-      "note": "the passport or mandate was not in force when the instruction arrived",
-      "codes": [
-        "PASSPORT_NOT_ISSUED",
-        "PASSPORT_NOT_ACTIVE",
+        "DAILY_COUNT_EXCEEDED",
         "MANDATE_NOT_SIGNED",
         "MANDATE_EXPIRED"
       ]

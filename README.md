@@ -62,7 +62,7 @@ An envelope of three Ed25519 JWTs, each signed by the only party entitled to the
 
 Public keys: `GET /api/signers` (register, bank, customer). Every instruction is signed by the AI agent's key over canonical JSON; R.4 verifies the bytes. Flipping one byte fails it.
 
-## Rules (rule pack `payments-2026.09.4`, data not code)
+## Rules (rule pack `payments-2026.09.5`, data not code)
 
 On the register at filing: F.1 provider at Companies House · F.2 accountable principal with signed declaration · F.3 insurance in force at or above the minimum · F.4 product documented with a pinned model version · F.5 Independent Assurance Evidence attached and covering the use case · F.6 not already on the register. Completeness only; a flag is recorded, not judged.
 
@@ -122,7 +122,7 @@ bash deploy/publish.sh pay      # pay.cdir.legislabs.uk: the pre-pivot payments 
 ```
 pay/          the app: main.py · rules.py · crypto.py · review.py · vouch.py · audit.py · extraction.py · db.py · fixtures.py · templates/ · static/
 app/          the tax demonstrator (frozen, tag hmrc-v1; now prefix-aware for /tax/)
-rulepacks/    payments-2026.09.json (rule pack payments-2026.09.4) · hmrc-sa-2026.09.json
+rulepacks/    payments-2026.09.json (rule pack payments-2026.09.5) · hmrc-sa-2026.09.json
 fixtures/pay/ registration_fixture.json · register.json · registry.json · customer/ · invoices/ · oracle.json · agent_config.json · vouch_kits/
 scripts/      demo_reset.sh · vouch_kit_replay.py
 tests/        test_pay.py · test_rules.py (offline) · ui/walk_bank_first.py (Playwright)

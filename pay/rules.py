@@ -146,11 +146,13 @@ def effective_limits(ceilings: dict, account_type: str | None) -> dict:
 
 
 def classify_refusal(code: str | None) -> dict:
-    """fraud | agent_error | status: the class a refusal belongs to, from the reason code alone."""
+    """fraud | agent_error: the class a refusal belongs to, from the reason code alone. Encoded once, in the rule pack,
+    next to the rules, so console labels and the About page definitions cannot drift apart."""
     for cid, c in pack()["failure_classes"].items():
         if code in c["codes"]:
             return {"id": cid, "label": c["label"], "note": c["note"]}
-    return {"id": "status", "label": "Passport status", "note": ""}
+    c = pack()["failure_classes"]["agent_error"]   # an unmapped code is a malformed instruction: the agent's own error
+    return {"id": "agent_error", "label": c["label"], "note": c["note"]}
 
 
 # ── Runtime verification at the bank ───────────────────────────────────────

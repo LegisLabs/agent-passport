@@ -26,6 +26,7 @@
       <p class="cu-add"><button class="link" type="button" id="cu-add-toggle">Add an AI agent</button></p>
       <div id="cu-add-form" hidden>
         <label class="label" for="cu-model">Product</label><select class="input" id="cu-model"></select>
+        <p class="small cu-model-level" id="cu-model-level"></p>
         <label class="label" for="cu-agent-name">Name</label><input class="input" id="cu-agent-name" placeholder="e.g. PayGPT 6.0 · Northgate deployment">
         <div class="actions"><button class="btn" id="btn-create-agent">Continue to the mandate</button><span class="actions__note" id="cu-create-note"></span></div>
         <p class="error" id="cu-create-error" hidden></p>
@@ -34,6 +35,7 @@
   </div>
   <div class="cu-split__trail glass" id="ac-trail">
     <h2 class="ws-h">Evidence trail <span class="ws-h__meta"><a href="/audit">full trail</a></span></h2>
+    <p class="small bd-legend" id="cu-legend"></p>
     <div class="cu-trail-wrap"><table class="checks audit" id="ac-audit"><thead><tr><th>Time</th><th>What happened</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
   </div>
 </div>

@@ -9,9 +9,14 @@
     <div class="bd-live"><span class="live-dot" aria-hidden="true"></span><span id="bd-live-label">Live</span><label class="bd-sim"><input type="checkbox" id="bd-sim" checked> simulated traffic</label></div>
   </div>
   <div class="todo" id="bk-todo" hidden></div>
-  <section id="bd-triage" hidden>
-    <ol class="triage" id="bd-triage-list"></ol>
+  <section class="bd-panel bd-attention" id="bd-attention" role="region" aria-label="Needs attention">
+    <h2 class="ws-h">Needs attention <span class="ws-h__meta" id="bd-attention-meta"></span></h2>
+    <p class="small bd-legend" id="bd-legend"></p>
+    <div class="dash-wrap"><table class="dash bd-att" id="bd-attention-list"><thead><tr><th>Time</th><th>AI agent</th><th>Payee</th><th class="num">Amount</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+    <p class="small bd-attention__empty" id="bd-attention-empty" hidden>Nothing needs attention. All AI agent payments inside mandate.</p>
+    <p class="small" id="bd-attention-more"></p>
   </section>
+  <ul class="stats bd-tiles" id="bk-stats" aria-label="Today at a glance"></ul>
   <div class="bd-cols">
     <div class="bd-col glass">
       <h2 class="ws-h">Active AI agents</h2>
@@ -19,7 +24,7 @@
     </div>
     <div class="bd-col bd-col--log glass">
       <h2 class="ws-h">Transaction log</h2>
-      <div class="dash-wrap"><table class="dash bd-log" id="bd-log"><thead><tr><th>Time</th><th>Result</th><th>Payee</th><th class="num">Amount</th><th>Rule</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
+      <div class="dash-wrap"><table class="dash bd-log" id="bd-log"><thead><tr><th>Time</th><th>Status</th><th>Payee</th><th class="num">Amount</th><th>Rule</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
     </div>
   </div>
 
@@ -39,7 +44,7 @@
       <p class="small">A regulator does not operate this dashboard and approves nothing in it. Through normal supervisory and incident processes it can request the evidence for a passport or a refusal; each export is itself recorded in the chain.</p>
       <ul class="evidence-list" id="bk-evidence"></ul>
     </section>
-    <div hidden><ul id="bk-stats"></ul><span id="bd-log-meta"></span><span id="bd-agents-meta"></span><span id="bd-triage-meta"></span><span id="bk-trail-meta"></span><span id="ex-meta"></span><table id="bk-audit"><tbody></tbody></table></div>
+    <div hidden><span id="bd-log-meta"></span><span id="bd-agents-meta"></span><span id="bk-trail-meta"></span><span id="ex-meta"></span><table id="bk-audit"><tbody></tbody></table></div>
   </details>
 </div>
 
