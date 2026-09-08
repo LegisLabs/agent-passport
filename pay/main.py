@@ -164,7 +164,8 @@ def public_passport(p: dict) -> dict:
             ag["execution"] = {k: v for k, v in ag["execution"].items() if k != "private_pem"}
         p["agent"] = ag
     p["envelope"] = envelope_of(p)
-    p["mandate_signed"] = bool(p.get("mandate_jwt"))
+    p["mandate_signed"] = bool(p.get("mandate_jwt")) and not p.get("mandate_revoked_at")
+    p["mandate_version"] = (p.get("mandate") or {}).get("version", 1) if p.get("mandate_jwt") else None
     p["payments"] = db.count_payments(p["passport_id"])
     p["ledger"] = db.ledger_totals(p["passport_id"])
     return p
@@ -176,7 +177,8 @@ def envelope_of(p: dict) -> dict:
         "passport_id": p["passport_id"],
         "admission": p["admission_jwt"] or None,
         "agent_identity": p["agent_identity_jwt"],
-        "mandate": p.get("mandate_jwt"),
+        "mandate": None if p.get("mandate_revoked_at") else p.get("mandate_jwt"),
+        "mandate_revoked": bool(p.get("mandate_revoked_at")),
         "status_url": f"/api/status/{p['passport_id']}",
         "vouch_voucher_id": p.get("vouch_voucher_id"),
         "cnf": None,  # key binding lives inside agent_identity.cnf, signed by the customer
@@ -573,6 +575,29 @@ def verify_payees(suppliers: list[dict]) -> list[dict]:
     return out
 
 
+def _mandate_payload(p: dict, m: dict, new_id: str, version: int = 1, supersedes: dict | None = None) -> tuple[dict, list[dict]]:
+    """The customer's mandate as signed: RFC 9396 authorization_details plus the account tier the limits derive from.
+    Every version, first or amended, is built here so nothing differs between them but the numbers and the version."""
+    pol = rules.pack()["policy"]
+    mp = p["mandate_proposed"]
+    ceilings = p["admission"].get("ceilings") or rules.admission_ceilings()
+    suppliers = verify_payees(m["supplier_allowlist"])
+    limits = rules.effective_limits(ceilings, (m.get("customer") or {}).get("account_type"))
+    payload = {
+        "iss": config.CUSTOMER_ID, "typ": "mandate", "passport_id": new_id, "iat": crypto.now_ts(), "valid_until": m["valid_until"],
+        "exp": int(datetime.fromisoformat(m["valid_until"] + "T23:59:59+00:00").timestamp()),
+        "customer": m["customer"], "authorising_officer": m["authorising_officer"], "signed_by": m["authorising_officer"],
+        "account": {"type": (m.get("customer") or {}).get("account_type"), "tier": limits["account_tier"]["label"], "customer_class": (m.get("customer") or {}).get("customer_class"), "agent_channel_limits": {k: limits[k] for k in ("per_payment", "monthly_per_account", "max_payments_per_day")}},
+        "provider": mp["provider"], "agent_id": mp["agent_id"], "agent_kid": mp["agent_kid"], "written_by": "customer",
+        "authorization_details": [{"type": "payment_initiation", "actions": list(m["actions"]), "currency": m.get("currency") or pol["currency"], "supplier_allowlist": suppliers,
+                                   "per_payment_limit": {"amount": float(m["per_payment_limit"]), "currency": pol["currency"]},
+                                   "monthly_limit_per_account": {"amount": float(m["monthly_limit_per_account"]), "currency": pol["currency"], "window": pol["monthly_window"]},
+                                   "max_payments_per_day": int(m.get("max_payments_per_day") or limits["max_payments_per_day"])}],
+        "within_ceilings": True, "version": version, "supersedes": supersedes,
+    }
+    return payload, suppliers
+
+
 @app.post("/api/passports/{passport_id}/mandate/sign")
 def sign_mandate(passport_id: str, body: MandateIn | None = None):
     """The customer writes and signs its own mandate with the customer key, inside its bank's app. Live at once.
@@ -589,23 +614,9 @@ def sign_mandate(passport_id: str, body: MandateIn | None = None):
     problems = rules.check_mandate_containment(m, p["admission"]["valid_until"], ceilings)
     if problems:
         raise HTTPException(422, {"message": "mandate outside the agent-channel limits for this account", "problems": problems})
-    pol = rules.pack()["policy"]
-    mp = p["mandate_proposed"]
     new_id = passport_id.replace("AG-", "AP-")
-    suppliers = verify_payees(m["supplier_allowlist"])
-    limits = rules.effective_limits(ceilings, (m.get("customer") or {}).get("account_type"))
-    payload = {
-        "iss": config.CUSTOMER_ID, "typ": "mandate", "passport_id": new_id, "iat": crypto.now_ts(), "valid_until": m["valid_until"],
-        "exp": int(datetime.fromisoformat(m["valid_until"] + "T23:59:59+00:00").timestamp()),
-        "customer": m["customer"], "authorising_officer": m["authorising_officer"], "signed_by": m["authorising_officer"],
-        "account": {"type": (m.get("customer") or {}).get("account_type"), "tier": limits["account_tier"]["label"], "customer_class": (m.get("customer") or {}).get("customer_class"), "agent_channel_limits": {k: limits[k] for k in ("per_payment", "monthly_per_account", "max_payments_per_day")}},
-        "provider": mp["provider"], "agent_id": mp["agent_id"], "agent_kid": mp["agent_kid"], "written_by": "customer",
-        "authorization_details": [{"type": "payment_initiation", "actions": list(m["actions"]), "currency": m.get("currency") or pol["currency"], "supplier_allowlist": suppliers,
-                                   "per_payment_limit": {"amount": float(m["per_payment_limit"]), "currency": pol["currency"]},
-                                   "monthly_limit_per_account": {"amount": float(m["monthly_limit_per_account"]), "currency": pol["currency"], "window": pol["monthly_window"]},
-                                   "max_payments_per_day": int(m.get("max_payments_per_day") or limits["max_payments_per_day"])}],
-        "within_ceilings": True,
-    }
+    payload, suppliers = _mandate_payload(p, m, new_id)
+    mp = p["mandate_proposed"]
     token = crypto.sign_jwt("northgate", payload, typ="mandate+jwt")
     p = db.set_mandate(passport_id, token, payload)
     p = db.set_mandate_proposed(passport_id, {**mp, **{k: payload[k] for k in ("customer", "authorising_officer", "valid_until", "authorization_details")}})
@@ -623,6 +634,79 @@ def sign_mandate(passport_id: str, body: MandateIn | None = None):
         audit.record("issue", new_id, {"event": "passport issued: admission signed by the bank's system from its admission decision; passport list ACTIVE; envelope complete; live at once",
                                        "agent_record": passport_id, "bank_kid": crypto.signer("bank")["kid"], "agent_kid": p["agent"]["kid"], "registration": p["admission"]["product_ref"]["registration"]})
         p = mirror_on_vouch(p)
+    return public_passport(p)
+
+
+def _mandate_changes(before: dict, after: dict) -> list[dict]:
+    """What an amendment changed, for the evidence chain."""
+    b, a = (before.get("authorization_details") or [{}])[0], (after.get("authorization_details") or [{}])[0]
+    out = []
+    for label, fb, fa in (("per_payment_limit", (b.get("per_payment_limit") or {}).get("amount"), (a.get("per_payment_limit") or {}).get("amount")),
+                          ("monthly_limit_per_account", (b.get("monthly_limit_per_account") or {}).get("amount"), (a.get("monthly_limit_per_account") or {}).get("amount")),
+                          ("max_payments_per_day", b.get("max_payments_per_day"), a.get("max_payments_per_day")),
+                          ("valid_until", before.get("valid_until"), after.get("valid_until"))):
+        if fb != fa:
+            out.append({"field": label, "from": fb, "to": fa})
+    sb = {(s.get("account_ref") or ""): s.get("name") for s in b.get("supplier_allowlist") or []}
+    sa = {(s.get("account_ref") or ""): s.get("name") for s in a.get("supplier_allowlist") or []}
+    for acct in sorted(set(sa) - set(sb)):
+        out.append({"field": "supplier_allowlist", "added": {"name": sa[acct], "account_ref": acct}})
+    for acct in sorted(set(sb) - set(sa)):
+        out.append({"field": "supplier_allowlist", "removed": {"name": sb[acct], "account_ref": acct}})
+    return out
+
+
+@app.post("/api/passports/{passport_id}/mandate/amend")
+def amend_mandate(passport_id: str, body: MandateIn | None = None):
+    """The customer amends its mandate: a new version signed with the customer key supersedes the previous one, which is
+    retained. Same gate as signing, the bank's ceilings and the account-type maximum; the verifier enforces the new
+    version on the next instruction. No bank-side workflow."""
+    p = db.get_passport(passport_id) or _404()
+    if not p.get("mandate_jwt"):
+        _400("no mandate to amend: sign one first")
+    if p.get("mandate_revoked_at"):
+        _400("mandate revoked; nothing to amend")
+    if p["status"] == "revoked":
+        _400("passport revoked; nothing to amend")
+    m = _merge_mandate(body)
+    ceilings = p["admission"].get("ceilings") or rules.admission_ceilings()
+    problems = rules.check_mandate_containment(m, p["admission"]["valid_until"], ceilings)
+    if problems:
+        raise HTTPException(422, {"message": "amendment outside the agent-channel limits for this account", "problems": problems})
+    prev = p["mandate"]
+    version = int(prev.get("version", 1)) + 1
+    payload, suppliers = _mandate_payload(p, m, passport_id, version, {"version": prev.get("version", 1), "iat": prev.get("iat")})
+    token = crypto.sign_jwt("northgate", payload, typ="mandate+jwt")
+    p = db.supersede_mandate(passport_id, token, payload)
+    p = db.set_mandate_proposed(passport_id, {**p["mandate_proposed"], **{k: payload[k] for k in ("customer", "authorising_officer", "valid_until", "authorization_details")}})
+    changes = _mandate_changes(prev, payload)
+    audit.record("mandate", passport_id, {"event": f"customer amended its mandate: version {version} signed and supersedes version {version - 1}; the previous version is retained; ceiling containment passed",
+                                          "version": version, "supersedes": version - 1, "changes": changes, "signer": payload["signed_by"], "customer_kid": crypto.signer("northgate")["kid"],
+                                          "suppliers": len(suppliers), "per_payment_limit": float(m["per_payment_limit"]), "monthly_limit_per_account": float(m["monthly_limit_per_account"]),
+                                          "max_payments_per_day": payload["authorization_details"][0]["max_payments_per_day"], "valid_until": payload["valid_until"]})
+    return public_passport(p)
+
+
+class RevokeMandateIn(BaseModel):
+    reason: str | None = None
+
+
+@app.post("/api/passports/{passport_id}/mandate/revoke")
+def revoke_mandate(passport_id: str, body: RevokeMandateIn | None = None):
+    """The customer ends its mandate. Its own chain entry; the verifier refuses at R.5 from the next instruction; the
+    voucher on the vouch rail is revoked with it."""
+    p = db.get_passport(passport_id) or _404()
+    if not p.get("mandate_jwt"):
+        _400("no mandate to revoke")
+    if p.get("mandate_revoked_at"):
+        _400("mandate already revoked")
+    signer = (p["mandate"] or {}).get("signed_by") or {}
+    p = db.revoke_mandate(passport_id)
+    audit.record("mandate", passport_id, {"event": "customer revoked its mandate: the AI agent can no longer pay on this passport", "revoked": True, "version": (p["mandate"] or {}).get("version", 1),
+                                          "signer": signer, "reason": (body.reason if body else None) or "revoked by the customer", "customer_kid": crypto.signer("northgate")["kid"]})
+    r = vouch.revoke_mandate(p.get("vouch_voucher_id"))
+    p = db.set_vouch(passport_id, p.get("vouch_voucher_id"), r["mode"], r["status"])
+    audit.record("vouch", passport_id, {"event": "mandate revoked on the vouch rail", "mode": r["mode"], "voucher_id": p.get("vouch_voucher_id"), "detail": r["detail"]})
     return public_passport(p)
 
 

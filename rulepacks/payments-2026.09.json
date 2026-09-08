@@ -214,7 +214,7 @@
     },
     {
       "id": "R.5",
-      "title": "Mandate signed by the customer and unexpired",
+      "title": "Mandate signed by the customer, unexpired, not revoked",
       "status": "PROTOTYPE",
       "source": "EdDSA / Ed25519 (RFC 8037); mandate validity",
       "data": "envelope.mandate",
@@ -223,7 +223,8 @@
       "codes": [
         "MANDATE_NOT_SIGNED",
         "MANDATE_SIGNATURE_INVALID",
-        "MANDATE_EXPIRED"
+        "MANDATE_EXPIRED",
+        "MANDATE_REVOKED"
       ]
     },
     {
@@ -297,7 +298,8 @@
         "MONTHLY_LIMIT_EXCEEDED",
         "DAILY_COUNT_EXCEEDED",
         "MANDATE_NOT_SIGNED",
-        "MANDATE_EXPIRED"
+        "MANDATE_EXPIRED",
+        "MANDATE_REVOKED"
       ]
     }
   },

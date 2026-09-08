@@ -234,7 +234,10 @@ def verify_action(envelope: dict, passport_status: str, req: dict, ledger_total:
         step("R.4", False, "nonce already accepted on this passport: a replayed instruction" if req.get("nonce") else "instruction carries no nonce")
         return _result("R.4", "DENY", "REPLAY_DETECTED", "instruction replayed: its nonce was already accepted, so the same signed instruction cannot be executed twice", trace)
 
-    # R.5 mandate present, signed by the customer, unexpired
+    # R.5 mandate present, signed by the customer, unexpired, not revoked
+    if envelope.get("mandate_revoked"):
+        step("R.5", False, "mandate revoked by the customer")
+        return _result("R.5", "DENY", "MANDATE_REVOKED", "mandate revoked: the customer ended this AI agent's authority", trace)
     if not envelope.get("mandate"):
         step("R.5", False, "mandate not signed by the customer")
         return _result("R.5", "DENY", "MANDATE_NOT_SIGNED", "mandate not signed: the customer has not yet authorised this AI agent", trace)

@@ -701,3 +701,53 @@ def test_held_payment_is_decided_by_a_named_person_and_recorded_in_the_chain(cli
     st = client.get("/api/state").json()
     assert [x["entry"]["outcome"] for x in st["decisions"]] == ["REFUSED", "RELEASED"]
     assert st["decisions"][0]["entry"]["reason"] == "held payment refused by approver"
+
+
+# ── Final updates: mandate amendment and revocation, company search by name ──
+def _current_mandate_body(p: dict) -> dict:
+    ad = p["mandate"]["authorization_details"][0]
+    return {"per_payment_limit": ad["per_payment_limit"]["amount"], "monthly_limit_per_account": ad["monthly_limit_per_account"]["amount"], "max_payments_per_day": ad["max_payments_per_day"],
+            "valid_until": p["mandate"]["valid_until"], "supplier_allowlist": [{k: s.get(k) for k in ("supplier_id", "name", "account_ref", "companies_house_number")} for s in ad["supplier_allowlist"]]}
+
+
+def test_mandate_amendment_is_a_new_version_enforced_at_once(client):
+    r = client.post("/api/demo/seed?stage=issued").json(); pid = r["passport_id"]
+    p = client.get(f"/api/passports/{pid}").json()
+    assert p["mandate_version"] == 1 and p["mandate_versions"] == []
+    ok = client.post("/api/agent/act", json={"passport_id": pid, "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 3200, "invoice_ref": "FT-1042"}).json()
+    assert ok["decision"] == "ALLOW"
+    body = _current_mandate_body(p); body["per_payment_limit"] = 3000
+    p2 = client.post(f"/api/passports/{pid}/mandate/amend", json=body).json()
+    assert p2["mandate_version"] == 2 and p2["mandate"]["supersedes"]["version"] == 1 and len(p2["mandate_versions"]) == 1 and p2["mandate_versions"][0]["version"] == 1
+    assert p2["mandate_signed"] and p2["envelope"]["mandate"] != p["envelope"]["mandate"], "a new customer signature"
+    row = client.get("/api/audit").json()["rows"][0]
+    assert row["kind"] == "mandate" and "amended" in row["entry"]["event"] and row["entry"]["version"] == 2
+    assert {"field": "per_payment_limit", "from": 10000.0, "to": 3000.0} in row["entry"]["changes"]
+    deny = client.post("/api/agent/act", json={"passport_id": pid, "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 3200, "invoice_ref": "FT-1043"}).json()
+    assert deny["decision"] == "DENY" and deny["rule"] == "R.7", "the newest version is enforced immediately"
+    assert client.get("/api/audit").json()["chain"]["ok"]
+    # over-ceiling amendment refused with the problems named
+    bad = dict(body); bad["per_payment_limit"] = 12000
+    r = client.post(f"/api/passports/{pid}/mandate/amend", json=bad)
+    assert r.status_code == 422 and any(x["field"] == "per_payment_limit" for x in r.json()["detail"]["problems"])
+    assert client.get(f"/api/passports/{pid}").json()["mandate_version"] == 2, "a refused amendment changes nothing"
+
+
+def test_mandate_revocation_has_its_own_chain_entry_and_refusal(client):
+    r = client.post("/api/demo/seed?stage=issued").json(); pid = r["passport_id"]
+    p = client.post(f"/api/passports/{pid}/mandate/revoke", json={"reason": "supplier relationship ended"}).json()
+    assert p["mandate_revoked_at"] and not p["mandate_signed"] and p["envelope"]["mandate"] is None and p["envelope"]["mandate_revoked"]
+    rows = client.get("/api/audit").json()["rows"]
+    assert rows[1]["kind"] == "mandate" and "revoked" in rows[1]["entry"]["event"] and rows[1]["entry"]["reason"] == "supplier relationship ended"
+    assert rows[0]["kind"] == "vouch" and "revoked" in rows[0]["entry"]["event"]
+    deny = client.post("/api/agent/act", json={"passport_id": pid, "supplier_name": "Fenwick Timber Ltd", "payee_account_ref": "60-11-22 10101010", "amount": 100, "invoice_ref": "FT-1050"}).json()
+    assert deny["decision"] == "DENY" and deny["rule"] == "R.5" and deny["code"] == "MANDATE_REVOKED" and deny["failure_class"]["id"] == "agent_error"
+    assert client.post(f"/api/passports/{pid}/mandate/revoke").status_code == 400
+    assert client.post(f"/api/passports/{pid}/mandate/amend", json=_current_mandate_body(p)).status_code == 400
+
+
+def test_company_search_by_name_returns_number_name_and_status(client):
+    r = client.get("/api/companies/search?q=fenwick").json()
+    assert r["mode"] in ("demo", "live") and r["items"] and r["items"][0]["number"] == "04471982" and r["items"][0]["legal_name"] and r["items"][0]["status"]
+    assert "synthetic" in r["items"][0]["source"] or "live" in r["items"][0]["source"], "the source is always labelled"
+    assert client.get("/api/companies/search?q=").json()["items"] == []

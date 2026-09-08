@@ -50,12 +50,6 @@ flowchart LR
   class Q1,Q2,Q3 q
 </pre></div>
   <p class="home__lede">Identity alone does not fix this. Knowing who an AI agent is tells you nothing about what it may do, and nothing about who answers when it goes wrong.</p>
-  <div class="honest">
-    <h3 class="h3">AI agents also fail honestly</h3>
-    <p>Fraud is only half the case. Independent benchmarks in 2026 put frontier-model error rates at roughly 3 to 19 percent depending on the task, with long multi-step agentic work at the high end, and errors compound across steps. An agent that misreads an amount, invents a reference or picks the wrong payee is not being attacked; it is simply wrong, and a payment that leaves on a wrong instruction is as gone as one that leaves on a forged one.</p>
-    <p><strong>The mandate check does not care whether the AI agent was deceived or mistaken. The payment simply does not leave.</strong></p>
-    <p class="chart__src">Ranges from independent benchmarks such as the <a href="https://github.com/vectara/hallucination-leaderboard">Vectara hallucination leaderboard</a> and multi-step agent evaluations; figures vary by model, task and date, so treat them as an order of magnitude, not a precise rate.</p>
-  </div>
 
   <h2 class="h2">Our proposal</h2>
   <div class="standard-split">
@@ -83,20 +77,18 @@ flowchart LR
   <article class="rec" aria-label="Evidence of the refused transaction">
     <header class="rec__head">
       <div><span class="rec__k">Evidence of transaction</span><b>Meridian Bank (demo) · Payments Risk</b></div>
-      <div class="rec__ref"><span class="rec__k">Record</span><b class="mono">EV-2026-0017</b><span class="rec__k">8 September 2026, 13:28:49</span></div>
+      <div class="rec__ref"><span class="rec__k">Record</span><b class="mono">EV-2026-0017</b><span class="rec__k">8 September 2026</span></div>
     </header>
     <div class="rec__grid">
       <div><span class="rec__k">From</span>Northgate Joinery Ltd<br><span class="small">business account <span class="mono">20-45-77 31908822</span></span></div>
       <div><span class="rec__k">By</span>PayGPT 6.0, AI agent<br><span class="small">passport <span class="mono">AP-2026-0107</span> · signature verified</span></div>
       <div><span class="rec__k">To</span>Fenwick Timber Ltd<br><span class="rec__flag">account <span class="mono">60-11-22 99887766</span> · not on the mandate</span></div>
-      <div><span class="rec__k">Amount</span><span class="mono">£2,500.00</span><br><span class="small">invoice <span class="mono">INV-9001</span></span></div>
+      <div><span class="rec__k">Amount</span><span class="mono">£2,500.00</span></div>
     </div>
-    <div class="rec__result"><b>Refused. Money did not move.</b><span>Check R.6, payee account not on the mandate. The mandate signed by Helen Marsh, Finance Director, allows Fenwick Timber Ltd at 60-11-22 10101010 only. Checks R.1 to R.5 passed; R.7 to R.9 were not run.</span></div>
+    <div class="rec__result"><b>Refused. Money did not move.</b><span>Check R.6, payee account not on the mandate. The mandate allows Fenwick Timber Ltd at 60-11-22 10101010 only.</span></div>
     <dl class="rec__proof">
-      <div><dt>Receipt</dt><dd>signed by the bank, Ed25519 · key <span class="mono">c9Qw3eVh2mKpT7Lx</span></dd></div>
-      <div><dt>Chain entry</dt><dd>#17 · <span class="mono">9c1e4b7d2a60f3e1</span> · previous <span class="mono">e2f0a97c11d4b8a6</span></dd></div>
-      <div><dt>Replay</dt><dd>same inputs, same decision</dd></div>
-      <div><dt>Register</dt><dd>REG-2026-0014, OpenPay Ltd · receipt verified</dd></div>
+      <div><dt>Receipt</dt><dd>signed by the bank, Ed25519</dd></div>
+      <div><dt>Chain entry</dt><dd>#17 · <span class="mono">9c1e4b7d2a60f3e1</span></dd></div>
     </dl>
     <footer class="rec__foot"><span class="rec__seal">Verified</span><span>Synthetic record. <a href="/api/evidence/passports/AP-2026-0107">The live bundle</a> carries every signature and hash.</span></footer>
   </article>

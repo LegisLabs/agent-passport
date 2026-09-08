@@ -55,6 +55,12 @@
     <div class="mandate__body">
       <dl class="kv" id="cu-kv"></dl>
       <form class="mandate__form" id="cu-form" hidden>
+        <div class="step__head"><h3 class="h3" id="cu-form-h">Write the mandate</h3><div class="step__actions"><button class="btn btn--secondary btn--small" id="btn-cu-prefill" type="button">Prefill demo data</button></div></div>
+        <div class="context" id="cu-context" hidden>
+          <h3 class="h3">The demo, in a few sentences</h3>
+          <p><strong>Northgate Joinery Ltd</strong> is a synthetic joinery business with a business current account at Meridian Bank. Its finance director, <strong>Helen Marsh</strong>, is about to write the mandate for its AI agent: how much it may pay, how often, until when, and to which supplier accounts. Prefill enters Northgate's three suppliers, Fenwick Timber, Ashby Ironmongery and Coastline Glass, with £10,000 a payment and £20,000 per supplier account in 30 days. She then signs with the Northgate key.</p>
+          <div class="actions"><button class="btn" id="btn-cu-prefill-go" type="button">Fill the form and continue</button><button class="btn btn--secondary" id="btn-cu-prefill-cancel" type="button">Cancel</button></div>
+        </div>
         <div class="fields fields--row">
           <div><label class="label" for="cu-per">Per payment, up to (£)</label><input class="input" id="cu-per" type="number" min="1" step="100"></div>
           <div><label class="label" for="cu-monthly">Per supplier account in 30 days, up to (£)</label><input class="input" id="cu-monthly" type="number" min="1" step="100"></div>
@@ -63,8 +69,8 @@
           <div><label class="label" for="cu-currency">Currency</label><select class="input" id="cu-currency" disabled><option>GBP</option></select><span class="small">payments in any other currency are refused</span></div>
         </div>
         <h3 class="h3">Suppliers the AI agent may pay</h3>
-        <p class="hint">By account, not by name. A supplier's name on an invoice is easy to copy; the account you enter here is the only one your bank will pay. Give the supplier's Companies House number and the app checks the public register: legal name, status, registered office. That says what the company filed, not that it is legitimate, and the register holds no bank accounts.</p>
-        <table class="suppliers" id="cu-suppliers"><thead><tr><th>Supplier and company number</th><th>Sort code and account</th><th></th></tr></thead><tbody></tbody></table>
+        <p class="hint">By account, not by name. A supplier's name on an invoice is easy to copy; the account you enter here is the only one your bank will pay. Type the supplier's name and pick it from the public register, or enter its Companies House number: the legal name, number and status fill themselves. That says what the company filed, not that it is legitimate, and the register holds no bank accounts, so the sort code and account number are yours to enter.</p>
+        <table class="suppliers" id="cu-suppliers"><thead><tr><th>Supplier, from the public register</th><th>Sort code and account</th><th></th></tr></thead><tbody></tbody></table>
         <div class="actions"><button class="btn btn--secondary btn--small" type="button" id="cu-add">Add a supplier</button></div>
       </form>
       <table class="suppliers" id="cu-suppliers-signed" hidden><thead><tr><th>Supplier</th><th>Account</th></tr></thead><tbody></tbody></table>
@@ -74,9 +80,16 @@
   </div>
   <div class="actions" id="cu-actions">
     <button class="btn" id="btn-sign-mandate">Sign mandate</button>
+    <button class="btn btn--secondary" id="btn-cancel-amend" type="button" hidden>Cancel</button>
     <span class="actions__note" id="cu-signer"></span>
   </div>
+  <div class="actions" id="cu-manage" hidden>
+    <button class="btn btn--secondary" id="btn-amend-mandate" type="button">Amend mandate</button>
+    <button class="btn btn--warning" id="btn-revoke-mandate" type="button">Revoke mandate</button>
+    <span class="actions__note">An amendment is a new version you sign; the previous version stays on record. Revoking ends the AI agent's authority at once.</span>
+  </div>
   <p class="error" id="cu-error" hidden></p>
+  <div id="cu-versions" hidden></div>
   <div class="notice" id="cu-after" hidden><p>Your AI agent is live. Watch it pay, and watch an altered invoice get refused, in the <a href="/terminal">Action Terminal</a>.</p></div>
   <details class="jwt" id="cu-jwt-wrap" hidden>
     <summary>Signed mandate (JWT, EdDSA / Ed25519, {{ customer }} key; OAuth 2.0 RFC 9396 authorization_details)</summary>

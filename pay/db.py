@@ -103,7 +103,9 @@ CREATE TABLE IF NOT EXISTS nonces (
 CREATE TABLE IF NOT EXISTS kv (k TEXT PRIMARY KEY, v TEXT);
 """
 _MIGRATIONS = [
-    "ALTER TABLE violations ADD COLUMN failure_class TEXT",   # fraud | agent_error | status
+    "ALTER TABLE violations ADD COLUMN failure_class TEXT",   # fraud | agent_error
+    "ALTER TABLE passports ADD COLUMN mandate_versions_json TEXT",   # superseded and revoked mandate versions, retained
+    "ALTER TABLE passports ADD COLUMN mandate_revoked_at TEXT",
 ]
 
 
@@ -156,6 +158,7 @@ def row_to_passport(r: sqlite3.Row) -> dict:
     d["agent_identity"] = j(d.pop("agent_identity_json"))
     d["mandate_proposed"] = j(d.pop("mandate_proposed_json"))
     d["mandate"] = j(d.pop("mandate_json"))
+    d["mandate_versions"] = j(d.pop("mandate_versions_json", None)) or []
     d["history"] = j(d.pop("history_json")) or []
     d["agent"] = j(d.pop("agent_json"))
     return d
@@ -288,6 +291,26 @@ def set_mandate(passport_id: str, mandate_jwt: str, mandate: dict) -> dict:
     with tx() as con:
         con.execute("UPDATE passports SET mandate_jwt=?, mandate_json=?, mandate_signed_at=? WHERE passport_id=?",
                     (mandate_jwt, json.dumps(mandate), now_iso(), passport_id))
+        return get_passport(passport_id, con)
+
+
+def supersede_mandate(passport_id: str, mandate_jwt: str, mandate: dict) -> dict:
+    """A new customer-signed version replaces the current one; the previous version is retained, never deleted."""
+    with tx() as con:
+        p = get_passport(passport_id, con)
+        prev = {"version": (p.get("mandate") or {}).get("version", 1), "jwt": p.get("mandate_jwt"), "mandate": p.get("mandate"), "signed_at": p.get("mandate_signed_at"), "superseded_at": now_iso()}
+        con.execute("UPDATE passports SET mandate_jwt=?, mandate_json=?, mandate_signed_at=?, mandate_versions_json=? WHERE passport_id=?",
+                    (mandate_jwt, json.dumps(mandate), now_iso(), json.dumps((p.get("mandate_versions") or []) + [prev]), passport_id))
+        return get_passport(passport_id, con)
+
+
+def revoke_mandate(passport_id: str) -> dict:
+    """The customer ends its mandate. The signed version stays on record; the verifier no longer sees it."""
+    with tx() as con:
+        p = get_passport(passport_id, con)
+        prev = {"version": (p.get("mandate") or {}).get("version", 1), "jwt": p.get("mandate_jwt"), "mandate": p.get("mandate"), "signed_at": p.get("mandate_signed_at"), "revoked_at": now_iso()}
+        con.execute("UPDATE passports SET mandate_revoked_at=?, mandate_versions_json=? WHERE passport_id=?",
+                    (now_iso(), json.dumps((p.get("mandate_versions") or []) + [prev]), passport_id))
         return get_passport(passport_id, con)
 
 

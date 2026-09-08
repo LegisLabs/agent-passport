@@ -100,6 +100,8 @@ POST /api/registrations/{id}/admission            {decision: admit|request_info|
 POST /api/registrations/{id}/admission/status     {status: suspended|active|revoked, reason}: cascades to every passport on the product
 POST /api/agents                                  {registration_id, agent_name}: the customer registers its AI agent on an admitted product
 POST /api/passports/{id}/mandate/check · /mandate/sign                             ceiling containment; signing issues the passport and mints the voucher
+POST /api/passports/{id}/mandate/amend · /mandate/revoke                           a new customer-signed version supersedes the last (retained); revocation ends the mandate, own chain entry
+POST /api/audit/{id}/decide                                                        a named person releases or refuses a held payment; receipted chain entry
 POST /api/passports/{id}/status · /investigation                                   suspend, investigate, revoke, reinstate
 GET  /api/passports/{id} · /api/status/{id} · /api/signers
 POST /api/agent/act · /api/agent/invoice · /api/agent/replay                        the simulated AI agent signs and presents an instruction, or replays the last one

@@ -183,3 +183,4 @@ body[data-view="terminal"] ::selection { background: var(--focus); color: var(--
   .sheet__notice.is-spot { transform: none; }
   .inv__scan.is-scan, .pay__btn.is-go { animation: none; }
 }
+body[data-view="terminal"] .agent { border: 0; }

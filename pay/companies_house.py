@@ -107,11 +107,14 @@ def search(q: str) -> list[dict]:
     q = (q or "").strip()
     if not q:
         return []
+    global _backoff_until
     if mode() == "live" and time.time() >= _backoff_until:
         try:
             status, body = _get(f"/search/companies?q={urllib.parse.quote(q)}&items_per_page=6")
             if status == 200 and isinstance(body, dict):
                 return [{"number": it.get("company_number"), "legal_name": it.get("title"), "status": it.get("company_status"), "address": (it.get("address_snippet") or ""), "source": "Companies House (live)"} for it in body.get("items", [])]
+            if status == 429:
+                _backoff_until = time.time() + 120   # the API's rate limit: fall back to the labelled synthetic register for two minutes
         except Exception:  # noqa: BLE001
             pass
     ql = q.lower()

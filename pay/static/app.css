@@ -1677,3 +1677,15 @@ body[data-view="bank"]::before, body[data-view="customer"]::before { display: no
 .bd-more > summary { margin-bottom: 1rem; }
 #bk-supervisory .evidence-list { margin-bottom: 0; }
 @media (max-width: 640px) { .glass > :not(.ws-h), .bd-attention > :not(.ws-h), .bd-summary > :not(.ws-h), .bd-more .ws-sec > :not(.ws-h), .cu-trail-wrap, .bd-col--log .dash-wrap { margin-left: 15px; margin-right: 15px; } .glass > .ws-h, .bd-attention > .ws-h, .bd-summary > .ws-h, .bd-more .ws-sec > .ws-h { padding: 10px 15px; } }
+/* final updates: statistics, register matches, mandate management */
+.bd-stats .chartbox { height: 220px; margin: 0 0 16px; }
+.bd-stats .chartbox__canvas { position: relative; height: 180px; }
+.bd-stats__note { color: var(--ink-2); margin: .6rem 0 0; }
+.bd-stats__agents td.num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
+.cu-matches { list-style: none; margin: .3rem 0 0; padding: 0; border: 1px solid var(--line); background: var(--panel); }
+.cu-matches li { padding: .35rem .6rem; border-bottom: 1px solid var(--line-soft); font-size: .95rem; }
+.cu-matches li:last-child { border-bottom: 0; }
+.mandate__form .step__head { margin: .2rem 0 .4rem; }
+.mandate__form .context { margin: .5rem 0 1rem; }
+#cu-manage { margin-top: .5rem; }
+#cu-versions .jwt { margin-top: .6rem; }

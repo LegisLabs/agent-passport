@@ -31,6 +31,14 @@
     </div>
   </div>
 
+  <section class="bd-panel bd-stats" id="bd-stats" aria-labelledby="bd-stats-h">
+    <h2 class="ws-h" id="bd-stats-h">Statistics <span class="ws-h__meta">this demo session</span></h2>
+    <ul class="stats bd-tiles" id="bd-stats-totals"></ul>
+    <div class="chartbox chartbox--stats"><h3 class="chart__title">Payment volume over the session, £ per minute</h3><div class="chartbox__canvas"><canvas id="chart-volume" aria-label="Payment volume over the session"></canvas></div></div>
+    <div class="dash-wrap"><table class="dash bd-stats__agents" id="bd-stats-agents"><thead><tr><th>AI agent</th><th class="num">Payments</th><th class="num">Value</th><th class="num">Held</th><th class="num">Refused, fraud</th><th class="num">Refused, error</th></tr></thead><tbody></tbody></table></div>
+    <p class="small bd-stats__note">These figures are the bank's own operational view. A supervisor sees evidence per incident on request, not this dashboard.</p>
+  </section>
+
   <details class="bd-more">
     <summary>Admissions, the register and supervisory access</summary>
     <div id="bk-dash-anomaly"></div>
@@ -75,10 +83,15 @@
   </details>
 
   <div class="card" id="bk-decide">
-    <h2 class="h2 h2--card">Your decision</h2>
+    <div class="step__head"><h2 class="h2 h2--card">Your decision</h2><div class="step__actions"><button class="btn btn--secondary btn--small" id="btn-bk-prefill" type="button">Prefill demo data</button></div></div>
+    <div class="context" id="bk-context" hidden>
+      <h3 class="h3">The demo, in a few sentences</h3>
+      <p><strong>Meridian Bank</strong> is a synthetic bank. Its Payments Risk officer, <strong>A. Ferreira</strong>, has read what OpenPay Ltd filed about PayGPT 6.0 and the six-step review above. The decision is the bank's own: whether its customers may delegate invoice payments to this product, within ceilings the bank sets. Prefill enters the demo hold condition of £5,000 and a file note; the officer then admits, asks for information or declines.</p>
+      <div class="actions"><button class="btn" id="btn-bk-prefill-go" type="button">Fill the inputs and continue</button><button class="btn btn--secondary" id="btn-bk-prefill-cancel" type="button">Cancel</button></div>
+    </div>
     <p class="small">Ceilings this admission sets for every customer mandate on the product: <span id="bk-ceilings" class="mono"></span></p>
     <label class="label" for="bk-condition">Hold condition: hold instructions above (£) for the customer's named approver</label>
-    <div class="condition"><input class="input" id="bk-condition" type="number" min="0" step="100" value="5000"> <span class="small">The verifier returns ESCALATE above this amount, even inside the customer's limits.</span></div>
+    <div class="condition"><input class="input" id="bk-condition" type="number" min="0" step="100" placeholder="e.g. 5000"> <span class="small">The verifier returns ESCALATE above this amount, even inside the customer's limits.</span></div>
     <label class="label" for="bk-officer-note">Officer note</label>
     <textarea class="textarea" id="bk-officer-note" rows="3" placeholder="e.g. Six filing checks pass. Independent Assurance Evidence covers invoice payment. Admitted with the £5,000 hold condition."></textarea>
     <div class="actions">
@@ -150,4 +163,4 @@
   <ol class="log" id="bk-history"></ol>
 </div>
 {% endblock %}
-{% block scripts %}<script>AP.bank();</script>{% endblock %}
+{% block scripts %}<script src="/static/vendor/chart.umd.js"></script><script>AP.bank();</script>{% endblock %}
