@@ -26,3 +26,6 @@ body[data-view="provider"] :focus-visible, body[data-view="about"] :focus-visibl
 @media (max-width: 640px) { body[data-view="provider"] .wrap, body[data-view="about"] .wrap, body[data-view="provider"] .masthead__row, body[data-view="about"] .masthead__row { margin: 0 15px; } }
 .fx .prose { max-width: none; }
 .fx-prose p, .fx-prose li, .fx-prose .lede, .fx-prose .callout { max-width: 78ch; }
+
+.fx .ws-h .btn--small { font-size: .8125rem; padding: 6px 12px; }
+.fx .ws-h .ws-h__meta { margin-left: auto; }

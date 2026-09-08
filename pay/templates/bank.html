@@ -9,6 +9,7 @@
   <header class="fx-top bd-head">
     <h1 class="fx-hello h1--ws"><span id="fx-greet">Good morning</span>, {{ officer }}.<small>{{ bank }} · {{ bank_team }} · the agent channel</small></h1>
     <div class="fx-tools">
+      <a class="fx-icon" href="/provider" title="Register an AI product" aria-label="Register an AI product"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>
       <a class="fx-icon" href="/customer" title="Customer dashboard" aria-label="Customer dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></a>
     </div>
     <div class="bd-live" hidden>
@@ -79,7 +80,7 @@
           <div class="dash-wrap"><table class="dash" id="bk-products"><thead><tr><th>Product</th><th>Provider</th><th class="num">Hold above</th><th class="num">Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
         </section>
         <section class="ws-sec">
-          <h2 class="ws-h">The register</h2>
+          <h2 class="ws-h">The register <span class="ws-h__meta"><a class="btn btn--small" href="/provider">Register an AI product</a></span></h2>
           <div class="dash-wrap"><table class="dash" id="bk-register"><thead><tr><th>Product</th><th>Provider</th><th>Assurance level</th><th>Filed</th><th>Your decision</th></tr></thead><tbody></tbody></table></div>
         </section>
         <div hidden><span id="bd-log-meta"></span><span id="bd-agents-meta"></span><span id="bk-trail-meta"></span><span id="ex-meta"></span><table id="bk-audit"><tbody></tbody></table></div>
