@@ -18,7 +18,7 @@ rsync -az --delete --exclude .env --exclude .venv --exclude data --exclude __pyc
   "$ROOT/app" "$ROOT/pay" "$ROOT/rulepacks" "$ROOT/fixtures" "$ROOT/deploy" "$ROOT/scripts" "$ROOT/docs" "$ROOT/README.md" "$HOST:$APP_DIR/"
 
 echo "==> server .env from the local .env (only the keys the containers read)"
-KEYS="GEMINI_API_KEY GEMINI_MODEL EXTRACTION_MODE HACKATHON_ORG_API_KEY API_BASE_URL VOUCH_MODE PAYMENT_RAIL VOUCH_PROGRAM_ID VOUCH_PRIVY_USER_ID VOUCH_MERCHANTS VOUCH_CATEGORY"
+KEYS="GEMINI_API_KEY COMPANIES_HOUSE_API_KEY GEMINI_MODEL EXTRACTION_MODE HACKATHON_ORG_API_KEY API_BASE_URL VOUCH_MODE PAYMENT_RAIL VOUCH_PROGRAM_ID VOUCH_PRIVY_USER_ID VOUCH_MERCHANTS VOUCH_CATEGORY"
 TMP_ENV=$(mktemp)
 for VAR in $KEYS; do
   VAL=$(grep "^$VAR=" "$ROOT/.env" | head -1 | cut -d= -f2- || true)

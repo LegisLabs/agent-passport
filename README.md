@@ -127,7 +127,7 @@ fixtures/pay/ registration_fixture.json · register.json · registry.json · cus
 scripts/      demo_reset.sh · vouch_kit_replay.py
 tests/        test_pay.py · test_rules.py (offline) · ui/walk_bank_first.py (Playwright)
 deploy/       Dockerfile · pay.Dockerfile · docker-compose.yml · *.caddy · publish.sh
-docs/         v6_bank_first/APS_1001 (revision 3) · earlier briefs and revisions
+docs/         v6_bank_first/APS_1001 (revision 4) · earlier briefs and revisions
 ```
 
 ## Where the model sits
