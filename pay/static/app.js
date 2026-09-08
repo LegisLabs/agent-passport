@@ -148,19 +148,38 @@ const AP = (() => {
       $(mode === 'agent' ? 'bk-agent-anomaly' : 'bk-dash-anomaly').append($('bk-anomaly'));
       $(mode === 'agent' ? 'bk-agent-history' : 'bk-case-history').append($('bk-history-wrap'));
       $('bk-anomaly').hidden = mode === 'case'; $('bk-history-wrap').hidden = mode === 'dash';
-      if (mode === 'dash') renderDash(); else if (mode === 'agent') renderAgent(); else renderCase();
+      if (mode === 'dash') $('bk-anomaly').hidden = true;
+      if (mode === 'dash') { renderDash(); return; } else if (mode === 'agent') renderAgent(); else renderCase();
       renderExceptions();
       renderIncidents();
       renderHistory();
     }
-    function renderDash() {
+    let auditRows = [], seenIds = null, expandedId = null, timer = null, simTimer = null;
+    async function renderDash() {
+      const data = await api('GET', '/api/audit'); auditRows = data.rows;
       const regs = state.registrations.filter(x => x.status !== 'draft'), live = issued(), viol = state.violations || [], inc = state.incidents || [];
       const todo = regs.filter(x => !x.admission_status || x.admission_status === 'info_requested');
+      const verifies = auditRows.filter(r => r.kind === 'verify');
       const paid = (state.payments || []).reduce((s, x) => s + Number(x.amount || 0), 0);
-      $('bk-stats').innerHTML = [[live.filter(x => x.status === 'active').length, 'live agents'], [todo.length, 'awaiting decision'], [gbp(paid), 'paid, 30 days'], [viol.filter(x => x.status === 'OPEN').length, 'open refusals'], [inc.length, 'incidents']].map(([n, l]) => `<li><b>${n}</b><span>${l}</span></li>`).join('');
+      $('bk-stats').innerHTML = [[live.filter(x => x.status === 'active').length, 'active agents'], [verifies.length, 'instructions checked'], [gbp(paid), 'paid, 30 days'], [viol.filter(x => x.status === 'OPEN').length, 'open refusals'], [inc.length, 'incidents'], [todo.length, 'awaiting admission']].map(([n, l]) => `<li><b>${n}</b><span>${l}</span></li>`).join('');
       $('bk-todo').hidden = !todo.length;
       $('bk-todo').innerHTML = todo.map(x => `<span><strong>${esc(v(x.fields, 'product', 'product_name') || x.ref)}</strong> by ${esc(v(x.fields, 'company', 'legal_name') || '')} is on the register and awaits your admission decision.</span><a class="btn btn--small" href="/bank?ref=${x.ref}">Open ${esc(x.ref)}</a>`).join('');
-      rows('bk-agents', live.map(x => { const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}; const tot = Object.values(x.ledger || {}).reduce((s, y) => s + y.total, 0); const nv = viol.filter(y => y.passport_id === x.passport_id).length; return { cells: [`<a href="/bank?passport=${x.passport_id}">${esc(x.passport_id)}</a>`, esc(ag.name || ''), esc((mp.customer || {}).legal_name || ''), esc(ag.product_name || ''), gbp(tot), nv ? `<span class="tag tag--${nv >= 2 ? 'red' : 'amber'}">${nv}</span>` : '0', tag(x.status)] }; }), 7, 'No AI agent has a passport on your list yet.');
+      // triage: patterns first, then incidents, then open refusals, newest first
+      const tl = $('bd-triage-list'); tl.innerHTML = '';
+      const items = [];
+      (state.alerts || []).forEach(a => items.push({ ts: a.last_ts, cls: 'triage--pattern', tag: tag('revoked', 'pattern'), text: `<b>${a.n} refusals at ${esc(a.rule)} on <a href="/bank?passport=${esc(a.passport_id)}">${esc(a.passport_id)}</a> within 24 hours.</b> Same rule, repeated: a pattern, not a single error. Open the passport to suspend, investigate or revoke.` }));
+      inc.forEach(i => items.push({ ts: i.ts, cls: 'triage--incident', tag: tag('revoked', 'incident'), text: `<b>Incident on <a href="/bank?passport=${esc(i.subject)}">${esc(i.subject)}</a>:</b> ${i.entry.denies} refused instructions since the last incident · last ${esc(i.entry.last_rule)} ${esc(i.entry.last_code)} · evidence #${i.id}` }));
+      viol.filter(x => x.status === 'OPEN').slice(0, 6).forEach(x => items.push({ ts: x.ts, cls: 'triage--refusal', tag: tag('amber', 'refused'), text: `<b>${esc(x.rule)}</b> ${esc(x.code.toLowerCase().replace(/_/g, ' '))} · ${esc(x.instruction.supplier_name || '')} <span class="mono">${esc(x.instruction.payee_account_ref || '')}</span> · ${gbp(x.instruction.amount)}${x.evidence ? ` · invoice ${esc(x.evidence.invoice)}` : ''} · <a href="/bank?passport=${esc(x.passport_id)}">${esc(x.passport_id)}</a> · <a href="/api/evidence/violations/${x.id}" target="_blank" rel="noopener">evidence</a>`, id: 'v' + x.id }));
+      items.sort((a, b) => (a.cls === 'triage--pattern') - (b.cls === 'triage--pattern') || (a.ts < b.ts ? 1 : -1)).reverse();
+      items.forEach(it => { const li = el('li', 'triage__item ' + it.cls, `<time>${t(it.ts)}</time>${it.tag}<span>${it.text}</span>`); if (seenIds && it.id && !seenIds.has(it.id)) li.classList.add('is-new'); tl.append(li); });
+      $('bd-triage-meta').textContent = items.length ? `${items.length} items` : '';
+      if (!items.length) tl.append(el('li', 'triage__empty', 'Nothing needs attention. Every instruction in the last 24 hours was within its mandate.'));
+      // active agents
+      const lastBy = {}; verifies.forEach(r => { if (!lastBy[r.subject]) lastBy[r.subject] = r; });
+      rows('bk-agents', live.map(x => { const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}; const tot = Object.values(x.ledger || {}).reduce((s, y) => s + y.total, 0); const nv = viol.filter(y => y.passport_id === x.passport_id).length; const last = lastBy[x.passport_id]; return { cells: [`<a href="/bank?passport=${x.passport_id}">${esc(x.passport_id)}</a>`, esc(ag.name || ''), esc((mp.customer || {}).legal_name || ''), esc(ag.product_name || ''), gbp(tot), nv ? `<span class="tag tag--${nv >= 2 ? 'red' : 'amber'}">${nv}</span>` : '0', last ? `<span class="small">${t(last.ts)} · ${last.entry.decision === 'ALLOW' ? 'paid' : last.entry.decision === 'ESCALATE' ? 'held' : 'refused ' + esc(last.entry.rule)}</span>` : '<span class="small">none yet</span>', tag(x.status)] }; }), 8, 'No AI agent has a passport on your list yet.');
+      // transaction log
+      renderLog(verifies, viol);
+      // admissions, register, supervisory access
       rows('bk-products', regs.filter(x => x.admission_status && x.admission_status !== 'declined' && x.admission_status !== 'info_requested').map(x => { const pr = (state.products || []).find(y => y.registration_id === x.id) || { passports: [] }; return { cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a>`, esc(v(x.fields, 'company', 'legal_name') || ''), holdOf(x) != null ? gbp(holdOf(x)) : '—', String(pr.passports.length), admissionTag(x)] }; }), 5, 'No product admitted yet.');
       rows('bk-register', [
         ...regs.map(x => ({ cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a>`, esc(v(x.fields, 'company', 'legal_name') || ''), d(x.submitted_at), admissionTag(x)] })),
@@ -170,7 +189,57 @@ const AP = (() => {
       live.forEach(x => ev.append(el('li', null, `<span>Passport <span class="mono">${esc(x.passport_id)}</span>, the complete bundle</span><a href="/api/evidence/passports/${esc(x.passport_id)}" target="_blank" rel="noopener">Export</a>`)));
       viol.slice(0, 5).forEach(x => ev.append(el('li', null, `<span>Refusal #${x.id}, ${esc(x.rule)} at ${t(x.ts)}</span><a href="/api/evidence/violations/${x.id}" target="_blank" rel="noopener">Export</a>`)));
       if (!live.length && !viol.length) ev.append(el('li', 'small', 'Nothing to export yet.'));
-      api('GET', '/api/audit').then(data => { $('bk-trail-meta').textContent = `${data.rows.length} entries · chain ${data.chain.ok ? 'intact' : 'broken'}`; trailRows($('bk-audit').querySelector('tbody'), data.rows.slice(0, 12), { subject: true }); });
+      seenIds = new Set([...verifies.map(r => 'a' + r.id), ...viol.map(x => 'v' + x.id)]);
+      $('bd-live-label').textContent = 'Live · ' + t(new Date().toISOString());
+    }
+    function renderLog(verifies, viol) {
+      const tb = $('bd-log').querySelector('tbody'); tb.innerHTML = '';
+      const vById = {}; viol.forEach(x => { if (x.audit_id) vById[x.audit_id] = x; });
+      $('bd-log-meta').textContent = `${verifies.length} instructions`;
+      verifies.slice(0, 40).forEach(r => {
+        const e = r.entry, i = e.instruction || {}; const dec = e.decision;
+        const tr = el('tr', 'bd-log__row', `<td class="mono small">${t(r.ts)}</td><td>${tag(dec === 'ALLOW' ? 'active' : dec === 'ESCALATE' ? 'pending' : 'revoked', dec === 'ALLOW' ? 'paid' : dec === 'ESCALATE' ? 'held' : 'refused')}</td><td><span class="small">${esc(r.subject || '')}</span></td><td>${esc(i.supplier_name || '')} <span class="mono small">${esc(i.payee_account_ref || '')}</span></td><td class="num">${gbp(i.amount)}</td><td>${dec === 'ALLOW' ? '<span class="small">all nine</span>' : `<b class="rule">${esc(e.rule)}</b> <span class="small">${esc((e.code || '').toLowerCase().replace(/_/g, ' '))}</span>`}</td><td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`);
+        tr.tabIndex = 0; tr.setAttribute('role', 'button'); tr.setAttribute('aria-expanded', String(expandedId === r.id));
+        if (seenIds && !seenIds.has('a' + r.id)) tr.classList.add('is-new');
+        const open = () => { expandedId = expandedId === r.id ? null : r.id; renderLog(verifies, viol); };
+        tr.onclick = open; tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } };
+        tb.append(tr);
+        if (expandedId === r.id) tb.append(el('tr', 'bd-detail', `<td colspan="7">${detailHtml(r, vById[r.id])}</td>`));
+      });
+      if (!verifies.length) tb.append(el('tr', null, '<td colspan="7" class="empty-row">No instruction yet. Turn on simulated traffic or run the Action Terminal.</td>'));
+    }
+    function detailHtml(r, vio) {
+      const e = r.entry, i = e.instruction || {}; const env = e.presented_envelope || {};
+      const trace = (e.trace || []).map(s => `<li class="${s.ok ? 'ok' : (e.decision === 'ESCALATE' && s.rule === e.rule ? 'hold' : 'fail')}"><b>${esc(s.rule)}</b> ${esc(s.title)}<span>${esc(s.note)}</span></li>`).join('');
+      const kv = (pairs) => `<dl class="kv">${pairs.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('')}</dl>`;
+      return `<div class="bd-detail__grid">
+        <div><h3 class="h4">The instruction, as signed</h3>${kv([['Passport', `<span class="mono">${esc(i.passport_id || '')}</span> · list status ${esc(e.passport_status || e.registry_status || '')}`], ['Action', esc(i.action_type || '')], ['Payee', `${esc(i.supplier_name || '')} · <span class="mono">${esc(i.payee_account_ref || '')}</span>`], ['Amount', `${gbp(i.amount)} ${esc(i.currency || '')}`], ['Invoice', esc(i.invoice_ref || '—')], ['Instruction hash', `<span class="mono small" title="${esc(e.instruction_hash || '')}">${esc((e.instruction_hash || '').slice(0, 16))}…</span>`], ['30-day total before', gbp(e.ledger_total_before)]])}${vio && vio.evidence ? `<h3 class="h4">What the AI agent read</h3>${kv([['Invoice', esc(vio.evidence.invoice)], ['Declared before reading', `<span class="mono">${esc((vio.evidence.intent || {}).declared_payee || '—')}</span>`], ['Attempted after reading', `<span class="mono wrong">${esc(vio.evidence.instruction_payee || '')}</span>`], ['Read by', esc(modeLabel(vio.evidence.extraction_mode))]])}` : ''}</div>
+        <div><h3 class="h4">The nine checks, in order</h3><ol class="bd-trace">${trace}</ol><p class="bd-verdict bd-verdict--${e.decision}"><b>${esc(e.decision)}</b> ${esc(e.rule)} · ${esc(e.code)} <span>${esc(e.reason)}</span></p></div>
+        <div><h3 class="h4">Proof</h3>${kv([['Chain entry', `#${r.id} <span class="mono small" title="${esc(r.hash)}">${esc(r.hash.slice(0, 16))}…</span>`], ['Previous', `<span class="mono small" title="${esc(r.prev_hash)}">${esc(r.prev_hash.slice(0, 16))}…</span>`], ['Rule pack', `<span class="mono">${esc(e.rule_pack || '')}</span>`], ['Receipt', r.receipt ? `signed by the bank · <span class="mono small">${esc(r.receipt.slice(0, 40))}…</span>` : 'none'], ['Envelope', `admission ${env.admission ? '✓' : '✗'} · agent identity ${env.agent_identity ? '✓' : '✗'} · mandate ${env.mandate ? '✓' : '✗'}`]])}
+          <div class="actions"><button class="btn btn--secondary btn--small" type="button" data-replay="${r.id}">Replay this decision</button>${vio ? `<a class="btn btn--secondary btn--small" href="/api/evidence/violations/${vio.id}" target="_blank" rel="noopener">Export the evidence bundle</a>` : `<a class="btn btn--secondary btn--small" href="/api/evidence/passports/${esc(r.subject)}" target="_blank" rel="noopener">Export the passport bundle</a>`}<span class="actions__note" id="bd-replay-${r.id}"></span></div></div>
+      </div>`;
+    }
+    $('bd-log').addEventListener('click', async (ev) => { const b = ev.target.closest('[data-replay]'); if (!b) return; ev.stopPropagation(); const id = +b.dataset.replay; const rp = await api('POST', `/api/audit/${id}/replay`); $(`bd-replay-${id}`).innerHTML = rp.identical ? '<b class="ok">Replayed identically</b> from the stored inputs' : '<b class="bad">Replay differs</b>'; });
+    // simulated traffic: the customer's AI agent keeps paying invoices; most are fine, some are not
+    async function simTick() {
+      if (!$('bd-sim').checked) return;
+      const pass = issued().find(x => x.status === 'active' && x.mandate_signed); if (!pass) return;
+      const ad = ((pass.mandate || {}).authorization_details || [{}])[0]; const sup = ad.supplier_allowlist || []; if (!sup.length) return;
+      const roll = Math.random(); const pick = sup[Math.floor(Math.random() * sup.length)];
+      const inv = () => 'INV-' + (9100 + Math.floor(Math.random() * 800));
+      try {
+        if (roll < 0.62) await api('POST', '/api/agent/act', { passport_id: pass.passport_id, supplier_name: pick.name, payee_account_ref: pick.account_ref, amount: 150 + Math.floor(Math.random() * 38) * 100, invoice_ref: inv() });
+        else if (roll < 0.78) await api('POST', '/api/agent/invoice', { passport_id: pass.passport_id, invoice_id: 'INV-9001-poisoned' });
+        else if (roll < 0.88) await api('POST', '/api/agent/act', { passport_id: pass.passport_id, supplier_name: pick.name, payee_account_ref: pick.account_ref, amount: 5200 + Math.floor(Math.random() * 30) * 100, invoice_ref: inv() });
+        else if (roll < 0.95) await api('POST', '/api/agent/act', { passport_id: pass.passport_id, supplier_name: pick.name, payee_account_ref: pick.account_ref, amount: 10500 + Math.floor(Math.random() * 20) * 100, invoice_ref: inv() });
+        else await api('POST', '/api/agent/act', { passport_id: pass.passport_id, supplier_name: pick.name, payee_account_ref: pick.account_ref, amount: 900, invoice_ref: inv(), signer: 'rogue' });
+      } catch (e) { /* the log shows what happened */ }
+      await refresh();
+    }
+    if (mode === 'dash') {
+      timer = setInterval(refresh, 5000);
+      simTimer = setInterval(simTick, 9000);
+      document.addEventListener('visibilitychange', () => { if (document.hidden) { clearInterval(timer); clearInterval(simTimer); } else { timer = setInterval(refresh, 5000); simTimer = setInterval(simTick, 9000); } });
     }
     function renderCase() {
       $('bk-ref').textContent = a.ref;
@@ -667,7 +736,7 @@ const AP = (() => {
   }
 
   function home() {
-    const ink = '#0b0c0c', ink2 = '#505a5f', blue = '#6b1b45', line = '#e5e7e8', font = '"Helvetica Neue", Arial, Helvetica, sans-serif';
+    const ink = '#0b0c0c', ink2 = '#505a5f', blue = '#0f6b73', line = '#e5e7e8', font = '"Helvetica Neue", Arial, Helvetica, sans-serif';
     if (window.Chart) {
       Chart.defaults.font.family = font; Chart.defaults.font.size = 13; Chart.defaults.color = ink2;
       const values = { id: 'values', afterDatasetsDraw(c) { const { ctx } = c; ctx.save(); ctx.font = `600 14px ${font}`; ctx.fillStyle = ink; ctx.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((bar, i) => { const dd = c.data.datasets[0]; ctx.fillText(dd.labelsText ? dd.labelsText[i] : dd.data[i], bar.x, bar.y - 8); }); ctx.restore(); } };
@@ -678,7 +747,7 @@ const AP = (() => {
         const pts = [{ x: 2024, y: 229 }, { x: 2025, y: 262 }, { x: 2030, y: 1500 }];
         const lbl = { 229: '$229bn', 262: '$262bn', 1500: '$1.5tn' };
         const pointLabels = { id: 'pointLabels', afterDatasetsDraw(c) { const { ctx } = c; ctx.save(); ctx.font = `600 14px ${font}`; ctx.fillStyle = ink; ctx.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((pt, i) => { ctx.fillText(lbl[pts[i].y], pt.x, pt.y - 14); }); ctx.restore(); } };
-        new Chart($('chart-shift'), { type: 'line', plugins: [pointLabels], data: { datasets: [{ data: pts, borderColor: blue, backgroundColor: 'rgba(107,27,69,.12)', fill: true, tension: .45, borderWidth: 3, pointRadius: 6, pointBackgroundColor: blue, pointBorderColor: '#fff', pointBorderWidth: 2, segment: { borderDash: (s) => s.p1.parsed.x > 2025 ? [8, 6] : undefined } }] },
+        new Chart($('chart-shift'), { type: 'line', plugins: [pointLabels], data: { datasets: [{ data: pts, borderColor: blue, backgroundColor: 'rgba(15,107,115,.12)', fill: true, tension: .45, borderWidth: 3, pointRadius: 6, pointBackgroundColor: blue, pointBorderColor: '#fff', pointBorderWidth: 2, segment: { borderDash: (s) => s.p1.parsed.x > 2025 ? [8, 6] : undefined } }] },
           options: { animation: { duration: 900 }, responsive: true, maintainAspectRatio: false, layout: { padding: { top: 28, right: 24 } }, plugins: { legend: { display: false }, tooltip: { enabled: false } },
             scales: { x: { type: 'linear', min: 2023.6, max: 2030.4, grid: { display: false }, border: { color: line }, afterBuildTicks: (ax) => { ax.ticks = [2024, 2025, 2026, 2027, 2028, 2029, 2030].map(value => ({ value })); }, ticks: { color: ink, font: { size: 14 }, callback: (v_) => String(v_) } }, y: { beginAtZero: true, max: 1600, grid: { color: line }, border: { display: false }, ticks: { stepSize: 400 } } } } });
       }

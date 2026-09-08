@@ -1,46 +1,49 @@
 {% extends "base.html" %}
 {% block title %}Bank console{% endblock %}
-{% block role %}<div class="role"><div class="wrap role__row"><span class="role__who"><b>{{ bank }}</b> · {{ bank_team }}</span><span class="role__where">signed in as {{ officer }}</span></div></div>{% endblock %}
 {% block content %}
 <div class="alert" id="bk-alert" hidden role="alert"></div>
 
 <div id="bk-dash" hidden>
-  <div class="ws-head">
-    <div><h1 class="h1 h1--ws">Bank dashboard</h1><p class="ws-sub">AI agent payments from your customers' accounts. You operate this; a supervisor can request the evidence.</p></div>
-    <ul class="stats stats--ws" id="bk-stats"></ul>
+  <div class="bd-head">
+    <div><h1 class="h1 h1--ws">Bank dashboard</h1><p class="ws-sub">Every payment an AI agent asks to make from a customer's account, checked, signed and logged. Nothing here is approved by a regulator; everything here can be handed to one.</p></div>
+    <div class="bd-live"><span class="live-dot" aria-hidden="true"></span><span id="bd-live-label">Live</span><label class="bd-sim"><input type="checkbox" id="bd-sim" checked> simulated traffic</label></div>
   </div>
+  <ul class="stats" id="bk-stats"></ul>
   <div class="todo" id="bk-todo" hidden></div>
-  <div class="ws">
-    <div class="ws__main">
-      <section class="ws-sec">
-        <h2 class="ws-h">AI agents on your list</h2>
-        <div class="dash-wrap"><table class="dash" id="bk-agents"><thead><tr><th>Passport</th><th>AI agent</th><th>Customer</th><th>Product</th><th class="num">Paid, 30 days</th><th class="num">Refusals</th><th>Status</th></tr></thead><tbody></tbody></table></div>
-      </section>
-      <section class="ws-sec">
-        <h2 class="ws-h">Flagged and blocked instructions <span class="ws-h__meta" id="ex-meta"></span></h2>
-        <div id="bk-dash-anomaly"></div>
-      </section>
-    </div>
-    <aside class="ws__side">
-      <section class="ws-sec">
-        <h2 class="ws-h">Admitted products</h2>
-        <div class="dash-wrap"><table class="dash" id="bk-products"><thead><tr><th>Product</th><th>Provider</th><th class="num">Hold above</th><th class="num">Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
-      </section>
-      <section class="ws-sec">
-        <h2 class="ws-h">The register <span class="ws-h__meta">read by every bank</span></h2>
-        <div class="dash-wrap"><table class="dash" id="bk-register"><thead><tr><th>Product</th><th>Provider</th><th>Filed</th><th>Your decision</th></tr></thead><tbody></tbody></table></div>
-      </section>
-      <section class="ws-sec ws-sec--quiet" id="bk-supervisory">
-        <h2 class="ws-h">Supervisory access <span class="ws-h__meta">read-only, by exception</span></h2>
-        <p class="small">A regulator does not operate this console and approves nothing in it. Through normal supervisory and incident processes it can request the evidence for a passport or a refusal; each export is itself recorded in the chain.</p>
-        <ul class="evidence-list" id="bk-evidence"></ul>
-      </section>
-    </aside>
-  </div>
-  <section class="ws-sec" id="bk-trail">
-    <h2 class="ws-h">Evidence trail <span class="ws-h__meta"><span id="bk-trail-meta"></span> · <a href="/audit">full trail and replay</a></span></h2>
-    <table class="checks audit" id="bk-audit"><thead><tr><th>Time</th><th>What happened</th><th>Subject</th><th>Proof</th></tr></thead><tbody></tbody></table>
+
+  <section class="ws-sec" id="bd-triage">
+    <h2 class="ws-h">Needs attention <span class="ws-h__meta" id="bd-triage-meta"></span></h2>
+    <ol class="triage" id="bd-triage-list"></ol>
   </section>
+
+  <section class="ws-sec">
+    <h2 class="ws-h">Active AI agents <span class="ws-h__meta">passports on this bank's list</span></h2>
+    <div class="dash-wrap"><table class="dash" id="bk-agents"><thead><tr><th>Passport</th><th>AI agent</th><th>Customer</th><th>Product</th><th class="num">Paid, 30 days</th><th class="num">Refusals</th><th>Last instruction</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <section class="ws-sec">
+    <h2 class="ws-h">Transaction log <span class="ws-h__meta"><span id="bd-log-meta"></span> · every instruction, signed and chained · select a row for the full record</span></h2>
+    <div class="dash-wrap"><table class="dash bd-log" id="bd-log"><thead><tr><th>Time</th><th>Result</th><th>AI agent</th><th>Payee</th><th class="num">Amount</th><th>Rule</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
+  </section>
+
+  <details class="bd-more">
+    <summary>Admissions, the register and supervisory access</summary>
+    <div id="bk-dash-anomaly"></div>
+    <section class="ws-sec">
+      <h2 class="ws-h">Admitted products</h2>
+      <div class="dash-wrap"><table class="dash" id="bk-products"><thead><tr><th>Product</th><th>Provider</th><th class="num">Hold above</th><th class="num">Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+    </section>
+    <section class="ws-sec">
+      <h2 class="ws-h">The register <span class="ws-h__meta">read by every bank</span></h2>
+      <div class="dash-wrap"><table class="dash" id="bk-register"><thead><tr><th>Product</th><th>Provider</th><th>Filed</th><th>Your decision</th></tr></thead><tbody></tbody></table></div>
+    </section>
+    <section class="ws-sec ws-sec--quiet" id="bk-supervisory">
+      <h2 class="ws-h">Supervisory access <span class="ws-h__meta">read-only, by exception</span></h2>
+      <p class="small">A regulator does not operate this dashboard and approves nothing in it. Through normal supervisory and incident processes it can request the evidence for a passport or a refusal; each export is itself recorded in the chain.</p>
+      <ul class="evidence-list" id="bk-evidence"></ul>
+    </section>
+    <div hidden><span id="bk-trail-meta"></span><table id="bk-audit"><tbody></tbody></table></div>
+  </details>
 </div>
 
 <div id="bk-case" hidden>

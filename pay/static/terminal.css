@@ -27,7 +27,7 @@ body[data-view="terminal"] ::selection { background: var(--focus); color: var(--
 .sc-switch__b[aria-selected="true"]:nth-child(2) { background: var(--blue); border-color: var(--blue); }
 .sc-run { display: flex; align-items: center; gap: 16px; }
 .sc-run__btn { appearance: none; display: inline-flex; align-items: center; gap: 10px; border: 0; background: var(--blue); color: #fff; font: inherit; font-size: 19px; font-weight: 700; padding: 13px 22px; box-shadow: 0 2px 0 var(--blue-dark); cursor: pointer; }
-.sc-run__btn:hover { background: #57163a; }
+.sc-run__btn:hover { background: #0c585f; }
 .sc-run__btn:active { transform: translateY(2px); box-shadow: none; }
 .sc-skip { appearance: none; border: 0; background: none; padding: 0; font: inherit; font-size: 16px; color: var(--ink-2); text-decoration: underline; text-underline-offset: .15em; cursor: pointer; }
 .sc-skip:hover { color: var(--ink); }
