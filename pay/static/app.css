@@ -1532,9 +1532,9 @@ tr.is-new > td, li.is-new { animation: arrive 900ms cubic-bezier(.2,.9,.2,1) bot
 .agent-row .bad { color: var(--red); }
 .bd-head { margin-bottom: 1rem; }
 .bd-head .h1--ws { margin: 0; }
-.bd-live { padding-top: 14px; }
+.bd-live { padding-top: 14px; white-space: normal; flex-wrap: wrap; }
 #bd-triage .triage { margin: 0 0 1.5rem; border-top: 2px solid var(--ink); }
-.triage__item { grid-template-columns: 5.5rem auto minmax(0, 1fr); }
+@media (min-width: 901px) { .triage__item { grid-template-columns: 5.5rem auto minmax(0, 1fr); } }
 .cu-add { margin: .8rem 0 0; font-size: 1.0625rem; }
 .cu-split .ws-h, .bd-cols .ws-h { margin-bottom: .3rem; }
 .cu-split__agents .empty { margin: .6rem 0 0; }

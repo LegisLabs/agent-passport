@@ -28,7 +28,7 @@ with sync_playwright() as pw:
     page.fill("#bk-officer-note", "Filing complete, evidence covers invoice payment. Admitted with the hold condition."); page.click("#btn-admit"); page.wait_for_selector("#bk-product:not([hidden])")
     check("admitted" in low(page, "#pd-status") and "ceilings" in low(page, "#pd-summary"), "product admitted to the bank's list with ceilings and hold condition")
     print("== 3 · Customer: add an AI agent and sign the mandate in the bank's app")
-    page.goto(BASE + "/customer"); page.wait_for_selector("#btn-create-agent"); page.click("#btn-create-agent"); page.wait_for_selector("#cu-mandate:not([hidden])")
+    page.goto(BASE + "/customer"); page.wait_for_selector("#cu-add-toggle"); page.click("#cu-add-toggle"); page.click("#btn-create-agent"); page.wait_for_selector("#cu-mandate:not([hidden])")
     check("possession proven" in low(page, "#cu-agent-kv") and "issued when you sign" in low(page, "#cu-agent-kv") and "business current account" in low(page, "main"), "agent record created inside the account; passport pending")
     pid = page.locator("#cu-id").inner_text()
     page.fill("#cu-per", "12000"); page.wait_for_function("document.querySelector('#cu-containment').innerText.toLowerCase().includes('outside')")
