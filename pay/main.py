@@ -130,7 +130,7 @@ def state():
             "payments": db.list_payments(limit=100), "decisions": db.list_audit(100, kind="decision"),
             "vouch_mode": vouch.mode(), "payment_rail": vouch.rail(),
             "mandate_draft": mandate_draft(), "agent_draft": agent_draft(), "policy": {k: pol[k] for k in ("per_payment_ceiling_gbp", "monthly_per_account_ceiling_gbp", "max_validity", "action_types", "currency", "hold_above_gbp", "min_insurance_cover_gbp", "velocity_ceiling_per_day", "assurance_levels", "min_assurance_level_for_admission", "account_tiers", "customer_classes")},
-            "failure_classes": rules.pack().get("failure_classes", {}), "planned_fields": rules.pack().get("planned_fields", []), "companies_house_mode": companies_house.mode(),
+            "failure_classes": rules.pack().get("failure_classes", {}), "payment_intents": rules.pack().get("payment_intents", []), "retention_periods": rules.pack().get("retention_periods", []), "planned_fields": rules.pack().get("planned_fields", []), "companies_house_mode": companies_house.mode(),
             "opening": fixtures.opening_stats(),
             "cast": {"bank": config.BANK, "officer": config.BANK_OFFICER, "team": config.BANK_TEAM, "customer": config.CUSTOMER, "provider": config.PROVIDER, "register": config.REGISTER_NAME, "supervisor": config.SUPERVISOR},
             "delegation_chain": config.DELEGATION_CHAIN == "on", "delegation_max_gbp": config.DELEGATION_MAX_GBP, "chain_beats": fixtures.CHAIN_BEATS, "chain_rules": rules.pack().get("chain_rules", [])}
@@ -140,7 +140,9 @@ def product_summary(a: dict) -> dict:
     f = a.get("fields") or {}
     return {"registration_id": a["id"], "ref": a["ref"], "product_name": rules._v(f, "product", "product_name"), "product_id": rules._v(f, "product", "product_id"),
             "provider": rules._v(f, "company", "legal_name"), "model_version": rules._v(f, "product", "model_version"), "admission_status": a.get("admission_status"),
-            "assurance_level": rules._v(f, "assurance_evidence", "level"), "ceilings": rules.admission_ceilings(rules._v(f, "assurance_evidence", "level")),
+            "assurance_level": rules._v(f, "assurance_evidence", "level"), "ceilings": rules.admission_ceilings(rules._v(f, "assurance_evidence", "level"), [rules._v(f, "intended_use", "payment_intent")]),
+            "payment_intent": rules.payment_intent(rules._v(f, "intended_use", "payment_intent")), "retention_period": rules._v(f, "data_protection", "retention_period"),
+            "retention_label": rules.retention_label(rules._v(f, "data_protection", "retention_period")), "uk_gdpr_compliant": rules._v(f, "data_protection", "uk_gdpr_compliant"), "ico_registration": rules._v(f, "data_protection", "ico_registration"),
             "admitted_at": a.get("admitted_at"), "condition": a.get("condition"), "passports": [p["passport_id"] for p in db.passports_for_registration(a["id"])]}
 
 
@@ -313,7 +315,7 @@ def admission_decision(reg_id: int, body: AdmissionIn):
             _400(f"this bank admits products at {rules.assurance_level(pol['min_assurance_level_for_admission'])['label'].lower()} or above; this filing is {rules.assurance_level(level)['label'].lower()}")
         thr = float(body.hold_above if body.hold_above is not None else pol["hold_above_gbp"])
         condition = {"hold_above": {"amount": thr, "currency": "GBP"}}
-        ceilings = rules.admission_ceilings(level)
+        ceilings = rules.admission_ceilings(level, [rules._v(a["fields"], "intended_use", "payment_intent")])
         a = db.update_registration(reg_id, admission_status="admitted", admitted_at=db.now_iso(), officer=who, officer_note=body.note, condition=condition)
         audit.record("admission", a["ref"], {"event": "AI product admitted to the bank's list; ceilings and hold condition set", "officer": who, "note": body.note, "condition": condition,
                                              "product_id": rules._v(a["fields"], "product", "product_id"), "assurance_level": level, "ceilings": {"per_payment": ceilings["per_payment_ceiling"]["amount"], "monthly_per_account": ceilings["monthly_per_account_ceiling"]["amount"], "max_validity": pol["max_validity"], "ceiling_factor": ceilings["ceiling_factor"]}})
@@ -395,7 +397,7 @@ def create_agent_on_product(a: dict, deployment: dict) -> dict:
     f = a["fields"]
     pol = rules.pack()["policy"]
     level = rules._v(f, "assurance_evidence", "level")
-    ceilings = rules.admission_ceilings(level)
+    ceilings = rules.admission_ceilings(level, [rules._v(f, "intended_use", "payment_intent")])
     n = db.count_passports() + 107
     pid = f"AG-2026-{n:04d}"   # the agent record; it becomes passport AP-2026-{n} when the customer signs its mandate
     priv, pub = crypto.generate_keypair()
@@ -434,7 +436,7 @@ def create_agent_on_product(a: dict, deployment: dict) -> dict:
     mandate_proposed = {
         "typ": "mandate", "passport_id": pid.replace("AG-", "AP-"), "valid_until": valid_until, "exp": exp, "customer": None, "authorising_officer": None,
         "provider": rules._v(f, "company", "legal_name"), "agent_id": agent_id, "agent_kid": ag["kid"], "written_by": "customer",
-        "authorization_details": [{"type": "payment_initiation", "actions": list(pol["action_types"]), "currency": pol["currency"], "supplier_allowlist": [],
+        "authorization_details": [{"type": "payment_initiation", "actions": list(ceilings.get("action_types") or pol["action_types"]), "currency": pol["currency"], "supplier_allowlist": [],
                                    "per_payment_limit": {"amount": ceilings["per_payment_ceiling"]["amount"], "currency": pol["currency"]},
                                    "monthly_limit_per_account": {"amount": ceilings["monthly_per_account_ceiling"]["amount"], "currency": pol["currency"], "window": pol["monthly_window"]},
                                    "max_payments_per_day": ceilings["velocity_ceiling_per_day"]}],
@@ -1139,6 +1141,37 @@ def evidence_violation(vid: int):
     return b
 
 
+# ── The customer dashboard's static data ──────────────────────────────────
+@app.get("/api/customer/snapshot")
+def customer_snapshot():
+    """The customer dashboard renders from a frozen snapshot (fixtures/pay/customer_snapshot.json, made by
+    scripts/customer_snapshot.py), not from the live database, so the bank dashboard, the terminal and a reseed never move it.
+    Timestamps are rebased so the newest event sits a few minutes ago and the day groups read Today and Yesterday."""
+    import json as _json
+    from datetime import datetime, timedelta, timezone
+    snap = _json.loads((config.FIXTURES_DIR / "customer_snapshot.json").read_text())
+    rows = snap["audit"]["rows"]
+    newest = max([r["ts"] for r in rows] + [p_["ts"] for p_ in snap["state"]["payments"]])
+    shift = datetime.now(timezone.utc) - timedelta(minutes=4) - datetime.fromisoformat(newest.replace("Z", "+00:00"))
+    def rebase(ts):
+        if not ts or not isinstance(ts, str) or "T" not in ts:
+            return ts
+        try:
+            return (datetime.fromisoformat(ts.replace("Z", "+00:00")) + shift).isoformat(timespec="seconds").replace("+00:00", "Z")
+        except ValueError:
+            return ts
+    for r in rows:
+        r["ts"] = rebase(r["ts"])
+    st = snap["state"]
+    for coll in ("payments", "violations", "decisions", "incidents", "alerts"):
+        for x in st.get(coll) or []:
+            x["ts"] = rebase(x.get("ts"))
+    for p_ in st["passports"]:
+        for k in ("mandate_signed_at", "issued_at", "mandate_revoked_at"):
+            p_[k] = rebase(p_.get(k))
+    return {"static": True, "state": st, "audit": snap["audit"]}
+
+
 # ── Demo control ───────────────────────────────────────────────────────────
 @app.post("/api/reset")
 def reset():
@@ -1189,34 +1222,82 @@ def demo_seed(stage: str = "issued"):
                           {"event": "paid", "decision": paid["decision"]}, {"event": "paid", "decision": paid2["decision"]},
                           {"event": "refused", "decision": refused["decision"], "rule": refused["rule"], "code": refused["code"]},
                           {"event": "held", "decision": held["decision"], "rule": held["rule"], "audit_id": held["audit_id"]}]
-    if stage == "busy":
-        # More customers on the same admitted product, so the bank's list reads as a working channel: each signs its own mandate,
-        # confirms its first payment, then pays a few invoices; one of them has a payment held above the hold condition.
-        for cust, officer, agent_name, payees, per, monthly, pays in OTHER_CUSTOMERS:
-            q = create_agent(AgentIn(registration_id=a["id"], agent_name=agent_name))
-            q = sign_mandate(q["passport_id"], MandateIn(customer=cust, authorising_officer=officer, supplier_allowlist=payees, per_payment_limit=per, monthly_limit_per_account=monthly, max_payments_per_day=10, valid_until="2027-03-31"))
-            qid = q["passport_id"]
-            for n, (sp, amount, ref) in enumerate(pays):
-                r = agent_act(ActIn(passport_id=qid, supplier_name=sp["name"], payee_account_ref=sp["account_ref"], amount=amount, invoice_ref=ref))
-                if n == 0 and r["decision"] == "ESCALATE" and r["code"] == "FIRST_PAYMENT_CONFIRMATION_REQUIRED":
-                    confirm_first(r["audit_id"], ConfirmFirstIn(decision="confirm"))
+    # stage=busy is the history stage; the bank's other customers are synthetic and served only to the bank's views (see bank_extras)
     out["audit_entries"] = len(db.list_audit())
     return out
+
+
+# ── The bank's other customers: synthetic, in memory, shown only on the bank dashboard. Nothing here is written to the
+#    database, so the customer's own views and the evidence trail of the real passport are untouched. ──────────────────
+def bank_extras() -> dict:
+    """Passports, payments, verification rows and one agent-error refusal for the bank's other customers, shaped like the
+    real ones and flagged synthetic so the bank's views show them without offering replay, export or decisions on them."""
+    day = date.today().isoformat()
+    a = next((x for x in db.list_registrations() if x.get("admission_status") == "admitted"), None)
+    f = (a or {}).get("fields") or extraction.fixture()
+    pr = {"registration": (a or {}).get("ref", "REG-2026-0014"), "product_id": rules._v(f, "product", "product_id"), "product_name": rules._v(f, "product", "product_name"), "model_version": rules._v(f, "product", "model_version"), "provider": rules._v(f, "company", "legal_name")}
+    passports, payments, rows, violations = [], [], [], []
+    rid, vid = 900000, 900
+    for n, (cust, officer, agent_name, payees, per, monthly, pays, clock) in enumerate(OTHER_CUSTOMERS):
+        pid = f"AP-2026-02{n + 1:02d}"
+        ad = {"type": "payment_initiation", "actions": ["pay_invoice"], "currency": "GBP", "supplier_allowlist": payees, "per_payment_limit": {"amount": float(per), "currency": "GBP"},
+              "monthly_limit_per_account": {"amount": float(monthly), "currency": "GBP", "window": "P30D"}, "max_payments_per_day": 10}
+        ident = {"iss": cust["legal_name"].lower().replace(" ", "-"), "agent": {"name": agent_name, "agent_id": f"{cust['legal_name'].split()[0].lower()}-{pr['product_id']}-01", "product_name": pr["product_name"], "provider": pr["provider"], "model_version": pr["model_version"]}}
+        mandate = {"customer": cust, "signed_by": officer, "authorising_officer": officer, "version": 1, "valid_until": "2027-03-31", "authorization_details": [ad]}
+        ledger, count, value = {}, 0, 0.0
+        for k, (sp, amount, ref, hhmm, decision) in enumerate(pays):
+            rid += 1
+            ts = f"{day}T{hhmm}:00Z"
+            instr = {"passport_id": pid, "action_type": "pay_invoice", "payee_account_ref": sp["account_ref"], "supplier_name": sp["name"], "amount": float(amount), "currency": "GBP", "invoice_ref": ref, "nonce": "synthetic"}
+            if decision == "ALLOW":
+                entry = {"event": "verification", "passport_id": pid, "instruction": instr, "passport_status": "active", "decision": "ALLOW", "rule": "R.9", "code": "WITHIN_MANDATE", "reason": "within the customer-signed mandate and the bank's admission conditions", "failure_class": None, "trace": [], "rule_pack": rules.pack()["id"], "ledger_total_before": ledger.get(sp["account_ref"], {"total": 0.0})["total"]}
+                payments.append({"id": rid, "ts": ts, "passport_id": pid, "payee_account_ref": sp["account_ref"], "amount": float(amount), "currency": "GBP", "invoice_ref": ref, "audit_id": rid, "rail": "local", "rail_ref": None, "synthetic": True})
+                count += 1; value += float(amount)
+                ledger.setdefault(sp["account_ref"], {"total": 0.0, "count": 0}); ledger[sp["account_ref"]]["total"] += float(amount); ledger[sp["account_ref"]]["count"] += 1
+            else:
+                vid += 1
+                entry = {"event": "verification", "passport_id": pid, "instruction": instr, "passport_status": "active", "decision": "DENY", "rule": "R.7", "code": "PER_PAYMENT_LIMIT_EXCEEDED", "reason": f"£{amount:,.0f} exceeds the per-payment limit of £{per:,.0f}", "failure_class": "agent_error", "trace": [], "rule_pack": rules.pack()["id"], "ledger_total_before": 0.0}
+                violations.append({"id": vid, "ts": ts, "passport_id": pid, "agent_id": ident["agent"]["agent_id"], "rule": "R.7", "code": "PER_PAYMENT_LIMIT_EXCEEDED", "instruction": instr, "evidence": None, "audit_id": rid, "outcome": "DENY", "status": "OPEN", "resolution": None, "failure_class": "agent_error", "synthetic": True})
+            rows.append({"id": rid, "ts": ts, "kind": "verify", "subject": pid, "entry": entry, "prev_hash": "synthetic", "hash": "synthetic", "receipt": None, "synthetic": True})
+        passports.append({"passport_id": pid, "registration_id": (a or {}).get("id"), "status": "active", "issued_at": f"{day}T{clock}:00Z", "expires_at": "2027-03-31", "history": [],
+                          "admission": {"iss": config.BANK_ID, "jti": pid, "valid_until": "2027-03-31", "product_ref": pr, "agent_id": ident["agent"]["agent_id"], "condition": {"hold_above": {"amount": float(rules.pack()["policy"]["hold_above_gbp"]), "currency": "GBP"}}, "ceilings": rules.admission_ceilings(rules._v(f, "assurance_evidence", "level")), "assurance_evidence": {"level": rules._v(f, "assurance_evidence", "level")}},
+                          "agent_identity": ident, "mandate_proposed": mandate, "mandate": mandate, "mandate_jwt": "synthetic", "mandate_signed": True, "mandate_version": 1, "first_payment_confirmed": True, "mandate_revoked_at": None,
+                          "agent": {"agent_id": ident["agent"]["agent_id"], "kid": f"synthetic-{n + 1}", "pop_verified": True}, "payments": count, "ledger": ledger, "vouch_voucher_id": None, "vouch_mode": None, "vouch_status": None, "investigation": None, "synthetic": True})
+    rows.sort(key=lambda r: r["ts"], reverse=True)
+    return {"passports": passports, "payments": payments, "rows": rows, "violations": violations}
+
+
+@app.get("/api/bank/state")
+def bank_state():
+    """The bank's view of its channel: the real state plus the synthetic other customers. Only the bank dashboard reads this."""
+    st = state(); ex = bank_extras()
+    st["passports"] = st["passports"] + ex["passports"]
+    st["payments"] = sorted(st["payments"] + ex["payments"], key=lambda x: x["ts"], reverse=True)
+    st["violations"] = sorted(st["violations"] + ex["violations"], key=lambda x: x["ts"], reverse=True)
+    return st
+
+
+@app.get("/api/bank/audit")
+def bank_audit():
+    """The chain as the bank's console shows it: real entries plus the synthetic customers' verifications, newest first."""
+    data = audit_list(); ex = bank_extras()
+    data["rows"] = sorted(data["rows"] + ex["rows"], key=lambda r: r["ts"], reverse=True)
+    return data
 
 
 OTHER_CUSTOMERS = [
     ({"legal_name": "Harbourside Developments Ltd", "companies_house_number": "08811234", "customer_class": "sme", "account_type": "business_current", "account_ref": "20-45-77 40021177"},
      {"name": "Priya Raman", "role": "Finance Manager"}, "PayGPT 6.0 · Harbourside deployment",
      [{"supplier_id": "SUP-101", "name": "Norfolk Aggregates Ltd", "account_ref": "40-12-30 55012288"}, {"supplier_id": "SUP-102", "name": "Fenwick Timber Ltd", "account_ref": "60-11-22 10101010"}, {"supplier_id": "SUP-103", "name": "Eastern Plant Hire Ltd", "account_ref": "30-77-19 66120044"}],
-     8000, 30000, [({"name": "Norfolk Aggregates Ltd", "account_ref": "40-12-30 55012288"}, 2140, "NA-5502"), ({"name": "Eastern Plant Hire Ltd", "account_ref": "30-77-19 66120044"}, 1875, "EP-0331"), ({"name": "Fenwick Timber Ltd", "account_ref": "60-11-22 10101010"}, 3960, "FT-1101"), ({"name": "Norfolk Aggregates Ltd", "account_ref": "40-12-30 55012288"}, 6400, "NA-5510")]),
+     8000, 30000, [({"name": "Norfolk Aggregates Ltd", "account_ref": "40-12-30 55012288"}, 2140, "NA-5502", "08:41", "ALLOW"), ({"name": "Eastern Plant Hire Ltd", "account_ref": "30-77-19 66120044"}, 1875, "EP-0331", "09:12", "ALLOW"), ({"name": "Fenwick Timber Ltd", "account_ref": "60-11-22 10101010"}, 3960, "FT-1101", "10:05", "ALLOW"), ({"name": "Norfolk Aggregates Ltd", "account_ref": "40-12-30 55012288"}, 8650, "NA-5510", "10:48", "DENY")], "08:30"),
     ({"legal_name": "Okafor and Daughters Ltd", "companies_house_number": "10234567", "customer_class": "micro", "account_type": "business_current", "account_ref": "20-45-77 51900321"},
      {"name": "Ngozi Okafor", "role": "Director"}, "PayGPT 6.0 · Okafor deployment",
      [{"supplier_id": "SUP-201", "name": "Ashby Ironmongery Ltd", "account_ref": "30-98-76 22334455"}, {"supplier_id": "SUP-202", "name": "Lynn Print Supplies Ltd", "account_ref": "20-90-14 31770052"}],
-     2500, 8000, [({"name": "Lynn Print Supplies Ltd", "account_ref": "20-90-14 31770052"}, 312, "LP-2207"), ({"name": "Ashby Ironmongery Ltd", "account_ref": "30-98-76 22334455"}, 486, "AI-4410"), ({"name": "Lynn Print Supplies Ltd", "account_ref": "20-90-14 31770052"}, 275, "LP-2213")]),
+     2500, 8000, [({"name": "Lynn Print Supplies Ltd", "account_ref": "20-90-14 31770052"}, 312, "LP-2207", "09:03", "ALLOW"), ({"name": "Ashby Ironmongery Ltd", "account_ref": "30-98-76 22334455"}, 486, "AI-4410", "09:55", "ALLOW"), ({"name": "Lynn Print Supplies Ltd", "account_ref": "20-90-14 31770052"}, 275, "LP-2213", "11:20", "ALLOW")], "08:52"),
     ({"legal_name": "Kiln Lane Estates Ltd", "companies_house_number": "06120988", "customer_class": "sme", "account_type": "business_current", "account_ref": "20-45-77 62330019"},
      {"name": "Tom Adebayo", "role": "Finance Director"}, "PayGPT 6.0 · Kiln Lane deployment",
      [{"supplier_id": "SUP-301", "name": "Coastline Glass Ltd", "account_ref": "20-13-57 77665544"}, {"supplier_id": "SUP-302", "name": "Broadland Roofing Ltd", "account_ref": "11-45-60 20017788"}],
-     10000, 40000, [({"name": "Broadland Roofing Ltd", "account_ref": "11-45-60 20017788"}, 4250, "BR-0917"), ({"name": "Coastline Glass Ltd", "account_ref": "20-13-57 77665544"}, 1120, "CG-0901"), ({"name": "Broadland Roofing Ltd", "account_ref": "11-45-60 20017788"}, 5780, "BR-0922")]),
+     10000, 40000, [({"name": "Broadland Roofing Ltd", "account_ref": "11-45-60 20017788"}, 4250, "BR-0917", "09:31", "ALLOW"), ({"name": "Coastline Glass Ltd", "account_ref": "20-13-57 77665544"}, 1120, "CG-0901", "10:22", "ALLOW"), ({"name": "Broadland Roofing Ltd", "account_ref": "11-45-60 20017788"}, 3780, "BR-0922", "11:47", "ALLOW")], "09:10"),
 ]
 
 

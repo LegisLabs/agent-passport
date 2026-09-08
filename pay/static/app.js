@@ -57,10 +57,14 @@ const AP = (() => {
     insurance: { title: 'Insurance', insurer: 'Insurer', policy_ref: 'Policy reference', cover_gbp: 'Cover (£)', expires: 'In force until' },
     product: { title: 'The AI product', product_name: 'Product name', product_id: 'Product identifier', release: 'Release', model_provider: 'Foundation model provider', model_version: 'Foundation model version (pinned)', documentation_url: 'Documentation (URL)' },
     assurance_evidence: { title: 'Independent Assurance Evidence', level: 'Assurance level', issuer: 'Issuer', reference: 'Reference', date: 'Date', use_case: 'Use case covered', summary: 'What it covers', report_url: 'Report (URL)' },
-    intended_use: { title: 'Registered use', action_type: 'Action type', description: 'Description' },
+    intended_use: { title: 'Registered use', payment_intent: 'Payment intent', description: 'Description' },
+    data_protection: { title: 'UK data protection', uk_gdpr_compliant: 'Complies with UK GDPR and the Data Protection Act 2018', ico_registration: 'ICO registration number', retention_period: 'Personal data retention period', dpia_reference: 'Data protection impact assessment (reference)' },
   };
+  const ENUMS = (state) => ({ payment_intent: (state.payment_intents || []).map(x => [x.id, x.label]), retention_period: (state.retention_periods || []).map(x => [x.id, x.label]), uk_gdpr_compliant: [['yes', 'Yes, declared by the accountable principal'], ['no', 'No']] });
   const SECTION_HINTS = {
     principal: 'The person who declares this filing accurate, as for a Companies House filing. Accountable for the filing, not for what any AI agent later does.',
+    intended_use: 'One payment intent per filing. The bank admits the product for that intent, and every customer mandate on it is limited to that intent; anything else is refused at R.6.',
+    data_protection: 'What the provider declares about personal data the AI agent processes (invoice and payee details): compliance with UK GDPR and the Data Protection Act 2018, its ICO registration, and how long personal data is kept. The register records the declaration; it verifies nothing about compliance.',
     assurance_evidence: 'An independent benchmark or audit that the product meets the minimum assurance requirements for its use case, and the assurance level you declare with it: self-declared, independently verified, independently audited. The level describes the evidence you provide; the register does not grade it. Each bank assesses it against its own requirements.',
   };
 
@@ -104,8 +108,11 @@ const AP = (() => {
         for (const [k, label] of Object.entries(labels)) {
           if (k === 'title') continue;
           const fact = (f[sec] || {})[k] || { value: null };
+          const enums = ENUMS(state);
           const input = k === 'level'
             ? `<select class="input" data-sec="${sec}" data-key="${k}" ${editable ? '' : 'disabled'} aria-label="${esc(label)}">${Object.entries(LEVELS).map(([id, l]) => `<option value="${id}" ${fact.value === id ? 'selected' : ''}>${l[0]}</option>`).join('')}</select>`
+            : enums[k]
+            ? `<select class="input" data-sec="${sec}" data-key="${k}" ${editable ? '' : 'disabled'} aria-label="${esc(label)}"><option value="" ${fact.value ? '' : 'selected'}>Choose</option>${enums[k].map(([id, l]) => `<option value="${id}" ${fact.value === id ? 'selected' : ''}>${esc(l)}</option>`).join('')}</select>`
             : `<input class="input" data-sec="${sec}" data-key="${k}" value="${esc(fact.value ?? '')}" ${editable ? '' : 'disabled'} aria-label="${esc(label)}">`;
           const extra = k === 'companies_house_number' ? `<span class="prov" id="pv-ch"></span>` : '';
           dl.append(el('div', 'fact', `<dt>${esc(label)}</dt><dd>${input}${extra}</dd>`));
@@ -162,7 +169,7 @@ const AP = (() => {
   }
 
   async function bank() {
-    let state = await api('GET', '/api/state');
+    let state = await api('GET', '/api/bank/state');
     const q = new URLSearchParams(location.search);
     const issued = () => state.passports.filter(x => x.status !== 'pending');
     let p = q.get('passport') ? issued().find(x => x.passport_id === q.get('passport')) || null : null;
@@ -171,7 +178,7 @@ const AP = (() => {
     let selectedVid = null;
     render();
 
-    async function refresh() { state = await api('GET', '/api/state'); if (a) a = state.registrations.find(x => x.id === a.id) || a; render(); }
+    async function refresh() { state = await api('GET', '/api/bank/state'); if (a) a = state.registrations.find(x => x.id === a.id) || a; render(); }
     function passportFor() { return p ? (state.passports.find(x => x.passport_id === p.passport_id) || p) : null; }
     const who = () => state.cast ? `${state.cast.officer}, ${state.cast.team}` : '';
 
@@ -218,7 +225,7 @@ const AP = (() => {
     const isFirst = (e) => e.decision === 'ESCALATE' && e.code === FIRST;
 
     async function renderDash() {
-      const data = await api('GET', '/api/audit'); auditRows = data.rows;
+      const data = await api('GET', '/api/bank/audit'); auditRows = data.rows;
       const regs = state.registrations.filter(x => x.status !== 'draft'), live = issued(), viol = state.violations || [];
       const todo = regs.filter(x => !x.admission_status || x.admission_status === 'info_requested');
       const verifies = auditRows.filter(r => r.kind === 'verify');
@@ -265,7 +272,7 @@ const AP = (() => {
         const heldN = verifies.filter(r => r.subject === x.passport_id && r.entry.decision === 'ESCALATE' && !decisionFor(r.id)).length;
         const card = el('a', 'agent-row', `<div class="agent-row__head"><span class="agent-row__name">${esc(ag.name || x.passport_id)}</span>${tag(x.status)}</div>
           <div class="small agent-row__counts">${esc((mp.customer || {}).legal_name || '')} · <b class="mono">${x.payments || 0}</b> processed · <b class="mono">${heldN}</b> held · <b class="mono">${nv.length}</b> refused${nv.filter(y => y.failure_class === 'fraud').length ? ` <span class="bad">(${nv.filter(y => y.failure_class === 'fraud').length} fraud)</span>` : ''}</div>`);
-        card.href = `/bank?passport=${x.passport_id}`; void per; void last;
+        card.href = x.synthetic ? '#bk-agents-pane' : `/bank?passport=${x.passport_id}`; void per; void last;
         box.append(card);
       });
       if (!live.length) box.append(el('p', 'small', 'No AI agent holds a passport on this bank yet.'));
@@ -282,8 +289,8 @@ const AP = (() => {
       ], 5);
       renderTrail(data);
       const ev = $('bk-evidence'); ev.innerHTML = '';
-      live.forEach(x => ev.append(el('li', null, `<span>Passport <span class="mono">${esc(x.passport_id)}</span>, the complete bundle</span><a href="/api/evidence/passports/${esc(x.passport_id)}" target="_blank" rel="noopener">Export</a>`)));
-      viol.slice(0, 5).forEach(x => ev.append(el('li', null, `<span>Refusal #${x.id}, ${esc(x.rule)} at ${t(x.ts)}</span><a href="/api/evidence/violations/${x.id}" target="_blank" rel="noopener">Export</a>`)));
+      live.filter(x => !x.synthetic).forEach(x => ev.append(el('li', null, `<span>Passport <span class="mono">${esc(x.passport_id)}</span>, the complete bundle</span><a href="/api/evidence/passports/${esc(x.passport_id)}" target="_blank" rel="noopener">Export</a>`)));
+      viol.filter(x => !x.synthetic).slice(0, 5).forEach(x => ev.append(el('li', null, `<span>Refusal #${x.id}, ${esc(x.rule)} at ${t(x.ts)}</span><a href="/api/evidence/violations/${x.id}" target="_blank" rel="noopener">Export</a>`)));
       if (!live.length && !viol.length) ev.append(el('li', 'small', 'Nothing to export yet.'));
       seenIds = new Set([...verifies.map(r => 'a' + r.id), ...viol.map(x => 'v' + x.id)]);
       $('bd-legend').textContent = LEGEND_LINE;
@@ -327,11 +334,11 @@ const AP = (() => {
       $('au-summary').innerHTML = `<b>${data.rows.length}</b> entries · chain ${data.chain.ok ? '<b class="ok">intact</b>' : `<b class="bad">broken at #${data.chain.broken_at}</b>`} · head <span class="mono">${esc((data.chain.head || '').slice(0, 12))}</span>${trailRun ? ` · <b class="${trailSame === trailRun ? 'ok' : 'bad'}">${trailSame} of ${trailRun}</b> replayed identically` : ''}`;
       const subjects = [...new Set(data.rows.filter(r => r.subject && r.subject.startsWith('AP-')).map(r => r.subject))];
       $('au-evidence').innerHTML = subjects.map(s => `<a href="/api/evidence/passports/${esc(s)}" target="_blank" rel="noopener">Export the evidence bundle for ${esc(s)}</a>`).join(' · ');
-      data.rows.slice(0, 200).forEach(r => tb.append(el('tr', null, `<td class="mono small">${t(r.ts)}</td><td>${plainEvent(r)}</td><td class="mono small">${esc(r.subject || '')}</td><td class="small" id="au-r-${r.id}"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}${r.kind === 'verify' ? (trailState[r.id] ? ` · <span class="${trailState[r.id] === 'same' ? 'ok' : 'bad'}">${trailState[r.id] === 'same' ? 'replayed identically' : 'REPLAY DIFFERS'}</span>` : ` · <button class="link" data-replay="${r.id}" type="button">replay</button>`) : ''}</td>`)));
+      data.rows.slice(0, 200).forEach(r => tb.append(el('tr', null, `<td class="mono small">${t(r.ts)}</td><td>${plainEvent(r)}</td><td class="mono small">${esc(r.subject || '')}</td><td class="small" id="au-r-${r.id}"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}${r.kind === 'verify' && !r.synthetic ? (trailState[r.id] ? ` · <span class="${trailState[r.id] === 'same' ? 'ok' : 'bad'}">${trailState[r.id] === 'same' ? 'replayed identically' : 'REPLAY DIFFERS'}</span>` : ` · <button class="link" data-replay="${r.id}" type="button">replay</button>`) : ''}</td>`)));
       if (!trailBound) {
         trailBound = true;
         tb.addEventListener('click', async (e) => { const b = e.target.closest('[data-replay]'); if (b) { await replayOne(+b.dataset.replay); renderTrail({ rows: auditRows, chain: data.chain }); } });
-        $('btn-replay-all').onclick = async () => { for (const r of auditRows.filter(x => x.kind === 'verify')) if (!trailState[r.id]) await replayOne(r.id); $('replay-note').textContent = trailRun ? `${trailSame} of ${trailRun} replayed identically` : 'no verifications yet'; renderTrail({ rows: auditRows, chain: data.chain }); };
+        $('btn-replay-all').onclick = async () => { for (const r of auditRows.filter(x => x.kind === 'verify' && !x.synthetic)) if (!trailState[r.id]) await replayOne(r.id); $('replay-note').textContent = trailRun ? `${trailSame} of ${trailRun} replayed identically` : 'no verifications yet'; renderTrail({ rows: auditRows, chain: data.chain }); };
       }
     }
     function renderLog(verifies, viol) {
@@ -392,7 +399,7 @@ const AP = (() => {
         <div><h3 class="h4">The instruction, as signed</h3>${kv([['Passport', `<span class="mono">${esc(i.passport_id || '')}</span> · list status ${esc(e.passport_status || e.registry_status || '')}`], ['Action', esc(i.action_type || '')], ['Payee', `${esc(i.supplier_name || '')} · <span class="mono">${esc(i.payee_account_ref || '')}</span>`], ['Amount', `${gbp(i.amount)} ${esc(i.currency || '')}`], ['Invoice', esc(i.invoice_ref || '—')], ['Nonce', `<span class="mono small">${esc(i.nonce || '—')}</span>${e.nonce_seen_before ? ' <span class="small">already spent: this instruction had been accepted before</span>' : ''}`], ['Instruction hash', `<span class="mono small" title="${esc(e.instruction_hash || '')}">${esc((e.instruction_hash || '').slice(0, 16))}…</span>`], ['30-day total before', gbp(e.ledger_total_before)]])}${vio && vio.evidence ? `<h3 class="h4">What the AI agent read</h3>${kv([['Invoice', esc(vio.evidence.invoice)], ['Declared before reading', `<span class="mono">${esc((vio.evidence.intent || {}).declared_payee || '—')}</span>`], ['Attempted after reading', `<span class="mono wrong">${esc(vio.evidence.instruction_payee || '')}</span>`], ['Read by', esc(modeLabel(vio.evidence.extraction_mode))]])}` : ''}</div>
         <div><h3 class="h4">The nine checks, in order</h3><ol class="bd-trace">${trace}</ol><p class="bd-verdict bd-verdict--${e.decision}${e.failure_class === 'agent_error' ? ' bd-verdict--quiet' : ''}"><b>${esc(e.decision)}</b> ${esc(e.rule)} · ${esc(e.code)} <span>${esc(e.reason)}</span>${e.decision === 'DENY' ? `<span>${classTag(e.failure_class)} ${esc(((state.failure_classes || {})[classId(e.failure_class)] || {}).note || '')}</span>` : ''}</p>${e.decision === 'ESCALATE' ? heldHtml(r) : ''}</div>
         <div><h3 class="h4">Proof</h3>${kv([['Chain entry', `#${r.id} <span class="mono small" title="${esc(r.hash)}">${esc(r.hash.slice(0, 16))}…</span>`], ['Previous', `<span class="mono small" title="${esc(r.prev_hash)}">${esc(r.prev_hash.slice(0, 16))}…</span>`], ['Rule pack', `<span class="mono">${esc(e.rule_pack || '')}</span>`], ['Receipt', r.receipt ? `signed by the bank · <span class="mono small">${esc(r.receipt.slice(0, 40))}…</span>` : 'none'], ['Envelope', `admission ${env.admission ? '✓' : '✗'} · agent identity ${env.agent_identity ? '✓' : '✗'} · mandate ${env.mandate ? '✓' : '✗'}`]])}
-          <div class="actions"><button class="btn btn--secondary btn--small" type="button" data-replay="${r.id}">Replay this decision</button>${vio ? `<a class="btn btn--secondary btn--small" href="/api/evidence/violations/${vio.id}" target="_blank" rel="noopener">Export the evidence bundle</a>` : `<a class="btn btn--secondary btn--small" href="/api/evidence/passports/${esc(r.subject)}" target="_blank" rel="noopener">Export the passport bundle</a>`}<span class="actions__note" id="bd-replay-${r.id}"></span></div></div>
+          <div class="actions">${r.synthetic ? '' : `<button class="btn btn--secondary btn--small" type="button" data-replay="${r.id}">Replay this decision</button>`}${r.synthetic ? '' : vio ? `<a class="btn btn--secondary btn--small" href="/api/evidence/violations/${vio.id}" target="_blank" rel="noopener">Export the evidence bundle</a>` : `<a class="btn btn--secondary btn--small" href="/api/evidence/passports/${esc(r.subject)}" target="_blank" rel="noopener">Export the passport bundle</a>`}<span class="actions__note" id="bd-replay-${r.id}"></span></div></div>
       </div>`;
     }
     document.querySelectorAll('.bd-filter').forEach(bt => { bt.onclick = () => { logFilter = bt.dataset.filter; document.querySelectorAll('.bd-filter').forEach(x => x.setAttribute('aria-pressed', String(x === bt))); renderLog(auditRows.filter(r => r.kind === 'verify'), state.violations || []); }; });
@@ -426,7 +433,8 @@ const AP = (() => {
         ['Insurance', `${esc(v(f, 'insurance', 'insurer'))} · policy <span class="mono">${esc(v(f, 'insurance', 'policy_ref'))}</span> · cover ${gbp(v(f, 'insurance', 'cover_gbp'))} · in force until ${esc(v(f, 'insurance', 'expires'))}`],
         ['AI product', `<strong>${esc(v(f, 'product', 'product_name'))}</strong> <span class="mono">${esc(v(f, 'product', 'product_id'))}</span> · release ${esc(v(f, 'product', 'release'))} · ${esc(v(f, 'product', 'model_provider'))} <span class="mono">${esc(v(f, 'product', 'model_version'))}</span> · <a href="${esc(v(f, 'product', 'documentation_url'))}">documentation</a>`],
         ['Independent Assurance Evidence', `${levelTag(v(f, 'assurance_evidence', 'level'))} ${esc(v(f, 'assurance_evidence', 'issuer'))} · <span class="mono">${esc(v(f, 'assurance_evidence', 'reference'))}</span> · ${esc(v(f, 'assurance_evidence', 'date'))} · use case <span class="mono">${esc(v(f, 'assurance_evidence', 'use_case'))}</span><span class="sub">${esc(v(f, 'assurance_evidence', 'summary'))} · <a href="${esc(v(f, 'assurance_evidence', 'report_url'))}">report</a> · the level is declared by the provider with its evidence; this bank admits at ${esc((LEVELS[(state.policy || {}).min_assurance_level_for_admission] || ['?'])[0]).toLowerCase()} or above</span>`],
-        ['Registered use', `<strong>${esc(v(f, 'intended_use', 'action_type'))}</strong> · ${esc(v(f, 'intended_use', 'description'))} · no customer named: each customer writes its own mandate within your ceilings`],
+        ['Registered use', `<strong>${esc((((state.payment_intents || []).find(x => x.id === v(f, 'intended_use', 'payment_intent')) || {}).label) || v(f, 'intended_use', 'payment_intent') || 'no intent')}</strong> · ${esc(v(f, 'intended_use', 'description'))} · no customer named: each customer writes its own mandate within your ceilings`],
+        ['UK data protection', `${v(f, 'data_protection', 'uk_gdpr_compliant') === 'yes' ? '<span class="tag tag--green">declared</span>' : '<span class="tag tag--red">not declared</span>'} UK GDPR and DPA 2018 · ICO <span class="mono">${esc(v(f, 'data_protection', 'ico_registration') || 'none')}</span> · personal data retained ${esc((((state.retention_periods || []).find(x => x.id === v(f, 'data_protection', 'retention_period')) || {}).label || 'not declared').toLowerCase())}${v(f, 'data_protection', 'dpia_reference') ? ` · DPIA <span class="mono">${esc(v(f, 'data_protection', 'dpia_reference'))}</span>` : ''} · declared by the provider; the register verifies nothing about compliance`],
         ['Register receipt', a.registration_jwt ? `signed by the register <span class="mono small">${esc(a.registration_jwt.slice(0, 24))}…</span> · filed ${d(a.submitted_at)}` : '—'],
       ].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       const pol = state.policy || {};
@@ -604,13 +612,19 @@ const AP = (() => {
     { d: '2026-09-01', desc: 'Received · Coastline Hotels Ltd · invoice NJ-2281', in: 9870.00 },
   ];
   async function customer() {
-    let state = await api('GET', '/api/state');
+    const STATIC = !new URLSearchParams(location.search).get('live');
+    let snap = STATIC ? await api('GET', '/api/customer/snapshot').catch(() => null) : null;
+    const loadState = async () => snap ? snap.state : api('GET', '/api/bank/state');
+    const loadAudit = async () => snap ? snap.audit : api('GET', '/api/bank/audit');
+    let state = await loadState();
+    if (snap && snap.state.decisions) lastDecisions = snap.state.decisions;
     const ref = new URLSearchParams(location.search).get('ref');
     const eventId = Number(new URLSearchParams(location.search).get('event')) || null;
     const qp = new URLSearchParams(location.search);
     const subpage = ref ? 'agent' : eventId ? 'event' : qp.get('trail') ? 'trail' : qp.get('tab') === 'transactions' ? 'transactions' : qp.get('new') ? 'new' : 'overview';
     document.body.dataset.cupage = subpage;
     let p = state.passports.find(x => x.passport_id === ref) || null;
+    if (ref && !p && snap) { snap = null; state = await api('GET', '/api/bank/state'); p = state.passports.find(x => x.passport_id === ref) || null; }   // a live agent the snapshot does not hold
     const d0 = state.mandate_draft || { customer: {}, authorising_officer: {} };
     // the mandate form starts empty: the account holder and signatory are known, everything else is the customer's to write (or to prefill for the demo)
     const emptyDraft = () => ({ customer: d0.customer, authorising_officer: d0.authorising_officer, actions: d0.actions || ['pay_invoice'], currency: 'GBP', supplier_allowlist: [], per_payment_limit: '', monthly_limit_per_account: '', max_payments_per_day: '', valid_until: '' });
@@ -634,10 +648,10 @@ const AP = (() => {
     setTab(subpage === 'transactions' ? 'transactions' : 'live');
     window.addEventListener('resize', () => { const cur = document.body.dataset.actab; if (wide() && (cur === 'agents' || cur === 'trail')) setTab('live'); if (!wide() && cur === 'live') setTab('agents'); });
     // live: the trail, the notifications and the agents refresh while the page is open
-    let acTimer = setInterval(async () => { if (document.hidden) return; state = await api('GET', '/api/state'); if (p) p = state.passports.find(x => x.passport_id === p.passport_id) || p; await renderAccount(); renderCards(); }, 3000);
+    let acTimer = setInterval(async () => { if (document.hidden || snap) return; state = await api('GET', '/api/bank/state'); if (p) p = state.passports.find(x => x.passport_id === p.passport_id) || p; await renderAccount(); renderCards(); }, 3000);
 
     async function renderAccount() {
-      const data = await api('GET', '/api/audit');
+      const data = await loadAudit();
       const mine = data.rows.filter(r => r.subject && (r.subject.startsWith('AP-') || r.subject.startsWith('AG-'))); acRows = mine;
       const live = mine.filter(r => r.kind === 'verify').map(r => { const e = r.entry, i = e.instruction || {}; const dd = e.decision === 'ESCALATE' ? decisionFor(r.id) : null; const moved = e.decision === 'ALLOW' || (dd && dd.entry.outcome === 'RELEASED'); const word = moved ? '' : (e.decision === 'ESCALATE' ? (dd ? 'Refused' : 'Held') : 'Refused'); const byWhom = e.code === FIRST ? 'you' : 'your approver'; return { ai: { supplier: i.supplier_name || '', agent: agentOf(r.subject), invoice: i.invoice_ref, amount: Number(i.amount || 0), word, tone: e.decision === 'DENY' ? (classId(e.failure_class) === 'fraud' ? 'fraud' : 'error') : '', audit: r.id }, d: r.ts, desc: `${word ? `<b class="txn-blocked">${word}</b> · ` : ''}<b class="txn-ai">AI agent</b> ${esc(agentOf(r.subject))} · ${esc(i.supplier_name || '')} · <span class="mono">${esc(i.payee_account_ref || '')}</span> · invoice ${esc(i.invoice_ref || '')}${word ? ` · <span class="small">${e.decision === 'ESCALATE' ? (dd ? 'by ' + byWhom : 'for ' + byWhom) : 'Agent Passport ' + esc(e.rule)}</span>` : (dd ? ` · <span class="small">${e.code === FIRST ? 'first payment, confirmed by you' : 'released by your approver'}</span>` : '')}`, out: moved ? Number(i.amount || 0) : null, blocked: !moved, ts: r.ts }; });
       const all = [...live, ...STATIC_TXNS.map(x => ({ ...x, ts: x.d + 'T12:00:00Z' }))].sort((a, b) => (a.ts < b.ts ? 1 : -1));
@@ -695,7 +709,7 @@ const AP = (() => {
       const WHO = { agent: 'Your AI agent', invoice: 'The invoice', bank: bank, you: 'You' };
       box.innerHTML = `<div class="cu-event__hero cu-event__hero--${n.tone}"><span class="tag tag--${n.tone === 'red' ? 'red' : n.tone === 'amber' ? 'amber' : 'grey'}">${esc(n.label)}</span><h2 class="cu-event__title">${n.text}</h2><p class="small">${d(r.ts)} · every step below is on the record, in the order it happened</p></div>
         <ol class="tl">${steps.map((st, k) => `<li class="tl__step tl__step--${st.who}${k === steps.length - 1 ? ' tl__step--last' : ''}"><span class="tl__dot" aria-hidden="true"></span><div class="tl__meta"><b>${esc(WHO[st.who])}</b>${st.t ? `<span class="mono small">${t(st.t)}</span>` : '<span class="small">now</span>'}</div><h3 class="tl__title">${st.title}</h3><p class="tl__body">${st.body}</p>${st.quote ? `<p class="tl__quote">${st.quote}</p>` : ''}${st.strip ? `<div class="tl__strip">${st.strip}</div>` : ''}${st.act ? `<div class="tl__act">${st.act}</div>` : ''}${st.proof}</li>`).join('')}</ol>
-        <details class="cu-event__details"><summary>The full record</summary><h4 class="h4">The bank's checks, as run</h4><ol class="bd-trace">${(e.trace || []).map(st => `<li class="${st.ok ? 'ok' : (e.decision === 'ESCALATE' && st.rule === e.rule ? 'hold' : 'fail')}"><b>${esc(st.rule)}</b> ${esc(st.title)}<span>${esc(st.note)}</span></li>`).join('')}</ol><dl class="kv kv--card"><div><dt>Record</dt><dd>#${r.id} <span class="mono small">${esc(r.hash)}</span></dd></div><div><dt>Rule pack</dt><dd><span class="mono">${esc(e.rule_pack || '')}</span></dd></div><div><dt>Receipt</dt><dd>${r.receipt ? `signed by the bank · <span class="mono small">${esc(r.receipt.slice(0, 40))}…</span>` : 'none'}</dd></div></dl><div class="actions">${vio ? `<a class="btn btn--secondary btn--small" href="/api/evidence/violations/${vio.id}" target="_blank" rel="noopener">Export the evidence</a>` : `<a class="btn btn--secondary btn--small" href="/api/evidence/passports/${esc(String(r.subject || '').replace('AG-', 'AP-'))}" target="_blank" rel="noopener">Export the record</a>`}${r.kind === 'verify' ? `<button class="btn btn--secondary btn--small" type="button" id="cu-event-replay">Replay the decision</button><span class="actions__note" id="cu-event-replay-note"></span>` : ''}</div></details>`;
+        <details class="cu-event__details"><summary>The full record</summary><h4 class="h4">The bank's checks, as run</h4><ol class="bd-trace">${(e.trace || []).map(st => `<li class="${st.ok ? 'ok' : (e.decision === 'ESCALATE' && st.rule === e.rule ? 'hold' : 'fail')}"><b>${esc(st.rule)}</b> ${esc(st.title)}<span>${esc(st.note)}</span></li>`).join('')}</ol><dl class="kv kv--card"><div><dt>Record</dt><dd>#${r.id} <span class="mono small">${esc(r.hash)}</span></dd></div><div><dt>Rule pack</dt><dd><span class="mono">${esc(e.rule_pack || '')}</span></dd></div><div><dt>Receipt</dt><dd>${r.receipt ? `signed by the bank · <span class="mono small">${esc(r.receipt.slice(0, 40))}…</span>` : 'none'}</dd></div></dl><div class="actions"${snap ? ' hidden' : ''}>${vio ? `<a class="btn btn--secondary btn--small" href="/api/evidence/violations/${vio.id}" target="_blank" rel="noopener">Export the evidence</a>` : `<a class="btn btn--secondary btn--small" href="/api/evidence/passports/${esc(String(r.subject || '').replace('AG-', 'AP-'))}" target="_blank" rel="noopener">Export the record</a>`}${r.kind === 'verify' ? `<button class="btn btn--secondary btn--small" type="button" id="cu-event-replay">Replay the decision</button><span class="actions__note" id="cu-event-replay-note"></span>` : ''}</div></details>`;
       const rb = $('cu-event-replay'); if (rb) rb.onclick = async () => { const rp = await api('POST', `/api/audit/${r.id}/replay`); $('cu-event-replay-note').innerHTML = rp.identical ? '<b class="ok">Replayed identically</b> from the stored inputs' : '<b class="bad">Replay differs</b>'; };
     }
     const gbp2 = (n) => '£' + Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -783,7 +797,7 @@ const AP = (() => {
       const kv = (pairs) => `<dl class="kv">${pairs.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('')}</dl>`;
       return `<div class="cu-confirm" role="group" aria-label="Review and confirm the first payment"><h3 class="h4">Review and confirm the first payment under this mandate</h3>${kv([['AI agent', `${esc(agentOf(r.subject))} · <span class="mono">${esc(r.subject)}</span>`], ['Payee', `${esc(i.supplier_name || '')} · <span class="mono">${esc(i.payee_account_ref || '')}</span>${sup.register_check && sup.register_check.found ? ` · ${esc(sup.register_check.legal_name)}, checked against the public register` : ''}`], ['Amount', `<b>${gbp(i.amount)}</b> ${esc(i.currency || 'GBP')}${i.invoice_ref ? ` · invoice <span class="mono">${esc(i.invoice_ref)}</span>` : ''}`], ['Mandate', `version ${esc(String(m.version || 1))}, signed by ${esc(ap.name || '')} · up to ${gbp(((m.authorization_details || [{}])[0].per_payment_limit || {}).amount)} a payment`], ['Checks', 'passed R.1 to R.8 at the bank; held at R.9 for this confirmation only']])}<div class="actions"><button class="btn" type="button" data-first="confirm" data-audit="${r.id}">Confirm and pay</button><button class="btn btn--secondary" type="button" data-first="refuse" data-audit="${r.id}">Not this one</button><span class="actions__note">Recorded in the evidence chain as ${esc(ap.name || '')}, ${esc(ap.role || '')}. After this, payments inside the mandate need no confirmation.</span></div><p class="error" id="cu-first-error" hidden></p></div>`;
     }
-    $('cu-event-body').addEventListener('click', async (ev) => { const rv = ev.target.closest('[data-review]'); if (rv) { pendingConfirm = pendingConfirm === +rv.dataset.review ? null : +rv.dataset.review; renderEvent(); return; } const fp = ev.target.closest('[data-first]'); if (fp && !fp.disabled) { fp.disabled = true; try { await api('POST', `/api/audit/${fp.dataset.audit}/confirm-first`, { decision: fp.dataset.first }); pendingConfirm = null; } catch (e) { alert(e.message); fp.disabled = false; return; } state = await api('GET', '/api/state'); await renderAccount(); } });
+    $('cu-event-body').addEventListener('click', async (ev) => { const rv = ev.target.closest('[data-review]'); if (rv) { pendingConfirm = pendingConfirm === +rv.dataset.review ? null : +rv.dataset.review; renderEvent(); return; } const fp = ev.target.closest('[data-first]'); if (fp && !fp.disabled) { fp.disabled = true; try { await api('POST', `/api/audit/${fp.dataset.audit}/confirm-first`, { decision: fp.dataset.first }); pendingConfirm = null; } catch (e) { alert(e.message); fp.disabled = false; return; } state = await api('GET', '/api/bank/state'); await renderAccount(); } });
     $('cu-notes').addEventListener('keydown', (ev) => { const li = ev.target.closest('li[data-event]'); if (li && ev.target === li && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); location.href = `/customer?event=${li.dataset.event}`; } });
     $('cu-notes').addEventListener('click', async (ev) => {
       if (!ev.target.closest('a, button, .cu-confirm')) { const li = ev.target.closest('li[data-event]'); if (li) { location.href = `/customer?event=${li.dataset.event}`; return; } }
@@ -794,7 +808,7 @@ const AP = (() => {
         fp.disabled = true;
         try { const out = await api('POST', `/api/audit/${fp.dataset.audit}/confirm-first`, { decision: fp.dataset.first }); pendingConfirm = null; const tst = $('cu-toast'); tst.className = 'cu-toast cu-toast--slate'; tst.innerHTML = out.outcome === 'RELEASED' ? `<b>Confirmed.</b> ${gbp((out.settlement || {}).amount || (acRows.find(x => x.id === +fp.dataset.audit) || { entry: { instruction: {} } }).entry.instruction.amount)} is on its way. Payments inside the mandate now flow without confirmation; you hear about anything that matters.` : '<b>Refused.</b> Nothing left your account. The next attempt will ask again.'; tst.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { tst.hidden = true; }, 9000); }
         catch (e) { const er = $('cu-first-error'); if (er) { er.textContent = e.message; er.hidden = false; } fp.disabled = false; return; }
-        state = await api('GET', '/api/state'); if (p) p = state.passports.find(x => x.passport_id === p.passport_id) || p; await renderAccount(); renderCards();
+        state = await api('GET', '/api/bank/state'); if (p) p = state.passports.find(x => x.passport_id === p.passport_id) || p; await renderAccount(); renderCards();
       }
     });
 
@@ -819,7 +833,7 @@ const AP = (() => {
     async function revokeMandate(pid) {
       if (!confirm('Revoke this mandate? The AI agent can no longer pay on this passport from the next instruction. The signed mandate stays on record and the revocation is written to the evidence chain.')) return;
       try { await api('POST', `/api/passports/${pid}/mandate/revoke`, { reason: 'revoked by the customer in the bank app' }); } catch (e) { alert(e.message); }
-      state = await api('GET', '/api/state'); if (p) p = state.passports.find(x => x.passport_id === p.passport_id) || p; amending = false; render(); renderAccount();
+      state = await api('GET', '/api/bank/state'); if (p) p = state.passports.find(x => x.passport_id === p.passport_id) || p; amending = false; render(); renderAccount();
     }
     $('cu-agents').addEventListener('click', (e) => { const b = e.target.closest('[data-revoke]'); if (b) revokeMandate(b.dataset.revoke); });
     // the passport: three signed parts, side by side, each with only what a person needs to see
@@ -841,8 +855,8 @@ const AP = (() => {
       $('cu-empty').hidden = !!(products.length || p);
       $('cu-create').hidden = !products.length;
       if (subpage === 'new') $('cu-add-form').hidden = false;
-      const sel = $('cu-model'); sel.innerHTML = products.map(m => `<option value="${m.registration_id}">${esc(m.product_name)} · ${esc(m.provider)} · ${esc((LEVELS[m.assurance_level] || ['no level'])[0].toLowerCase())}</option>`).join('');
-      const showLevel = () => { const m = products.find(y => String(y.registration_id) === sel.value); if ($('cu-model-level')) $('cu-model-level').innerHTML = m ? `${levelTag(m.assurance_level)} <span class="small">assurance level the provider declared with its evidence</span>` : ''; }; sel.onchange = showLevel; showLevel();
+      const sel = $('cu-model'); sel.innerHTML = products.map(m => `<option value="${m.registration_id}">${esc(m.product_name)} · ${esc(m.provider)} · ${esc((m.payment_intent || {}).label || '')} · ${esc((LEVELS[m.assurance_level] || ['no level'])[0].toLowerCase())}</option>`).join('');
+      const showLevel = () => { const m = products.find(y => String(y.registration_id) === sel.value); if ($('cu-model-level')) $('cu-model-level').innerHTML = m ? `${levelTag(m.assurance_level)} <span class="small">assurance level the provider declared with its evidence · filed for: ${esc((m.payment_intent || {}).label || '')} · UK data protection ${m.uk_gdpr_compliant === 'yes' ? 'declared' : 'not declared'}, personal data retained ${esc((m.retention_label || 'not declared').toLowerCase())}</span>` : ''; }; sel.onchange = showLevel; showLevel();
       if ($('cu-legend')) $('cu-legend').hidden = true;
       if (!$('cu-agent-name').value) $('cu-agent-name').value = (state.agent_draft || {}).agent_name || '';
       $('cu-mandate').hidden = !p;
@@ -899,7 +913,7 @@ const AP = (() => {
       $('cu-actions').hidden = (signed && !amending) || revokedM || p.status === 'revoked';
       $('btn-sign-mandate').textContent = amending ? 'Sign amended mandate' : 'Sign mandate';
       $('btn-cancel-amend').hidden = !amending;
-      $('cu-manage').hidden = !(signed && !amending) || revokedM || p.status === 'revoked';
+      $('cu-manage').hidden = !(signed && !amending) || revokedM || p.status === 'revoked' || !!snap;
       $('cu-sig').hidden = !signed || amending || revokedM;
       if (signed && !revokedM) { const vn = p.mandate_version || 1; $('cu-sig').innerHTML = `<strong>${vn > 1 ? `Version ${vn} signed` : 'Signed'} ${d(p.mandate_signed_at)} at ${t(p.mandate_signed_at)} by ${esc((p.mandate.signed_by || {}).name)}, ${esc((p.mandate.signed_by || {}).role)}</strong> Ed25519 signature by the ${esc((mp.customer || {}).legal_name)} key. ${vn > 1 ? `Supersedes version ${vn - 1}; the bank enforces this version from the next instruction. The previous version stays on record.` : 'The bank issued the passport, the list shows ACTIVE and the voucher is minted on the vouch rail. Live at once.'}`; }
       const vers = p.mandate_versions || [];
@@ -963,7 +977,7 @@ const AP = (() => {
     $('cu-add').onclick = () => { collect(); draft.supplier_allowlist.push({ supplier_id: `SUP-${String(draft.supplier_allowlist.length + 1).padStart(3, '0')}`, name: '', account_ref: '', companies_house_number: '' }); renderForm(); scheduleCheck(); };
     $('btn-sign-mandate').onclick = async () => {
       const b = $('btn-sign-mandate'); b.disabled = true; $('cu-error').hidden = true;
-      try { const np = await api('POST', `/api/passports/${p.passport_id}/mandate/${amending ? 'amend' : 'sign'}`, collect()); amending = false; state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${np.passport_id}`); render(); renderAccount(); }
+      try { const np = await api('POST', `/api/passports/${p.passport_id}/mandate/${amending ? 'amend' : 'sign'}`, collect()); amending = false; state = await api('GET', '/api/bank/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${np.passport_id}`); render(); renderAccount(); }
       catch (e) { $('cu-error').textContent = typeof e.message === 'string' ? e.message : JSON.stringify(e.message); $('cu-error').hidden = false; b.disabled = false; }
     };
   }
@@ -973,7 +987,7 @@ const AP = (() => {
   // resolving in order (slowed for demonstration); the raw response is kept off-screen for the record and the tests.
   const SHORT = { 'R.1': 'bank admission signature', 'R.2': 'passport list status', 'R.3': 'agent identity signature', 'R.4': 'AI agent signature and nonce', 'R.5': 'customer mandate', 'R.6': 'action, currency, payee', 'R.7': 'per-payment limit', 'R.8': '30-day total and daily count', 'R.9': 'bank hold condition', 'C.a': 'root scope', 'C.b': 'delegation ⊆ root', 'C.c': 'action ⊆ delegation' };
   async function console_() {
-    const state = await api('GET', '/api/state');
+    const state = await api('GET', '/api/bank/state');
     const ref = new URLSearchParams(location.search).get('ref');
     const issued = state.passports.filter(x => x.status !== 'pending');
     const p = issued.find(x => x.passport_id === ref) || issued[0] || null;
