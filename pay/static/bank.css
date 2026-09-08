@@ -436,3 +436,29 @@ body[data-actab="agent"] .fx-nav { visibility: hidden; }
 .fx .bd-att tr.bd-att__row td:nth-child(6) { justify-content: flex-start; }
 /* still: nothing arrives, nothing animates */
 .fx tr.is-new > td, .fx li.is-new, .fx tr.is-landed > td:nth-child(2) .tag, .fx .live-dot { animation: none; }
+
+/* ── the dashboard as graphs: intent, region, outcomes, agents, and the network of who pays whom ── */
+.fx-pill { display: inline-flex; align-items: center; height: 40px; padding: 0 16px; border-radius: 999px; border: 1px solid var(--fx-line); background: #fff; color: var(--fx-ink); font-size: .8125rem; font-weight: 600; text-decoration: none; }
+.fx-pill:hover { background: var(--fx-tint); text-decoration: none; }
+.fx .fx-hdr-back { display: none; }
+body[data-bkpage="trail"] .fx .fx-hdr-back { display: inline-flex; order: -1; flex-basis: 100%; margin: 0; }
+body[data-bkpage="overview"] #bd-trail-page { display: none; }
+body[data-bkpage="trail"] .fx-grid, body[data-bkpage="trail"] .bd-more, body[data-bkpage="trail"] #bk-todo, body[data-bkpage="trail"] .fx-pill { display: none; }
+body[data-bkpage="trail"] #au-table tbody tr:nth-child(n+11) { display: table-row; }
+body[data-bkpage="trail"] .bd-trail { flex: 1 0 auto; }
+.bd-graphs { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 20px; }
+.bk-chart { position: relative; height: 170px; }
+.bk-chart--tall { height: 200px; }
+.bk-chart canvas { position: absolute; inset: 0; width: 100% !important; height: 100% !important; }
+.bk-legend { list-style: none; margin: 10px 0 0; padding: 0; display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 12px; font-size: .75rem; color: var(--fx-ink-2); }
+.bk-legend li { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.bk-legend i { width: 9px; height: 9px; border-radius: 50%; flex: 0 0 auto; }
+.bk-legend b { margin-left: auto; color: var(--fx-ink); font-weight: 600; }
+.bk-net svg { display: block; }
+.bk-net__legend { margin: 8px 0 0; font-size: .75rem; color: var(--fx-ink-3); }
+.fx-col > #bk-network { flex: 0 0 auto; }
+@media (max-width: 640px) { .bd-graphs { grid-template-columns: minmax(0, 1fr); } }
+/* the trail page shows the trail alone; the right column panes keep their height; one-column legends */
+body[data-bkpage="trail"] .fx .fx-grid.bd-cols { display: none; }
+.fx-col--right > * { flex: 0 0 auto; }
+.bk-legend { grid-template-columns: minmax(0, 1fr); }

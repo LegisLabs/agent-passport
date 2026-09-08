@@ -175,6 +175,7 @@ const AP = (() => {
     let p = q.get('passport') ? issued().find(x => x.passport_id === q.get('passport')) || null : null;
     let a = p ? state.registrations.find(x => x.id === p.registration_id) : (q.get('ref') ? state.registrations.find(x => x.ref === q.get('ref') && x.status !== 'draft') || null : null);
     const mode = p ? 'agent' : a ? 'case' : 'dash';
+    document.body.dataset.bkpage = q.get('trail') ? 'trail' : 'overview';
     let selectedVid = null;
     render();
 
@@ -295,6 +296,7 @@ const AP = (() => {
       seenIds = new Set([...verifies.map(r => 'a' + r.id), ...viol.map(x => 'v' + x.id)]);
       $('bd-legend').textContent = LEGEND_LINE;
       renderStats(verifies, viol, live);
+      renderGraphs(verifies, viol, live);
       $('bd-live-label').textContent = 'Live · ' + t(new Date().toISOString());
     }
     // statistics: this session's instructions per agent, and the carried-forward totals as one clearly separate line
@@ -313,7 +315,7 @@ const AP = (() => {
       if (window.Chart && $('chart-volume')) {
         if (!volChart) {
           Chart.defaults.font.family = getComputedStyle(document.body).fontFamily; Chart.defaults.font.size = 13; Chart.defaults.color = '#505a5f';
-          volChart = new Chart($('chart-volume'), { type: 'bar', data: { labels, datasets: [{ data, backgroundColor: '#0f6b73', borderWidth: 0, maxBarThickness: 28 }] },
+          volChart = new Chart($('chart-volume'), { type: 'bar', data: { labels, datasets: [{ data, backgroundColor: '#0f6b73', borderRadius: 4, maxBarThickness: 14 }] },
             options: { animation: { duration: 300 }, responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false }, tooltip: { callbacks: { label: (c) => gbp(c.parsed.y) } } },
               scales: { x: { grid: { display: false }, border: { color: '#b1b4b6' }, ticks: { color: '#0b0c0c', maxTicksLimit: 12 } }, y: { beginAtZero: true, grid: { color: '#e5e7e8' }, border: { display: false }, ticks: { color: '#505a5f', callback: (v_) => gbp(v_) } } } } });
         } else { volChart.data.labels = labels; volChart.data.datasets[0].data = data; volChart.update('none'); }
@@ -326,6 +328,44 @@ const AP = (() => {
       if (!live.length) tb.append(el('tr', null, '<td colspan="6" class="empty-row">No AI agent holds a passport on this bank yet.</td>'));
       if (o.processed) tb.append(el('tr', 'bd-stats__carry', `<td>Other AI agents on the bank's list, ${num(o.agents_on_list)} of them<br><span class="small">carried forward as totals, ${esc((o.period || {}).from || '')} to the start of this session · no rows</span></td><td class="num mono">${num(o.processed)}</td><td class="num mono">${gbp(o.value_gbp)}</td><td class="num mono">${num(o.held)}</td><td class="num mono">${num(o.refused_fraud)}</td><td class="num mono">${num(o.refused_agent_error)}</td>`));
     }
+    // graphs: the channel this month by intent and region (carried-forward totals, synthetic), this session by outcome and agent, and who pays whom
+    const PALETTE = ['#0f6b73', '#3c8f95', '#7fb7bb', '#c9f26b', '#1f8a4c', '#b45f06', '#c62828', '#97a39f'];
+    const charts = {};
+    function chartOnce(id, cfg) { if (!window.Chart || !$(id)) return null; if (charts[id]) { charts[id].data = cfg.data; charts[id].update('none'); return charts[id]; } Chart.defaults.font.family = getComputedStyle(document.body).fontFamily; Chart.defaults.font.size = 12; Chart.defaults.color = '#66736f'; charts[id] = new Chart($(id), cfg); return charts[id]; }
+    const legend = (id, labels, values, colors) => { const total = values.reduce((s2, v_) => s2 + v_, 0) || 1; $(id).innerHTML = labels.map((l, i) => `<li><i style="background:${colors[i % colors.length]}"></i>${esc(l)}<b>${Math.round(values[i] / total * 100)}%</b></li>`).join(''); };
+    const ring = (id, labels, values, tip) => chartOnce(id, { type: 'doughnut', data: { labels, datasets: [{ data: values, backgroundColor: PALETTE, borderWidth: 2, borderColor: '#fff', hoverOffset: 4 }] },
+      options: { cutout: '68%', responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f1a17', cornerRadius: 10, padding: 10, callbacks: { label: (c) => ` ${tip(c.parsed)}` } } } } });
+    const bars = (id, labels, values, tip) => chartOnce(id, { type: 'bar', data: { labels, datasets: [{ data: values, backgroundColor: '#0f6b73', borderRadius: 6, maxBarThickness: 18 }] },
+      options: { indexAxis: 'y', responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f1a17', cornerRadius: 10, padding: 10, callbacks: { label: (c) => ` ${tip(c.parsed.x)}` } } },
+        scales: { x: { grid: { color: '#eef1f0' }, border: { display: false }, ticks: { maxTicksLimit: 4, callback: (v_) => '£' + (v_ >= 1e6 ? (v_ / 1e6).toFixed(1) + 'm' : v_ >= 1e3 ? Math.round(v_ / 1e3) + 'k' : v_) } }, y: { grid: { display: false }, border: { display: false }, ticks: { color: '#0f1a17' } } } } });
+    function renderGraphs(verifies, viol, live) {
+      const o = state.opening || {}; const intents = state.payment_intents || [];
+      const bi = o.by_intent || {}; const il = Object.keys(bi).map(k => (intents.find(x => x.id === k) || { label: k }).label), iv = Object.values(bi);
+      ring('chart-intent', il, iv, (v_) => gbp(v_)); legend('bk-intent-legend', il, iv, PALETTE);
+      const br = o.by_region || {}; bars('chart-region', Object.keys(br), Object.values(br), (v_) => gbp(v_));
+      const held = verifies.filter(r => r.entry.decision === 'ESCALATE').length, proc = verifies.filter(r => r.entry.decision === 'ALLOW').length, nf = viol.filter(x => x.failure_class === 'fraud').length, ne = viol.filter(x => x.failure_class !== 'fraud').length;
+      const ol = ['Processed', 'Held for a person', 'Refused, fraud indicator', 'Refused, agent error'], ov = [proc, held, nf, ne], oc = ['#1f8a4c', '#b45f06', '#c62828', '#97a39f'];
+      chartOnce('chart-outcome', { type: 'doughnut', data: { labels: ol, datasets: [{ data: ov, backgroundColor: oc, borderWidth: 2, borderColor: '#fff' }] }, options: { cutout: '68%', responsive: true, maintainAspectRatio: false, animation: false, plugins: { legend: { display: false }, tooltip: { backgroundColor: '#0f1a17', cornerRadius: 10, padding: 10 } } } });
+      legend('bk-outcome-legend', ol, ov, oc);
+      const pays = state.payments || [];
+      const byAgent = live.map(x => [((x.agent_identity || {}).agent || {}).name || x.passport_id, pays.filter(y => y.passport_id === x.passport_id).reduce((s2, y) => s2 + Number(y.amount || 0), 0)]).sort((a1, b1) => b1[1] - a1[1]);
+      bars('chart-agents', byAgent.map(x => x[0].replace('PayGPT 6.0 · ', '').replace(' deployment', '')), byAgent.map(x => x[1]), (v_) => gbp(v_));
+      renderNetwork(verifies, viol, live);
+    }
+    function renderNetwork(verifies, viol, live) {
+      const box = $('bk-net'); if (!box) return;
+      const agents = live.map(x => { const nm = (((x.mandate_proposed || {}).customer || {}).legal_name || x.passport_id).replace(/ (Ltd|and Daughters Ltd)$/, ''); return { id: x.passport_id, label: nm.length > 17 ? nm.slice(0, 16) + '…' : nm }; });
+      const edges = {}; const payees = {};
+      verifies.forEach(r => { const i = r.entry.instruction || {}; if (!i.payee_account_ref) return; const k = r.subject + '|' + i.payee_account_ref; payees[i.payee_account_ref] = i.supplier_name || i.payee_account_ref; edges[k] = edges[k] || { a: r.subject, p: i.payee_account_ref, value: 0, refused: 0, n: 0 }; edges[k].n++; if (r.entry.decision === 'DENY') edges[k].refused++; else edges[k].value += Number(i.amount || 0); });
+      const pl = Object.keys(payees); const W = 400, rowA = 30, rowP = 24, H = Math.max(agents.length * rowA, pl.length * rowP) + 24;
+      const ya = (i) => 12 + (H - 24) * (agents.length === 1 ? .5 : i / (agents.length - 1)), yp = (i) => 12 + (H - 24) * (pl.length === 1 ? .5 : i / (pl.length - 1));
+      const maxV = Math.max(1, ...Object.values(edges).map(e => e.value));
+      const paths = Object.values(edges).map(e => { const ai = agents.findIndex(x => x.id === e.a), pi = pl.indexOf(e.p); if (ai < 0 || pi < 0) return ''; const y1 = ya(ai), y2 = yp(pi); const w = e.value ? 1.5 + 5 * e.value / maxV : 1.5; return `<path d="M 146 ${y1} C 220 ${y1}, 200 ${y2}, 262 ${y2}" fill="none" stroke="${e.refused && !e.value ? '#c62828' : '#0f6b73'}" stroke-width="${w}" stroke-opacity="${e.refused && !e.value ? .9 : .45}" ${e.refused && !e.value ? 'stroke-dasharray="4 3"' : ''}><title>${esc(agents[ai].label)} → ${esc(payees[e.p])}: ${e.value ? gbp(e.value) : 'refused'}${e.refused && e.value ? `, ${e.refused} refused` : ''}</title></path>`; }).join('');
+      const left = agents.map((x, i) => `<g><circle cx="140" cy="${ya(i)}" r="5" fill="#0f6b73"/><text x="130" y="${ya(i) + 4}" text-anchor="end" font-size="11" font-weight="600" fill="#0f1a17">${esc(x.label)}</text></g>`).join('');
+      const right = pl.map((k, i) => `<g><circle cx="270" cy="${yp(i)}" r="4" fill="#3c8f95"/><text x="280" y="${yp(i) + 4}" font-size="11" fill="#0f1a17">${esc(payees[k].replace(/ Ltd$/, '').slice(0, 18))}</text></g>`).join('');
+      box.innerHTML = `<svg viewBox="0 0 ${W} ${H}" width="100%" role="img" aria-label="Agents on the left, payees on the right, lines for instructions">${paths}${left}${right}</svg>`;
+    }
+
     // the evidence trail: every chain entry, verifications replayable from their recorded inputs
     let trailRun = 0, trailSame = 0, trailBound = false; const trailState = {};
     async function replayOne(id) { const rp = await api('POST', `/api/audit/${id}/replay`); trailRun++; if (rp.identical) trailSame++; trailState[id] = rp.identical ? 'same' : 'differs'; }
