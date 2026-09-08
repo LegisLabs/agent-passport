@@ -21,13 +21,15 @@ body[data-cupage="transactions"] #ac-transactions .glass { margin: 0; }
 .fx .fx-hdr-back { display: none; }
 body:not([data-cupage="overview"]) .fx .fx-hdr-back { display: inline-flex; }
 /* overview: balance and agents on the left, statistics compact on top of the notifications, which run two across */
-body[data-cupage="overview"] .fx .fx-grid.cu-split { grid-template-columns: minmax(290px, 3fr) minmax(0, 9fr); grid-template-rows: auto minmax(0, 1fr); }
-body[data-cupage="overview"] .fx-col--left { grid-row: 1 / span 2; }
-body[data-cupage="overview"] .fx-col--mid, body[data-cupage="overview"] .fx-col--right { grid-column: 2; }
 body[data-cupage="overview"] .fx-col--mid > .pane { flex: 0 0 auto; }
 body[data-cupage="overview"] .fx-col--mid .stats { grid-template-columns: repeat(4, minmax(0, 1fr)); }
-body[data-cupage="overview"] .cu-notes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 4px 16px; }
-@media (max-width: 1100px) { body[data-cupage="overview"] .cu-notes { grid-template-columns: minmax(0, 1fr); } }
 @media (max-width: 899px) { body[data-cupage="overview"] .fx .fx-grid.cu-split { grid-template-columns: minmax(0, 1fr); } body[data-cupage="overview"] .fx-col--left { grid-row: auto; } body[data-cupage="overview"] .fx-col--mid, body[data-cupage="overview"] .fx-col--right { grid-column: auto; } }
 /* one back link, in the header */
 .fx .fx-section .fx-back { display: none; }
+
+/* overview: agents left, transactions in the middle, needs-your-attention on the right */
+body[data-cupage="overview"] .fx .fx-grid.cu-split { grid-template-columns: minmax(290px, 3fr) minmax(0, 6fr) minmax(290px, 3fr); }
+@media (max-width: 1240px) { body[data-cupage="overview"] .fx .fx-grid.cu-split { grid-template-columns: minmax(280px, 5fr) minmax(0, 7fr); } body[data-cupage="overview"] .fx-col--right { grid-column: 1 / -1; } }
+body[data-cupage="overview"] .cu-notes { display: grid; gap: 8px; align-content: start; }
+body[data-cupage="overview"] .fx .cu-notify { justify-content: flex-start; }
+body[data-cupage="overview"] .fx .cu-notify > .cu-notes { flex: 0 0 auto; }
