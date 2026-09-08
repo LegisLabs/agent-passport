@@ -262,10 +262,10 @@ const AP = (() => {
         const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}, m = x.mandate || {}, ad = ((m.authorization_details || mp.authorization_details) || [{}])[0];
         const per = Number((ad.per_payment_limit || {}).amount || 0), monthly = Number((ad.monthly_limit_per_account || {}).amount || 0);
         const nv = viol.filter(y => y.passport_id === x.passport_id); const last = lastBy[x.passport_id];
-        const first = x.mandate_signed && !x.first_payment_confirmed ? ' · <span class="hold">first payment awaits the customer</span>' : '';
-        const card = el('div', 'agent-row', `<div class="agent-row__head"><a href="/bank?passport=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a>${tag(x.status)}</div>
-          <div class="small">${esc((mp.customer || {}).legal_name || '')} · up to ${gbp(per)} a payment</div>
-          <div class="small agent-row__counts">processed <b class="mono">${x.payments || 0}</b> · held <b class="mono">${verifies.filter(r => r.subject === x.passport_id && r.entry.decision === 'ESCALATE' && !decisionFor(r.id)).length}</b> · refused <b class="mono">${nv.length}</b>${nv.filter(y => y.failure_class === 'fraud').length ? ` (<span class="bad">${nv.filter(y => y.failure_class === 'fraud').length} fraud</span>)` : ''}${first} · <a href="/bank?passport=${esc(x.passport_id)}">manage</a></div>`);
+        const heldN = verifies.filter(r => r.subject === x.passport_id && r.entry.decision === 'ESCALATE' && !decisionFor(r.id)).length;
+        const card = el('a', 'agent-row', `<div class="agent-row__head"><span class="agent-row__name">${esc(ag.name || x.passport_id)}</span>${tag(x.status)}</div>
+          <div class="small agent-row__counts">${esc((mp.customer || {}).legal_name || '')} · <b class="mono">${x.payments || 0}</b> processed · <b class="mono">${heldN}</b> held · <b class="mono">${nv.length}</b> refused${nv.filter(y => y.failure_class === 'fraud').length ? ` <span class="bad">(${nv.filter(y => y.failure_class === 'fraud').length} fraud)</span>` : ''}</div>`);
+        card.href = `/bank?passport=${x.passport_id}`; void per; void last;
         box.append(card);
       });
       if (!live.length) box.append(el('p', 'small', 'No AI agent holds a passport on this bank yet.'));
@@ -1238,5 +1238,7 @@ const AP = (() => {
     tick(); setInterval(tick, 5000);
   }
 
-  return { home, provider, bank, customer, console: console_, dashExtras, customerExtras };
+  function bankExtras() { const meta = $('fx-agents-meta'), src = $('bd-agents-meta'); if (meta && src) setInterval(() => { meta.textContent = src.textContent; }, 1000); }
+
+  return { home, provider, bank, customer, console: console_, dashExtras, customerExtras, bankExtras };
 })();

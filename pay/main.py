@@ -1059,8 +1059,8 @@ def confirm_first(audit_id: int, body: ConfirmFirstIn):
     outcome = "RELEASED" if body.decision == "confirm" else "REFUSED"
     entry = {"event": f"first payment under mandate version {version} {'confirmed' if outcome == 'RELEASED' else 'refused'} by the customer",
              "first_payment": True, "mandate_version": version, "held_audit_id": audit_id, "outcome": outcome, "instruction": req, "instruction_hash": e["entry"].get("instruction_hash"),
-             "rule": e["entry"].get("rule"), "code": e["entry"].get("code"), "decided_by": {"name": signer.get("name"), "role": signer.get("role"), "party": config.CUSTOMER},
-             "officer": f"{signer.get('name')}, {signer.get('role')} ({config.CUSTOMER})", "approver": {"name": signer.get("name"), "role": signer.get("role")},
+             "rule": e["entry"].get("rule"), "code": e["entry"].get("code"), "decided_by": {"name": signer.get("name"), "role": signer.get("role"), "party": ((p.get("mandate") or {}).get("customer") or {}).get("legal_name") or config.CUSTOMER},
+             "officer": f"{signer.get('name')}, {signer.get('role')} ({((p.get('mandate') or {}).get('customer') or {}).get('legal_name') or config.CUSTOMER})", "approver": {"name": signer.get("name"), "role": signer.get("role")},
              "reason": body.note or ("first payment under this mandate reviewed and confirmed by the customer" if outcome == "RELEASED" else "first payment under this mandate refused by the customer")}
     rec = audit.record("decision", e["subject"], entry, receipt_for={"passport_id": e["subject"], "decision": outcome, "held_audit_id": audit_id, "instruction_hash": entry["instruction_hash"], "first_payment": True})
     out = {"audit_id": rec["id"], "hash": rec["hash"], "receipt": rec["receipt"], "outcome": outcome, "held_audit_id": audit_id, "mandate_version": version, "decided_by": entry["decided_by"], "settlement": None}
@@ -1155,8 +1155,8 @@ def demo_seed(stage: str = "issued"):
     executed, one altered invoice refused (payee not on the mandate, the demo's one refusal), one instruction held above the
     hold condition.
     Deterministic: fixture values, the customer's draft mandate, the default hold condition."""
-    if stage not in ("registered", "issued", "history"):
-        _400("stage must be registered, issued or history")
+    if stage not in ("registered", "issued", "history", "busy"):
+        _400("stage must be registered, issued, history or busy")
     db.reset_all()
     audit.record("system", None, {"event": "demo baseline seeded", "stage": stage})
     n = db.count_registrations() + 14
@@ -1166,13 +1166,13 @@ def demo_seed(stage: str = "issued"):
     a = submit(a["id"])
     r = run_review(a["id"], ReviewIn())
     out = {"ok": True, "stage": stage, "registration": r["registration"]["ref"], "recommendation": r["review"]["steps"][4]["data"]["verdict"]}
-    if stage in ("issued", "history"):
+    if stage in ("issued", "history", "busy"):
         admission_decision(a["id"], AdmissionIn(decision="admit", note="Baseline: six filing checks pass, Independent Assurance Evidence covers the use case, sandbox 5 of 5, hold above £5,000.", hold_above=rules.pack()["policy"]["hold_above_gbp"]))
         p = create_agent(AgentIn(registration_id=a["id"]))
         p = sign_mandate(p["passport_id"], MandateIn())
         pid = p["passport_id"]
         out.update({"passport_id": pid, "status": p["status"], "mandate_signed": p["mandate_signed"], "vouch": {"voucher_id": p.get("vouch_voucher_id"), "mode": p.get("vouch_mode")}})
-    if stage == "history":
+    if stage in ("history", "busy"):
         # A short history so the log shows every kind of event before anyone touches the Action Terminal: one payment executed,
         # the same signed instruction presented again (a replay, refused at R.4, a fraud indicator), and one instruction in the wrong
         # currency (refused at R.6, an agent error). Coastline Glass, £600, so the terminal's Fenwick totals are untouched.
@@ -1189,8 +1189,35 @@ def demo_seed(stage: str = "issued"):
                           {"event": "paid", "decision": paid["decision"]}, {"event": "paid", "decision": paid2["decision"]},
                           {"event": "refused", "decision": refused["decision"], "rule": refused["rule"], "code": refused["code"]},
                           {"event": "held", "decision": held["decision"], "rule": held["rule"], "audit_id": held["audit_id"]}]
+    if stage == "busy":
+        # More customers on the same admitted product, so the bank's list reads as a working channel: each signs its own mandate,
+        # confirms its first payment, then pays a few invoices; one of them has a payment held above the hold condition.
+        for cust, officer, agent_name, payees, per, monthly, pays in OTHER_CUSTOMERS:
+            q = create_agent(AgentIn(registration_id=a["id"], agent_name=agent_name))
+            q = sign_mandate(q["passport_id"], MandateIn(customer=cust, authorising_officer=officer, supplier_allowlist=payees, per_payment_limit=per, monthly_limit_per_account=monthly, max_payments_per_day=10, valid_until="2027-03-31"))
+            qid = q["passport_id"]
+            for n, (sp, amount, ref) in enumerate(pays):
+                r = agent_act(ActIn(passport_id=qid, supplier_name=sp["name"], payee_account_ref=sp["account_ref"], amount=amount, invoice_ref=ref))
+                if n == 0 and r["decision"] == "ESCALATE" and r["code"] == "FIRST_PAYMENT_CONFIRMATION_REQUIRED":
+                    confirm_first(r["audit_id"], ConfirmFirstIn(decision="confirm"))
     out["audit_entries"] = len(db.list_audit())
     return out
+
+
+OTHER_CUSTOMERS = [
+    ({"legal_name": "Harbourside Developments Ltd", "companies_house_number": "08811234", "customer_class": "sme", "account_type": "business_current", "account_ref": "20-45-77 40021177"},
+     {"name": "Priya Raman", "role": "Finance Manager"}, "PayGPT 6.0 · Harbourside deployment",
+     [{"supplier_id": "SUP-101", "name": "Norfolk Aggregates Ltd", "account_ref": "40-12-30 55012288"}, {"supplier_id": "SUP-102", "name": "Fenwick Timber Ltd", "account_ref": "60-11-22 10101010"}, {"supplier_id": "SUP-103", "name": "Eastern Plant Hire Ltd", "account_ref": "30-77-19 66120044"}],
+     8000, 30000, [({"name": "Norfolk Aggregates Ltd", "account_ref": "40-12-30 55012288"}, 2140, "NA-5502"), ({"name": "Eastern Plant Hire Ltd", "account_ref": "30-77-19 66120044"}, 1875, "EP-0331"), ({"name": "Fenwick Timber Ltd", "account_ref": "60-11-22 10101010"}, 3960, "FT-1101"), ({"name": "Norfolk Aggregates Ltd", "account_ref": "40-12-30 55012288"}, 6400, "NA-5510")]),
+    ({"legal_name": "Okafor and Daughters Ltd", "companies_house_number": "10234567", "customer_class": "micro", "account_type": "business_current", "account_ref": "20-45-77 51900321"},
+     {"name": "Ngozi Okafor", "role": "Director"}, "PayGPT 6.0 · Okafor deployment",
+     [{"supplier_id": "SUP-201", "name": "Ashby Ironmongery Ltd", "account_ref": "30-98-76 22334455"}, {"supplier_id": "SUP-202", "name": "Lynn Print Supplies Ltd", "account_ref": "20-90-14 31770052"}],
+     2500, 8000, [({"name": "Lynn Print Supplies Ltd", "account_ref": "20-90-14 31770052"}, 312, "LP-2207"), ({"name": "Ashby Ironmongery Ltd", "account_ref": "30-98-76 22334455"}, 486, "AI-4410"), ({"name": "Lynn Print Supplies Ltd", "account_ref": "20-90-14 31770052"}, 275, "LP-2213")]),
+    ({"legal_name": "Kiln Lane Estates Ltd", "companies_house_number": "06120988", "customer_class": "sme", "account_type": "business_current", "account_ref": "20-45-77 62330019"},
+     {"name": "Tom Adebayo", "role": "Finance Director"}, "PayGPT 6.0 · Kiln Lane deployment",
+     [{"supplier_id": "SUP-301", "name": "Coastline Glass Ltd", "account_ref": "20-13-57 77665544"}, {"supplier_id": "SUP-302", "name": "Broadland Roofing Ltd", "account_ref": "11-45-60 20017788"}],
+     10000, 40000, [({"name": "Broadland Roofing Ltd", "account_ref": "11-45-60 20017788"}, 4250, "BR-0917"), ({"name": "Coastline Glass Ltd", "account_ref": "20-13-57 77665544"}, 1120, "CG-0901"), ({"name": "Broadland Roofing Ltd", "account_ref": "11-45-60 20017788"}, 5780, "BR-0922")]),
+]
 
 
 def _404():
