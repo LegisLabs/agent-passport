@@ -6,13 +6,18 @@
 <p class="callout">The register does not certify that AI agents are good. It guarantees that someone is accountable when they are bad.</p>
 
 <h2 class="h2">Products on the register</h2>
-<div class="dash-wrap"><table class="dash" id="pv-products"><thead><tr><th>Registration</th><th>AI product</th><th>Provider</th><th>Filed</th><th>Register</th><th>{{ bank }}</th></tr></thead><tbody></tbody></table></div>
+<div class="dash-wrap"><table class="dash" id="pv-products"><thead><tr><th>Registration</th><th>AI product</th><th>Provider</th><th>Assurance level</th><th>Filed</th><th>Register</th><th>{{ bank }}</th></tr></thead><tbody></tbody></table></div>
 <div class="section-actions"><button class="btn" id="btn-new">Register an AI product</button></div>
 
 <div id="pv-form" hidden>
   <div class="step__head">
     <h2 class="h2">Registration <span class="mono" id="pv-ref"></span> <span id="pv-status"></span></h2>
     <div class="step__actions"><button class="btn btn--secondary btn--small" id="btn-prefill" hidden>Prefill demo values</button></div>
+  </div>
+  <div class="context" id="pv-context" hidden>
+    <h3 class="h3">The demo, in a few sentences</h3>
+    <p><strong>OpenPay Ltd</strong> is a synthetic AI company. Its product, <strong>PayGPT 6.0</strong>, reads supplier invoices and prepares payments. OpenPay is about to file it on the register: who it is, who is accountable, its insurance, and Independent Assurance Evidence at a declared level. Nobody reviews the filing. <strong>Meridian Bank (demo)</strong> then decides whether its customers may use the product; <strong>Northgate Joinery Ltd</strong>, a small joinery business banking there, will give the agent a mandate; the bank will check every payment the agent asks for. Everything you are about to see is synthetic.</p>
+    <div class="actions"><button class="btn" id="btn-prefill-go">Fill the form and continue</button><button class="btn btn--secondary" id="btn-prefill-cancel">Cancel</button></div>
   </div>
   <div id="facts"></div>
   <div class="actions"><button class="btn btn--secondary" id="btn-save-fields" hidden>Save</button><span class="actions__note" id="save-note"></span></div>

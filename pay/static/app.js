@@ -24,18 +24,22 @@ const AP = (() => {
   const regTag = (a) => a.status === 'registered' ? tag('active', 'on the register') : tag('draft', 'draft');
   const modeLabel = (m) => m === 'gemini' ? 'Gemini (live)' : m === 'fixture' ? 'fixture (deterministic stand-in)' : 'fixture after Gemini failed';
   const holdOf = (a) => (((a && a.condition) || {}).hold_above || {}).amount;
+  const LEVELS = { 'self-declared': ['Self-declared', 'grey'], 'independently-verified': ['Independently verified', 'blue'], 'independently-audited': ['Independently audited', 'green'] };
+  const levelTag = (id) => { const l = LEVELS[id]; return l ? `<span class="tag tag--${l[1]}" title="assurance level declared by the provider with its evidence">${l[0]}</span>` : '<span class="tag tag--grey">no level</span>'; };
+  const CLASSES = { fraud: ['Fraud indicator', 'red'], agent_error: ['Agent error', 'amber'], status: ['Passport status', 'grey'] };
+  const classTag = (c) => { const id = typeof c === 'string' ? c : (c && c.id); const k = CLASSES[id] || CLASSES.status; return `<span class="tag tag--${k[1]}">${k[0]}</span>`; };
 
   const LABELS = {
     company: { title: 'Provider', legal_name: 'Legal name', companies_house_number: 'Companies House number', website: 'Website' },
     principal: { title: 'Accountable principal', name: 'Name', role: 'Role', declaration_ref: 'Declaration reference' },
     insurance: { title: 'Insurance', insurer: 'Insurer', policy_ref: 'Policy reference', cover_gbp: 'Cover (£)', expires: 'In force until' },
     product: { title: 'The AI product', product_name: 'Product name', product_id: 'Product identifier', release: 'Release', model_provider: 'Foundation model provider', model_version: 'Foundation model version (pinned)', documentation_url: 'Documentation (URL)' },
-    assurance_evidence: { title: 'Independent Assurance Evidence', issuer: 'Issuer', reference: 'Reference', date: 'Date', use_case: 'Use case covered', summary: 'What it covers', report_url: 'Report (URL)' },
+    assurance_evidence: { title: 'Independent Assurance Evidence', level: 'Assurance level', issuer: 'Issuer', reference: 'Reference', date: 'Date', use_case: 'Use case covered', summary: 'What it covers', report_url: 'Report (URL)' },
     intended_use: { title: 'Registered use', action_type: 'Action type', description: 'Description' },
   };
   const SECTION_HINTS = {
     principal: 'The person who declares this filing accurate, as for a Companies House filing. Accountable for the filing, not for what any AI agent later does.',
-    assurance_evidence: 'An independent benchmark or audit that the product meets the minimum assurance requirements for its use case. It is attached, not assessed, by the register; each bank assesses it against its own requirements.',
+    assurance_evidence: 'An independent benchmark or audit that the product meets the minimum assurance requirements for its use case, and the assurance level you declare with it: self-declared, independently verified, independently audited. The level describes the evidence you provide; the register does not grade it. Each bank assesses it against its own requirements.',
   };
 
   function checksTable(id, checks) {
@@ -55,9 +59,9 @@ const AP = (() => {
     function render() {
       const regs = state.registrations, prior = state.register || [];
       rows('pv-products', [
-        ...regs.map(x => ({ cells: [`<a href="/provider?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(x.fields, 'product', 'product_name') || 'Untitled'), esc(v(x.fields, 'company', 'legal_name') || ''), d(x.submitted_at), regTag(x), admissionTag(x)] })),
-        ...prior.map(m => ({ cells: [esc(m.registration), esc(m.product), esc(m.provider), d(m.registered), tag(m.status, m.status === 'active' ? 'on the register' : m.status), '<span class="small">no decision</span>'] })),
-      ], 6);
+        ...regs.map(x => ({ cells: [`<a href="/provider?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(x.fields, 'product', 'product_name') || 'Untitled'), esc(v(x.fields, 'company', 'legal_name') || ''), levelTag(v(x.fields, 'assurance_evidence', 'level')), d(x.submitted_at), regTag(x), admissionTag(x)] })),
+        ...prior.map(m => ({ cells: [esc(m.registration), esc(m.product), esc(m.provider), levelTag(m.assurance_level), d(m.registered), tag(m.status, m.status === 'active' ? 'on the register' : m.status), '<span class="small">no decision</span>'] })),
+      ], 7);
       const has = !!a, draft = has && a.status === 'draft';
       $('pv-form').hidden = !has;
       if (has) { $('pv-ref').textContent = a.ref; $('pv-status').innerHTML = regTag(a); }
@@ -78,12 +82,17 @@ const AP = (() => {
         for (const [k, label] of Object.entries(labels)) {
           if (k === 'title') continue;
           const fact = (f[sec] || {})[k] || { value: null };
-          const input = `<input class="input" data-sec="${sec}" data-key="${k}" value="${esc(fact.value ?? '')}" ${editable ? '' : 'disabled'} aria-label="${esc(label)}">`;
-          dl.append(el('div', 'fact', `<dt>${esc(label)}</dt><dd>${input}</dd>`));
+          const input = k === 'level'
+            ? `<select class="input" data-sec="${sec}" data-key="${k}" ${editable ? '' : 'disabled'} aria-label="${esc(label)}">${Object.entries(LEVELS).map(([id, l]) => `<option value="${id}" ${fact.value === id ? 'selected' : ''}>${l[0]}</option>`).join('')}</select>`
+            : `<input class="input" data-sec="${sec}" data-key="${k}" value="${esc(fact.value ?? '')}" ${editable ? '' : 'disabled'} aria-label="${esc(label)}">`;
+          const extra = k === 'companies_house_number' ? `<span class="prov" id="pv-ch"></span>` : '';
+          dl.append(el('div', 'fact', `<dt>${esc(label)}</dt><dd>${input}${extra}</dd>`));
         }
         box.append(dl);
       }
       $('btn-save-fields').hidden = !editable;
+      const chIn = document.querySelector('#facts [data-key="companies_house_number"]');
+      if (chIn) { const showCh = async () => { if (!chIn.value) return; const r = await api('GET', `/api/companies/${encodeURIComponent(chIn.value)}`); $('pv-ch').innerHTML = r.found ? `${esc(r.source)}: ${esc(r.legal_name)}, ${esc(r.status)}, ${esc(r.address)}` : `${esc(r.source)}: no company with this number`; }; chIn.onblur = showCh; showCh(); }
     }
 
     function collectFields() {
@@ -96,7 +105,9 @@ const AP = (() => {
     }
 
     $('btn-new').onclick = async () => { a = await api('POST', '/api/registrations'); history.replaceState(null, '', `?ref=${a.ref}`); await refresh(); };
-    $('btn-prefill').onclick = async () => { a = await api('POST', `/api/registrations/${a.id}/prefill`); await refresh(); };
+    $('btn-prefill').onclick = () => { $('pv-context').hidden = false; $('pv-context').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
+    $('btn-prefill-go').onclick = async () => { $('pv-context').hidden = true; a = await api('POST', `/api/registrations/${a.id}/prefill`); await refresh(); };
+    $('btn-prefill-cancel').onclick = () => { $('pv-context').hidden = true; };
     $('btn-save-fields').onclick = async () => { a = await api('PUT', `/api/registrations/${a.id}/fields`, { fields: collectFields() }); $('save-note').textContent = 'Saved ' + t(new Date().toISOString()); await refresh(); };
     $('btn-submit').onclick = async () => { await api('PUT', `/api/registrations/${a.id}/fields`, { fields: collectFields() }); a = await api('POST', `/api/registrations/${a.id}/submit`); await refresh(); $('confirm').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
   }
@@ -169,7 +180,7 @@ const AP = (() => {
       const items = [];
       (state.alerts || []).forEach(a => items.push({ ts: a.last_ts, cls: 'triage--pattern', tag: tag('revoked', 'pattern'), text: `<b>${a.n} refusals at ${esc(a.rule)} on <a href="/bank?passport=${esc(a.passport_id)}">${esc(a.passport_id)}</a> within 24 hours.</b> Same rule, repeated: a pattern, not a single error. Open the passport to suspend, investigate or revoke.` }));
       inc.forEach(i => items.push({ ts: i.ts, cls: 'triage--incident', tag: tag('revoked', 'incident'), text: `<b>Incident on <a href="/bank?passport=${esc(i.subject)}">${esc(i.subject)}</a>:</b> ${i.entry.denies} refused instructions since the last incident · last ${esc(i.entry.last_rule)} ${esc(i.entry.last_code)} · evidence #${i.id}` }));
-      viol.filter(x => x.status === 'OPEN').slice(0, 6).forEach(x => items.push({ ts: x.ts, cls: 'triage--refusal', tag: tag('amber', 'refused'), text: `<b>${esc(x.rule)}</b> ${esc(x.code.toLowerCase().replace(/_/g, ' '))} · ${esc(x.instruction.supplier_name || '')} <span class="mono">${esc(x.instruction.payee_account_ref || '')}</span> · ${gbp(x.instruction.amount)}${x.evidence ? ` · invoice ${esc(x.evidence.invoice)}` : ''} · <a href="/bank?passport=${esc(x.passport_id)}">${esc(x.passport_id)}</a> · <a href="/api/evidence/violations/${x.id}" target="_blank" rel="noopener">evidence</a>`, id: 'v' + x.id }));
+      viol.filter(x => x.status === 'OPEN').slice(0, 6).forEach(x => items.push({ ts: x.ts, cls: 'triage--refusal triage--' + (x.failure_class || 'status'), tag: classTag(x.failure_class), text: `<b>${esc(x.rule)}</b> ${esc(x.code.toLowerCase().replace(/_/g, ' '))} · ${esc(x.instruction.supplier_name || '')} <span class="mono">${esc(x.instruction.payee_account_ref || '')}</span> · ${gbp(x.instruction.amount)}${x.evidence ? ` · invoice ${esc(x.evidence.invoice)}` : ''} · <a href="/bank?passport=${esc(x.passport_id)}">${esc(x.passport_id)}</a> · <a href="/api/evidence/violations/${x.id}" target="_blank" rel="noopener">evidence</a>`, id: 'v' + x.id }));
       items.sort((a, b) => (a.cls === 'triage--pattern') - (b.cls === 'triage--pattern') || (a.ts < b.ts ? 1 : -1)).reverse();
       items.forEach(it => { const li = el('li', 'triage__item ' + it.cls, `<time>${t(it.ts)}</time>${it.tag}<span>${it.text}</span>`); if (seenIds && it.id && !seenIds.has(it.id)) li.classList.add('is-new'); tl.append(li); });
       $('bd-triage-meta').textContent = items.length ? `${items.length} items` : '';
@@ -184,20 +195,20 @@ const AP = (() => {
         const nv = viol.filter(y => y.passport_id === x.passport_id), open = nv.filter(y => y.status === 'OPEN').length; const last = lastBy[x.passport_id];
         const meters = (ad.supplier_allowlist || []).map(sp => { const used = ((x.ledger || {})[sp.account_ref] || {}).total || 0; const pct = monthly ? Math.min(100, Math.round(used / monthly * 100)) : 0; return `<div><span class="meters__k">${esc(sp.name)} <span class="mono small">${esc(sp.account_ref)}</span></span><span class="meters__v">${gbp(used)} of ${gbp(monthly)}</span><span class="meter"><span class="meter__fill${pct >= 100 ? ' over' : pct >= 75 ? ' warn' : ''}" style="transform: scaleX(${pct / 100})"></span></span></div>`; }).join('');
         const card = el('div', 'agent-row', `<div class="agent-row__head"><a href="/bank?passport=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a>${tag(x.status)}</div>
-          <div class="small">${esc((mp.customer || {}).legal_name || '')} · signed by ${esc((m.signed_by || mp.authorising_officer || {}).name || '')} · ${esc(ag.product_name || '')} by ${esc(ag.provider || '')} · <span class="mono">${esc(x.passport_id)}</span></div>
+          <div class="small">${esc((mp.customer || {}).legal_name || '')} · signed by ${esc((m.signed_by || mp.authorising_officer || {}).name || '')} · ${esc(ag.product_name || '')} by ${esc(ag.provider || '')} ${levelTag(((x.admission || {}).assurance_evidence || {}).level)} · <span class="mono">${esc(x.passport_id)}</span></div>
           <div class="small">up to ${gbp(per)} a payment · ${gbp(monthly)} an account in 30 days · ${(ad.supplier_allowlist || []).length} payee accounts · valid to ${esc(mp.valid_until || '')}</div>
-          <div class="small">paid ${gbp(Object.values(x.ledger || {}).reduce((s2, y) => s2 + y.total, 0))} in 30 days · ${nv.length ? `<b class="${open ? 'bad' : ''}">${nv.length} refusal${nv.length === 1 ? '' : 's'}</b>` : 'no refusals'} · last ${last ? `${t(last.ts)} ${last.entry.decision === 'ALLOW' ? 'paid' : last.entry.decision === 'ESCALATE' ? 'held' : 'refused ' + esc(last.entry.rule)}` : 'none'} · <a href="/bank?passport=${esc(x.passport_id)}">manage</a></div>`);
+          <div class="small">paid ${gbp(Object.values(x.ledger || {}).reduce((s2, y) => s2 + y.total, 0))} in 30 days · ${nv.length ? `${nv.filter(y => y.failure_class === 'fraud').length ? `<b class="bad">${nv.filter(y => y.failure_class === 'fraud').length} fraud indicator${nv.filter(y => y.failure_class === 'fraud').length === 1 ? '' : 's'}</b> · ` : ''}${nv.filter(y => y.failure_class === 'agent_error').length} agent error${nv.filter(y => y.failure_class === 'agent_error').length === 1 ? '' : 's'}` : 'no refusals'} · last ${last ? `${t(last.ts)} ${last.entry.decision === 'ALLOW' ? 'paid' : last.entry.decision === 'ESCALATE' ? 'held' : 'refused ' + esc(last.entry.rule)}` : 'none'} · <a href="/bank?passport=${esc(x.passport_id)}">manage</a></div>`);
         box.append(card);
       });
       if (!live.length) box.append(el('p', 'small', 'No AI agent holds a passport on this bank yet.'));
       // transaction log
       renderLog(verifies, viol);
       // admissions, register, supervisory access
-      rows('bk-products', regs.filter(x => x.admission_status && x.admission_status !== 'declined' && x.admission_status !== 'info_requested').map(x => { const pr = (state.products || []).find(y => y.registration_id === x.id) || { passports: [] }; return { cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a>`, esc(v(x.fields, 'company', 'legal_name') || ''), holdOf(x) != null ? gbp(holdOf(x)) : '—', String(pr.passports.length), admissionTag(x)] }; }), 5, 'No product admitted yet.');
+      rows('bk-products', regs.filter(x => x.admission_status && x.admission_status !== 'declined' && x.admission_status !== 'info_requested').map(x => { const pr = (state.products || []).find(y => y.registration_id === x.id) || { passports: [] }; return { cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a> ${levelTag(v(x.fields, 'assurance_evidence', 'level'))}`, esc(v(x.fields, 'company', 'legal_name') || ''), holdOf(x) != null ? gbp(holdOf(x)) : '—', String(pr.passports.length), admissionTag(x)] }; }), 5, 'No product admitted yet.');
       rows('bk-register', [
-        ...regs.map(x => ({ cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a>`, esc(v(x.fields, 'company', 'legal_name') || ''), d(x.submitted_at), admissionTag(x)] })),
-        ...(state.register || []).map(m => ({ cells: [esc(m.product), esc(m.provider), d(m.registered), `<span class="small">${m.status === 'active' ? 'not on your list' : esc(m.status)}</span>`] })),
-      ], 4);
+        ...regs.map(x => ({ cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a>`, esc(v(x.fields, 'company', 'legal_name') || ''), levelTag(v(x.fields, 'assurance_evidence', 'level')), d(x.submitted_at), admissionTag(x)] })),
+        ...(state.register || []).map(m => ({ cells: [esc(m.product), esc(m.provider), levelTag(m.assurance_level), d(m.registered), `<span class="small">${m.status === 'active' ? 'not on your list' : esc(m.status)}</span>`] })),
+      ], 5);
       const ev = $('bk-evidence'); ev.innerHTML = '';
       live.forEach(x => ev.append(el('li', null, `<span>Passport <span class="mono">${esc(x.passport_id)}</span>, the complete bundle</span><a href="/api/evidence/passports/${esc(x.passport_id)}" target="_blank" rel="noopener">Export</a>`)));
       viol.slice(0, 5).forEach(x => ev.append(el('li', null, `<span>Refusal #${x.id}, ${esc(x.rule)} at ${t(x.ts)}</span><a href="/api/evidence/violations/${x.id}" target="_blank" rel="noopener">Export</a>`)));
@@ -212,7 +223,7 @@ const AP = (() => {
       $('bd-log-meta').textContent = `${verifies.length} instructions`;
       shown.slice(0, 40).forEach(r => {
         const e = r.entry, i = e.instruction || {}; const dec = e.decision;
-        const tr = el('tr', 'bd-log__row', `<td class="mono small">${t(r.ts)}</td><td>${tag(dec === 'ALLOW' ? 'active' : dec === 'ESCALATE' ? 'pending' : 'revoked', dec === 'ALLOW' ? 'paid' : dec === 'ESCALATE' ? 'held' : 'refused')}</td><td>${esc(i.supplier_name || '')} <span class="mono small">${esc(i.payee_account_ref || '')}</span><br><span class="small">${esc(r.subject || '')}</span></td><td class="num">${gbp(i.amount)}</td><td>${dec === 'ALLOW' ? '<span class="small">all nine</span>' : `<b class="rule">${esc(e.rule)}</b> <span class="small">${esc((e.code || '').toLowerCase().replace(/_/g, ' '))}</span>`}</td><td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`);
+        const tr = el('tr', 'bd-log__row', `<td class="mono small">${t(r.ts)}</td><td>${dec === 'ALLOW' ? tag('active', 'paid') : dec === 'ESCALATE' ? tag('pending', 'held') : classTag(e.failure_class)}</td><td>${esc(i.supplier_name || '')} <span class="mono small">${esc(i.payee_account_ref || '')}</span><br><span class="small">${esc(r.subject || '')}</span></td><td class="num">${gbp(i.amount)}</td><td>${dec === 'ALLOW' ? '<span class="small">all nine</span>' : `<b class="rule">${esc(e.rule)}</b> <span class="small">${esc((e.code || '').toLowerCase().replace(/_/g, ' '))}</span>`}</td><td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`);
         tr.tabIndex = 0; tr.setAttribute('role', 'button'); tr.setAttribute('aria-expanded', String(expandedId === r.id));
         if (seenIds && !seenIds.has('a' + r.id)) tr.classList.add('is-new');
         const open = () => { expandedId = expandedId === r.id ? null : r.id; renderLog(verifies, viol); };
@@ -228,7 +239,7 @@ const AP = (() => {
       const kv = (pairs) => `<dl class="kv">${pairs.map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('')}</dl>`;
       return `<div class="bd-detail__grid">
         <div><h3 class="h4">The instruction, as signed</h3>${kv([['Passport', `<span class="mono">${esc(i.passport_id || '')}</span> · list status ${esc(e.passport_status || e.registry_status || '')}`], ['Action', esc(i.action_type || '')], ['Payee', `${esc(i.supplier_name || '')} · <span class="mono">${esc(i.payee_account_ref || '')}</span>`], ['Amount', `${gbp(i.amount)} ${esc(i.currency || '')}`], ['Invoice', esc(i.invoice_ref || '—')], ['Instruction hash', `<span class="mono small" title="${esc(e.instruction_hash || '')}">${esc((e.instruction_hash || '').slice(0, 16))}…</span>`], ['30-day total before', gbp(e.ledger_total_before)]])}${vio && vio.evidence ? `<h3 class="h4">What the AI agent read</h3>${kv([['Invoice', esc(vio.evidence.invoice)], ['Declared before reading', `<span class="mono">${esc((vio.evidence.intent || {}).declared_payee || '—')}</span>`], ['Attempted after reading', `<span class="mono wrong">${esc(vio.evidence.instruction_payee || '')}</span>`], ['Read by', esc(modeLabel(vio.evidence.extraction_mode))]])}` : ''}</div>
-        <div><h3 class="h4">The nine checks, in order</h3><ol class="bd-trace">${trace}</ol><p class="bd-verdict bd-verdict--${e.decision}"><b>${esc(e.decision)}</b> ${esc(e.rule)} · ${esc(e.code)} <span>${esc(e.reason)}</span></p></div>
+        <div><h3 class="h4">The nine checks, in order</h3><ol class="bd-trace">${trace}</ol><p class="bd-verdict bd-verdict--${e.decision}${e.failure_class === 'agent_error' ? ' bd-verdict--quiet' : ''}"><b>${esc(e.decision)}</b> ${esc(e.rule)} · ${esc(e.code)} <span>${esc(e.reason)}</span>${e.failure_class ? `<span>${classTag(e.failure_class)} ${esc(((state.failure_classes || {})[e.failure_class] || {}).note || '')}</span>` : ''}</p></div>
         <div><h3 class="h4">Proof</h3>${kv([['Chain entry', `#${r.id} <span class="mono small" title="${esc(r.hash)}">${esc(r.hash.slice(0, 16))}…</span>`], ['Previous', `<span class="mono small" title="${esc(r.prev_hash)}">${esc(r.prev_hash.slice(0, 16))}…</span>`], ['Rule pack', `<span class="mono">${esc(e.rule_pack || '')}</span>`], ['Receipt', r.receipt ? `signed by the bank · <span class="mono small">${esc(r.receipt.slice(0, 40))}…</span>` : 'none'], ['Envelope', `admission ${env.admission ? '✓' : '✗'} · agent identity ${env.agent_identity ? '✓' : '✗'} · mandate ${env.mandate ? '✓' : '✗'}`]])}
           <div class="actions"><button class="btn btn--secondary btn--small" type="button" data-replay="${r.id}">Replay this decision</button>${vio ? `<a class="btn btn--secondary btn--small" href="/api/evidence/violations/${vio.id}" target="_blank" rel="noopener">Export the evidence bundle</a>` : `<a class="btn btn--secondary btn--small" href="/api/evidence/passports/${esc(r.subject)}" target="_blank" rel="noopener">Export the passport bundle</a>`}<span class="actions__note" id="bd-replay-${r.id}"></span></div></div>
       </div>`;
@@ -265,12 +276,13 @@ const AP = (() => {
         ['Accountable principal', `${esc(v(f, 'principal', 'name'))}, ${esc(v(f, 'principal', 'role'))} · declaration <span class="mono">${esc(v(f, 'principal', 'declaration_ref'))}</span> · accountable for the accuracy of the filing`],
         ['Insurance', `${esc(v(f, 'insurance', 'insurer'))} · policy <span class="mono">${esc(v(f, 'insurance', 'policy_ref'))}</span> · cover ${gbp(v(f, 'insurance', 'cover_gbp'))} · in force until ${esc(v(f, 'insurance', 'expires'))}`],
         ['AI product', `<strong>${esc(v(f, 'product', 'product_name'))}</strong> <span class="mono">${esc(v(f, 'product', 'product_id'))}</span> · release ${esc(v(f, 'product', 'release'))} · ${esc(v(f, 'product', 'model_provider'))} <span class="mono">${esc(v(f, 'product', 'model_version'))}</span> · <a href="${esc(v(f, 'product', 'documentation_url'))}">documentation</a>`],
-        ['Independent Assurance Evidence', `${esc(v(f, 'assurance_evidence', 'issuer'))} · <span class="mono">${esc(v(f, 'assurance_evidence', 'reference'))}</span> · ${esc(v(f, 'assurance_evidence', 'date'))} · use case <span class="mono">${esc(v(f, 'assurance_evidence', 'use_case'))}</span><span class="sub">${esc(v(f, 'assurance_evidence', 'summary'))} · <a href="${esc(v(f, 'assurance_evidence', 'report_url'))}">report</a></span>`],
+        ['Independent Assurance Evidence', `${levelTag(v(f, 'assurance_evidence', 'level'))} ${esc(v(f, 'assurance_evidence', 'issuer'))} · <span class="mono">${esc(v(f, 'assurance_evidence', 'reference'))}</span> · ${esc(v(f, 'assurance_evidence', 'date'))} · use case <span class="mono">${esc(v(f, 'assurance_evidence', 'use_case'))}</span><span class="sub">${esc(v(f, 'assurance_evidence', 'summary'))} · <a href="${esc(v(f, 'assurance_evidence', 'report_url'))}">report</a> · the level is declared by the provider with its evidence; this bank admits at ${esc((LEVELS[(state.policy || {}).min_assurance_level_for_admission] || ['?'])[0]).toLowerCase()} or above</span>`],
         ['Registered use', `<strong>${esc(v(f, 'intended_use', 'action_type'))}</strong> · ${esc(v(f, 'intended_use', 'description'))} · no customer named: each customer writes its own mandate within your ceilings`],
         ['Register receipt', a.registration_jwt ? `signed by the register <span class="mono small">${esc(a.registration_jwt.slice(0, 24))}…</span> · filed ${d(a.submitted_at)}` : '—'],
       ].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       const pol = state.policy || {};
-      $('bk-ceilings').textContent = `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp)} · expiry ≤ ${pol.max_validity} · actions ${(pol.action_types || []).join(', ')}`;
+      const lv = (pol.assurance_levels || []).find(x => x.id === v(f, 'assurance_evidence', 'level')) || { ceiling_factor: 1, label: 'no level' };
+      $('bk-ceilings').innerHTML = `per payment ≤ ${gbp(pol.per_payment_ceiling_gbp * lv.ceiling_factor)} · per account in 30 days ≤ ${gbp(pol.monthly_per_account_ceiling_gbp * lv.ceiling_factor)} · up to ${pol.velocity_ceiling_per_day} payments a day · expiry ≤ ${esc(pol.max_validity)} · actions ${esc((pol.action_types || []).join(', '))}<br><span class="small">policy ceilings scaled by the declared assurance level (${esc(lv.label.toLowerCase())}, ×${lv.ceiling_factor}); each customer mandate is further capped by its account type: ${Object.values(pol.account_tiers || {}).map(tr => `${esc(tr.label)} ${gbp(tr.per_payment_gbp)}`).join(' · ')}</span>`;
       checksTable('bk-checks', a.checks);
       $('bk-filenote').value = a.file_note || '';
       if (pol.hold_above_gbp && !$('bk-condition').dataset.touched) $('bk-condition').value = pol.hold_above_gbp;
@@ -355,7 +367,7 @@ const AP = (() => {
       else al.hidden = true;
       if ($('ex-meta')) $('ex-meta').textContent = mine.length ? `${mine.length} refusals · ${mine.filter(x => x.status === 'OPEN').length} open` : 'no refusals';
       const tb = $('bk-violations').querySelector('tbody'); tb.innerHTML = '';
-      mine.forEach(x => { const tr = el('tr', null, `<td>${t(x.ts)}</td><td>${esc(x.instruction.supplier_name || '')} · <span class="mono">${esc(x.instruction.payee_account_ref || '')}</span> · ${gbp(x.instruction.amount)}${x.instruction.action_type !== 'pay_invoice' ? ' · ' + esc(x.instruction.action_type) : ''}${x.evidence ? ` · <span class="small">invoice ${esc(x.evidence.invoice)}</span>` : ''}${p ? '' : ` <span class="small">· <a href="/bank?passport=${esc(x.passport_id)}">${esc(x.passport_id)}</a></span>`}</td><td><b class="rule">${esc(x.rule)}</b> <span class="small">${esc(x.code.toLowerCase().replace(/_/g, ' '))}</span></td><td>${tag(x.status, x.status.toLowerCase())}${x.resolution ? ` <span class="small">${esc(x.resolution)}</span>` : ''}</td>`); tr.dataset.vid = x.id; tr.setAttribute('aria-selected', String(x.id === selectedVid)); tr.onclick = () => { selectedVid = x.id; renderEvidence(x); renderExceptions(); }; tb.append(tr); });
+      mine.forEach(x => { const tr = el('tr', null, `<td>${t(x.ts)}</td><td>${esc(x.instruction.supplier_name || '')} · <span class="mono">${esc(x.instruction.payee_account_ref || '')}</span> · ${gbp(x.instruction.amount)}${x.instruction.action_type !== 'pay_invoice' ? ' · ' + esc(x.instruction.action_type) : ''}${x.evidence ? ` · <span class="small">invoice ${esc(x.evidence.invoice)}</span>` : ''}${p ? '' : ` <span class="small">· <a href="/bank?passport=${esc(x.passport_id)}">${esc(x.passport_id)}</a></span>`}</td><td><b class="rule">${esc(x.rule)}</b> <span class="small">${esc(x.code.toLowerCase().replace(/_/g, ' '))}</span><br>${classTag(x.failure_class)}</td><td>${tag(x.status, x.status.toLowerCase())}${x.resolution ? ` <span class="small">${esc(x.resolution)}</span>` : ''}</td>`); tr.dataset.vid = x.id; tr.setAttribute('aria-selected', String(x.id === selectedVid)); tr.onclick = () => { selectedVid = x.id; renderEvidence(x); renderExceptions(); }; tb.append(tr); });
       if (!mine.length) tb.append(el('tr', null, '<td colspan="4" class="empty-row">Nothing refused yet.</td>'));
       const ex = $('exception'); ex.hidden = !p; if (!p) return;
       const inv = p.investigation === 'investigating';
@@ -475,8 +487,9 @@ const AP = (() => {
       state.passports.forEach(x => {
         const ag = (x.agent_identity || {}).agent || {}, mp = x.mandate_proposed || {}, ad = (((x.mandate || mp).authorization_details) || [{}])[0];
         const tot = Object.values(x.ledger || {}).reduce((s, y) => s + y.total, 0);
-        const summary = x.mandate_signed ? `up to ${gbp((ad.per_payment_limit || {}).amount)} a payment · ${gbp((ad.monthly_limit_per_account || {}).amount)} per supplier account in 30 days · valid to ${esc(mp.valid_until || '')} · ${(ad.supplier_allowlist || []).length} permitted supplier accounts` : 'mandate not signed yet';
-        box.append(el('div', 'cu-card' + (x.passport_id === (p || {}).passport_id ? ' cu-card--current' : ''), `<div class="cu-card__head"><a href="/customer?ref=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a>${x.status === 'pending' ? tag('unsigned', 'awaiting your signature') : tag(x.status, x.status)}</div><div class="cu-card__line">${esc(ag.product_name || '')} by ${esc(ag.provider || '')} · <span class="mono">${esc(x.passport_id)}</span> · paid ${gbp(tot)} in 30 days</div><div class="cu-card__line small">${summary}</div>`));
+        const summary = x.mandate_signed ? `up to ${gbp((ad.per_payment_limit || {}).amount)} a payment · ${gbp((ad.monthly_limit_per_account || {}).amount)} per supplier account in 30 days · ${ad.max_payments_per_day || '?'} payments a day · ${esc(ad.currency || 'GBP')} only · valid to ${esc(mp.valid_until || '')} · ${(ad.supplier_allowlist || []).length} permitted supplier accounts` : 'mandate not signed yet';
+        const vio = (state.violations || []).filter(y => y.passport_id === x.passport_id); const errs = vio.filter(y => y.failure_class === 'agent_error').length, fr = vio.filter(y => y.failure_class === 'fraud').length;
+        box.append(el('div', 'cu-card' + (x.passport_id === (p || {}).passport_id ? ' cu-card--current' : ''), `<div class="cu-card__head"><a href="/customer?ref=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a>${x.status === 'pending' ? tag('unsigned', 'awaiting your signature') : tag(x.status, x.status)}</div><div class="cu-card__line">${esc(ag.product_name || '')} by ${esc(ag.provider || '')} ${levelTag(((x.admission || {}).assurance_evidence || {}).level)} · <span class="mono">${esc(x.passport_id)}</span> · paid ${gbp(tot)} in 30 days</div><div class="cu-card__line small">${summary}</div><div class="cu-card__line small">${vio.length ? `your agent's errors: ${errs} in 30 days${fr ? ` · ${fr} fraud indicator${fr === 1 ? '' : 's'} stopped by the bank` : ''}` : 'no refusals yet'}</div>`));
       });
       if (!state.passports.length) box.append(el('p', 'small', 'No AI agent yet.'));
     }
@@ -485,7 +498,7 @@ const AP = (() => {
       renderCards();
       $('cu-empty').hidden = !!(products.length || p);
       $('cu-create').hidden = !products.length;
-      const sel = $('cu-model'); sel.innerHTML = products.map(m => `<option value="${m.registration_id}">${esc(m.product_name)} · ${esc(m.provider)}</option>`).join('');
+      const sel = $('cu-model'); sel.innerHTML = products.map(m => `<option value="${m.registration_id}">${esc(m.product_name)} · ${esc(m.provider)} · ${esc((LEVELS[m.assurance_level] || ['no level'])[0].toLowerCase())}</option>`).join('');
       if (!$('cu-agent-name').value) $('cu-agent-name').value = (state.agent_draft || {}).agent_name || '';
       $('cu-mandate').hidden = !p;
       if (!p) return;
@@ -494,7 +507,8 @@ const AP = (() => {
       $('cu-id').textContent = p.passport_id; $('cu-ref').textContent = p.passport_id;
       $('cu-state').innerHTML = signed ? tag('signed', 'signed') : tag('unsigned', 'awaiting signature');
       $('cu-card').classList.toggle('mandate--signed', signed);
-      $('cu-kv').innerHTML = [['Account holder', `${esc((mp.customer || d0.customer).legal_name)} · Companies House <span class="mono">${esc((mp.customer || d0.customer).companies_house_number)}</span>`], ['Signatory', `${esc((mp.authorising_officer || d0.authorising_officer).name)}, ${esc((mp.authorising_officer || d0.authorising_officer).role)}`], ['Bank hold', `the bank holds anything above ${gbp(p.admission.condition.hold_above.amount)} for your confirmation`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
+      const cls = ((state.policy || {}).customer_classes || {})[(d0.customer || {}).customer_class] || {}; const tier = ((state.policy || {}).account_tiers || {})[(d0.customer || {}).account_type] || {};
+      $('cu-kv').innerHTML = [['Account holder', `${esc((mp.customer || d0.customer).legal_name)} · Companies House <span class="mono">${esc((mp.customer || d0.customer).companies_house_number)}</span> · ${esc(cls.label || '')}`], ['Account', `${esc(tier.label || '')} <span class="mono">${esc((d0.customer || {}).account_ref || '')}</span> · agent channel limited by this account type`], ['Signatory', `${esc((mp.authorising_officer || d0.authorising_officer).name)}, ${esc((mp.authorising_officer || d0.authorising_officer).role)}`], ['Bank hold', `the bank holds anything above ${gbp(p.admission.condition.hold_above.amount)} for your confirmation`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       renderMandateForm(p, signed, ad, mp);
       if (ref) $('cu-mandate').scrollIntoView({ block: 'start' });
     }
@@ -511,11 +525,11 @@ const AP = (() => {
       $('cu-suppliers-signed').hidden = !signed;
       if (signed) {
         const tb = $('cu-suppliers-signed').querySelector('tbody'); tb.innerHTML = '';
-        ad.supplier_allowlist.forEach(s => tb.append(el('tr', null, `<td><span class="mono">${esc(s.supplier_id)}</span> ${esc(s.name)}</td><td class="mono">${esc(s.account_ref)}</td>`)));
-        $('cu-kv').insertAdjacentHTML('beforeend', [['May', `<strong>${esc(ad.actions.join(', '))}</strong> in ${esc(ad.currency)}`], ['Per payment', `not more than ${gbp(ad.per_payment_limit.amount)}`], ['Per supplier account', `not more than ${gbp(ad.monthly_limit_per_account.amount)} in any rolling 30 days`], ['Expires', esc(mp.valid_until)]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join(''));
-        $('cu-containment').className = 'containment containment--ok'; $('cu-containment').textContent = 'Within the limits your bank set for this product. Checked at signing; the bank checks every payment against this mandate.';
+        ad.supplier_allowlist.forEach(s => { const rc = s.register_check; tb.append(el('tr', null, `<td><span class="mono">${esc(s.supplier_id)}</span> ${esc(s.name)}${rc ? `<br><span class="small">${rc.found ? `${esc(rc.legal_name)}, ${esc(rc.status)}, ${esc(rc.registered_office || '')}` : 'not on the register'} · checked against the public register (${esc(rc.source)}) · ${esc(rc.result)}</span>` : ''}</td><td class="mono">${esc(s.account_ref)}<br><span class="small">account from the customer; Confirmation of Payee planned, bank-side</span></td>`)); });
+        $('cu-kv').insertAdjacentHTML('beforeend', [['May', `<strong>${esc(ad.actions.join(', '))}</strong> in ${esc(ad.currency)} only`], ['Per payment', `not more than ${gbp(ad.per_payment_limit.amount)}`], ['Per supplier account', `not more than ${gbp(ad.monthly_limit_per_account.amount)} in any rolling 30 days`], ['Per day', `not more than ${ad.max_payments_per_day || '?'} payments`], ['Expires', esc(mp.valid_until)]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join(''));
+        $('cu-containment').className = 'containment containment--ok'; $('cu-containment').textContent = 'Within the agent-channel limits for this account. Checked at signing; the bank checks every payment against this mandate.';
       } else {
-        $('cu-kv').insertAdjacentHTML('beforeend', `<div><dt>Bank's limits for this product</dt><dd>per payment ≤ ${gbp((ce.per_payment_ceiling || {}).amount)} · per supplier account in 30 days ≤ ${gbp((ce.monthly_per_account_ceiling || {}).amount)} · expiry ≤ ${esc(ce.max_validity || '')}</dd></div>`);
+        $('cu-kv').insertAdjacentHTML('beforeend', `<div><dt>Most you can grant</dt><dd id="cu-limits">working it out…</dd></div>`);
         renderForm(); runCheck();
       }
       $('cu-signer').textContent = `${(draft.authorising_officer || {}).name}, ${(draft.authorising_officer || {}).role}, signs with the ${(draft.customer || {}).legal_name} key.`;
@@ -527,12 +541,18 @@ const AP = (() => {
       if (signed) api('GET', `/api/passports/${p.passport_id}`).then(full => { $('cu-jwt-payload').textContent = JSON.stringify(full.mandate, null, 2); $('cu-jwt').textContent = full.envelope.mandate; });
     }
     function renderForm() {
-      $('cu-per').value = draft.per_payment_limit; $('cu-monthly').value = draft.monthly_limit_per_account; $('cu-until').value = draft.valid_until;
+      $('cu-per').value = draft.per_payment_limit; $('cu-monthly').value = draft.monthly_limit_per_account; $('cu-until').value = draft.valid_until; $('cu-daily').value = draft.max_payments_per_day || 10;
       const tb = $('cu-suppliers').querySelector('tbody'); tb.innerHTML = '';
-      (draft.supplier_allowlist || []).forEach((s, i) => tb.append(el('tr', null, `<td><span class="mono small">${esc(s.supplier_id || '')}</span> <input class="input" data-i="${i}" data-k="name" value="${esc(s.name)}" aria-label="Supplier name"></td><td><input class="input mono" data-i="${i}" data-k="account_ref" value="${esc(s.account_ref)}" aria-label="Account" placeholder="60-11-22 12345678"></td><td><button class="link small" type="button" data-remove="${i}">remove</button></td>`)));
+      (draft.supplier_allowlist || []).forEach((s, i) => { tb.append(el('tr', null, `<td><span class="mono small">${esc(s.supplier_id || '')}</span> <input class="input" data-i="${i}" data-k="name" value="${esc(s.name)}" aria-label="Supplier name"><div class="cu-ch"><input class="input mono" data-i="${i}" data-k="companies_house_number" value="${esc(s.companies_house_number || '')}" aria-label="Companies House number" placeholder="Companies House no."><button class="btn btn--secondary btn--small" type="button" data-check="${i}">Check</button></div><div class="small cu-ch__out" id="cu-ch-${i}"></div></td><td><input class="input mono" data-i="${i}" data-k="account_ref" value="${esc(s.account_ref)}" aria-label="Account" placeholder="60-11-22 12345678"><div class="small">the account comes from you; Confirmation of Payee planned, bank-side</div></td><td><button class="link small" type="button" data-remove="${i}">remove</button></td>`)); if (s.companies_house_number) checkCompany(i, false); });
+    }
+    async function checkCompany(i, loud) {
+      const s = draft.supplier_allowlist[i]; const out = $(`cu-ch-${i}`); if (!s || !out) return;
+      if (!s.companies_house_number) { if (loud) { const r = await api('GET', `/api/companies/search?q=${encodeURIComponent(s.name || '')}`); out.innerHTML = r.items.length ? 'Did you mean: ' + r.items.map(it => `<button class="link" type="button" data-pick="${i}" data-number="${esc(it.number)}">${esc(it.legal_name)} (${esc(it.number)}, ${esc(it.status)})</button>`).join(' · ') + ` <span class="small">· ${esc(r.items[0].source)}</span>` : 'No match on the public register.'; } return; }
+      const r = await api('GET', `/api/companies/${encodeURIComponent(s.companies_house_number)}`);
+      out.innerHTML = r.found ? `<span class="${r.active ? 'right' : 'wrong'}">${esc(r.legal_name)} · ${esc(r.status)}</span> · ${esc(r.address || '')} · checked against the public register (${esc(r.source)})${r.active ? '' : ' · not an active company'}` : `<span class="wrong">no company with this number</span> on the public register (${esc(r.source)})`;
     }
     function collect() {
-      draft.per_payment_limit = Number($('cu-per').value); draft.monthly_limit_per_account = Number($('cu-monthly').value); draft.valid_until = $('cu-until').value;
+      draft.per_payment_limit = Number($('cu-per').value); draft.monthly_limit_per_account = Number($('cu-monthly').value); draft.valid_until = $('cu-until').value; draft.max_payments_per_day = Number($('cu-daily').value); draft.currency = 'GBP';
       document.querySelectorAll('#cu-suppliers [data-i]').forEach(inp => { draft.supplier_allowlist[+inp.dataset.i][inp.dataset.k] = inp.value; });
       return draft;
     }
@@ -541,14 +561,15 @@ const AP = (() => {
       try {
         const r = await api('POST', `/api/passports/${p.passport_id}/mandate/check`, collect());
         const box = $('cu-containment'); box.className = 'containment ' + (r.within_ceilings ? 'containment--ok' : 'containment--bad');
-        box.innerHTML = r.within_ceilings ? 'Within the limits your bank set for this product. Signing makes it live at once.' : `Outside the limits your bank set for this product. Signing is refused until this is fixed.<ul>${r.problems.map(x => `<li>${esc(x.problem)}</li>`).join('')}</ul>`;
+        box.innerHTML = r.within_ceilings ? 'Within the agent-channel limits for this account. Signing makes it live at once.' : `Outside the agent-channel limits for this account. Signing is refused until this is fixed.<ul>${r.problems.map(x => `<li>${esc(x.problem)}</li>`).join('')}</ul>`;
+        if ($('cu-limits') && r.limits) $('cu-limits').innerHTML = `${gbp(r.limits.per_payment)} a payment · ${gbp(r.limits.monthly_per_account)} per supplier account in 30 days · ${r.limits.max_payments_per_day} payments a day · ${esc(r.limits.currency)} only · to ${esc(r.limits.max_validity)}<br><span class="small">the lower of the ${esc(r.limits.account_tier.label.toLowerCase())} tier and the bank's admission ceiling for this product (${esc((LEVELS[r.limits.assurance_level] || ['no level'])[0].toLowerCase())})</span>`;
         $('btn-sign-mandate').disabled = !r.within_ceilings;
       } catch (e) { $('cu-containment').textContent = e.message; }
     }
     const scheduleCheck = () => { clearTimeout(checkTimer); checkTimer = setTimeout(runCheck, 250); };
     $('cu-form').addEventListener('input', (e) => { if (e.target.matches('[data-i]')) collect(); scheduleCheck(); });
-    $('cu-form').addEventListener('click', (e) => { const b = e.target.closest('[data-remove]'); if (b) { collect(); draft.supplier_allowlist.splice(+b.dataset.remove, 1); renderForm(); scheduleCheck(); } });
-    $('cu-add').onclick = () => { collect(); draft.supplier_allowlist.push({ supplier_id: `SUP-${String(draft.supplier_allowlist.length + 1).padStart(3, '0')}`, name: '', account_ref: '' }); renderForm(); scheduleCheck(); };
+    $('cu-form').addEventListener('click', (e) => { const b = e.target.closest('[data-remove]'); if (b) { collect(); draft.supplier_allowlist.splice(+b.dataset.remove, 1); renderForm(); scheduleCheck(); return; } const c = e.target.closest('[data-check]'); if (c) { collect(); checkCompany(+c.dataset.check, true); return; } const k = e.target.closest('[data-pick]'); if (k) { collect(); draft.supplier_allowlist[+k.dataset.pick].companies_house_number = k.dataset.number; renderForm(); } });
+    $('cu-add').onclick = () => { collect(); draft.supplier_allowlist.push({ supplier_id: `SUP-${String(draft.supplier_allowlist.length + 1).padStart(3, '0')}`, name: '', account_ref: '', companies_house_number: '' }); renderForm(); scheduleCheck(); };
     $('btn-sign-mandate').onclick = async () => {
       const b = $('btn-sign-mandate'); b.disabled = true; $('cu-error').hidden = true;
       try { const np = await api('POST', `/api/passports/${p.passport_id}/mandate/sign`, collect()); state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${np.passport_id}`); render(); renderAccount(); }
@@ -559,7 +580,7 @@ const AP = (() => {
   // ───────────── Expert console (/terminal?console=1) ─────────────
   // Presentation only: every verdict comes from POST /api/verify unchanged. The arena shows the nine checks
   // resolving in order (slowed for demonstration); the raw response is kept off-screen for the record and the tests.
-  const SHORT = { 'R.1': 'bank admission signature', 'R.2': 'passport list status', 'R.3': 'agent identity signature', 'R.4': 'AI agent signature', 'R.5': 'customer mandate', 'R.6': 'payee on allowlist', 'R.7': 'per-payment limit', 'R.8': '30-day limit', 'R.9': 'bank hold condition', 'C.a': 'root scope', 'C.b': 'delegation ⊆ root', 'C.c': 'action ⊆ delegation' };
+  const SHORT = { 'R.1': 'bank admission signature', 'R.2': 'passport list status', 'R.3': 'agent identity signature', 'R.4': 'AI agent signature and nonce', 'R.5': 'customer mandate', 'R.6': 'action, currency, payee', 'R.7': 'per-payment limit', 'R.8': '30-day total and daily count', 'R.9': 'bank hold condition', 'C.a': 'root scope', 'C.b': 'delegation ⊆ root', 'C.c': 'action ⊆ delegation' };
   async function console_() {
     const state = await api('GET', '/api/state');
     const ref = new URLSearchParams(location.search).get('ref');
@@ -615,7 +636,7 @@ const AP = (() => {
       const reg = r.rails && r.rails.passport_list, rv = r.rails && r.rails.vouch;
       const rails = r.rails && (reg !== 'active' || (rv && rv.status === 'REVOKED')) ? `<span>passport list <b class="${reg !== 'active' ? 'fail' : ''}">${esc(reg)}</b> · vouch rail <b class="${rv.status === 'REVOKED' ? 'fail' : ''}">${esc(rv.status || 'none')}</b>${reg !== 'active' && rv.status === 'REVOKED' ? ' · one action by the bank, two rails refuse' : ''}</span>` : '';
       const settle = r.settlement ? `<span class="ok">${esc(r.settlement.rail_reason)}</span>` : '';
-      const vio = r.violation ? `<span>violation #${r.violation.id} recorded ${esc(r.violation.status)} <a href="/bank">→ Bank console</a></span>` : '';
+      const vio = r.violation ? `<span>violation #${r.violation.id} recorded ${esc(r.violation.status)} · ${classTag(r.failure_class)} <a href="/bank">→ Bank dashboard</a></span>` : '';
       const inc = r.incident ? `<span class="fail"><b>INCIDENT</b> raised to the payments risk team · ${r.incident.denies} refused instructions <a href="/bank">→ Bank console</a></span>` : '';
       gVerdict.className = 'g__verdict g__verdict--' + r.decision; gWrap.dataset.decision = r.decision;
       gVerdict.innerHTML = `<span class="g-word">${r.decision}</span><span class="g-cite">${cite}</span><span class="g-reason">${esc(r.reason)}</span><span class="g-notes">${settle}${rails}${vio}${inc}<span class="tm-dim">${sig}receipt signed by the bank · evidence #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> <a href="/audit">→ Evidence trail</a></span></span>`;
@@ -695,8 +716,9 @@ const AP = (() => {
 
     state.beats.forEach(b => $('beats').append(beatButton(b, async () => {
       for (let k = 0; k < (b.repeat || 1); k++) {
-        const r = await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, invoice_ref: b.repeat ? `${b.invoice_ref}-${k + 1}` : b.invoice_ref, signer: b.signer });
-        await present(b, r, b.repeat ? k + 1 : null, k > 0);
+        const r = b.replay ? await api('POST', '/api/agent/replay', { passport_id: p.passport_id }) : await api('POST', '/api/agent/act', { passport_id: p.passport_id, action_type: b.action_type, supplier_name: b.supplier_name, payee_account_ref: b.payee_account_ref, amount: b.amount, currency: b.currency || 'GBP', invoice_ref: b.repeat ? `${b.invoice_ref}-${k + 1}` : b.invoice_ref, signer: b.signer });
+        const shown = b.replay ? { ...b, supplier_name: (r.trace && r.reason) ? 'replayed instruction' : b.supplier_name } : b;
+        await present(shown, r, b.repeat ? k + 1 : null, k > 0);
         if (r.decision !== 'ALLOW') break;
       }
     })));
@@ -708,7 +730,7 @@ const AP = (() => {
       const rv = r.rails && r.rails.vouch, reg = r.rails && r.rails.passport_list;
       const rails = r.rails ? `<span class="t-rails">passport list <b class="${reg !== 'active' ? 'refused' : ''}">${esc(reg)}</b> · vouch rail <b class="${rv.status === 'REVOKED' ? 'refused' : ''}">${esc(rv.status || 'none')}</b>${rv.voucher_id ? ' ' + esc(rv.voucher_id) : ''}${reg !== 'active' && rv.status === 'REVOKED' ? ' · one action by the bank, two rails refuse' : ''}</span>` : '';
       return el('li', null, `<span class="t-time">${t(new Date().toISOString())}</span><span class="t-body">
-        <span class="t-head"><span class="t-action">${esc(b.action_type)} · ${esc(b.supplier_name)} · ${esc(b.payee_account_ref)} · ${gbp(b.amount)}${k ? ' · #' + k : ''}${b.signer === 'rogue' ? ' · signed with rogue key' : ''}</span><span class="t-verdict t-verdict--${r.decision}">${r.decision}</span><span class="t-rule">${r.decision === 'ALLOW' ? 'all nine checks passed · ' + esc(r.code) : 'rule ' + esc(r.rule) + ' · ' + esc(r.code)}</span></span>
+        <span class="t-head"><span class="t-action">${esc(b.action_type)} · ${esc(b.supplier_name)} · ${esc(b.payee_account_ref)} · ${gbp(b.amount)}${k ? ' · #' + k : ''}${b.signer === 'rogue' ? ' · signed with rogue key' : ''}</span><span class="t-verdict t-verdict--${r.decision}">${r.decision}</span><span class="t-rule">${r.decision === 'ALLOW' ? 'all nine checks passed · ' + esc(r.code) : 'rule ' + esc(r.rule) + ' · ' + esc(r.code) + (r.failure_class ? ' · ' + esc(r.failure_class.label) : '')}</span></span>
         <span class="t-reason">${esc(r.reason)}${r.decision === 'DENY' && r.rule === 'R.6' ? ' · Named-beneficiary mandate check (FATF 2025 AML/CFT alignment)' : ''}</span>${sigLine}${chainLine}${settle}${rails}
         <span class="t-trace">${trace}</span>
         <span class="t-meta">evidence #${r.audit_id} <b>${esc(r.audit_hash.slice(0, 12))}</b> ← <b>${esc(r.prev_hash.slice(0, 12))}</b> · rule pack <b>${esc(r.rule_pack)}</b> · receipt signed by the bank · decision replayable</span>
@@ -721,7 +743,7 @@ const AP = (() => {
     const e = r.entry || {}, i = e.instruction || {};
     const acct = (x) => x ? `<span class="mono">${esc(x)}</span>` : '';
     switch (r.kind) {
-      case 'verify': return e.decision === 'ALLOW' ? `<b class="ok">Payment allowed</b> · ${esc(i.supplier_name || '')} · ${gbp(i.amount)}` : e.decision === 'ESCALATE' ? `<b class="hold">Payment held</b> at ${esc(e.rule)} · ${esc(i.supplier_name || '')} · ${gbp(i.amount)}` : `<b class="bad">Payment refused</b> at ${esc(e.rule)} ${esc(e.code)} · ${esc(i.supplier_name || '')} ${acct(i.payee_account_ref)} · ${gbp(i.amount)}`;
+      case 'verify': return e.decision === 'ALLOW' ? `<b class="ok">Payment allowed</b> · ${esc(i.supplier_name || '')} · ${gbp(i.amount)}` : e.decision === 'ESCALATE' ? `<b class="hold">Payment held</b> at ${esc(e.rule)} · ${esc(i.supplier_name || '')} · ${gbp(i.amount)}` : `<b class="${e.failure_class === 'agent_error' ? 'hold' : 'bad'}">Payment refused</b> at ${esc(e.rule)} ${esc(e.code)} · ${esc(i.supplier_name || '')} ${acct(i.payee_account_ref)} · ${gbp(i.amount)} · ${classTag(e.failure_class)}`;
       case 'intent': return `Intent declared before reading: pay ${esc(e.supplier_name || '')} to ${acct(e.declared_payee)}`;
       case 'agent': return e.attempted_payee ? (e.matches_intent ? `AI agent read the invoice: ${acct(e.attempted_payee)}, as declared` : `AI agent read the invoice: ${acct(e.attempted_payee)}, not the declared ${acct(e.declared_payee)}`) : 'Customer registered its AI agent: key generated, possession proven';
       case 'incident': return `<b class="bad">Incident raised</b> · ${e.denies} refusals`;

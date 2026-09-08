@@ -56,11 +56,13 @@
         <div class="fields fields--row">
           <div><label class="label" for="cu-per">Per payment, up to (£)</label><input class="input" id="cu-per" type="number" min="1" step="100"></div>
           <div><label class="label" for="cu-monthly">Per supplier account in 30 days, up to (£)</label><input class="input" id="cu-monthly" type="number" min="1" step="100"></div>
+          <div><label class="label" for="cu-daily">Payments per day, up to</label><input class="input" id="cu-daily" type="number" min="1" step="1"></div>
           <div><label class="label" for="cu-until">Valid until</label><input class="input" id="cu-until" type="date"></div>
+          <div><label class="label" for="cu-currency">Currency</label><select class="input" id="cu-currency" disabled><option>GBP</option></select><span class="small">payments in any other currency are refused</span></div>
         </div>
         <h3 class="h3">Suppliers the AI agent may pay</h3>
-        <p class="hint">By account, not by name. A supplier's name on an invoice is easy to copy; the account you enter here is the only one your bank will pay.</p>
-        <table class="suppliers" id="cu-suppliers"><thead><tr><th>Supplier</th><th>Sort code and account</th><th></th></tr></thead><tbody></tbody></table>
+        <p class="hint">By account, not by name. A supplier's name on an invoice is easy to copy; the account you enter here is the only one your bank will pay. Give the supplier's Companies House number and the app checks the public register: legal name, status, registered office. That says what the company filed, not that it is legitimate, and the register holds no bank accounts.</p>
+        <table class="suppliers" id="cu-suppliers"><thead><tr><th>Supplier and company number</th><th>Sort code and account</th><th></th></tr></thead><tbody></tbody></table>
         <div class="actions"><button class="btn btn--secondary btn--small" type="button" id="cu-add">Add a supplier</button></div>
       </form>
       <table class="suppliers" id="cu-suppliers-signed" hidden><thead><tr><th>Supplier</th><th>Account</th></tr></thead><tbody></tbody></table>

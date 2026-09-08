@@ -6,6 +6,7 @@
     <div>
       <h1 class="hero__h1">Know the AI agent before it pays.</h1>
       <p class="hero__lede">Businesses are handing their invoices to AI agents that read, decide and pay. When one of them pays, the bank cannot see which agent acted, on whose authority, or who answers for it. Agent Passport gives the bank those three answers before money moves, and a record afterwards that stands up on its own.</p>
+      <p class="hero__lede hero__lede--logic"><strong>Banks are the primary users of this infrastructure.</strong> They adopt it because it protects them commercially, and regulators gain consistent supervisory evidence as a result.</p>
       <p class="hero__actions"><a class="btn btn--inverse" href="/customer">Customer dashboard</a><a class="btn btn--ghost" href="/bank">Bank dashboard</a><a class="hero__link" href="/about">How it works</a></p>
     </div>
     <figure class="hero__photo"><img src="/static/photos/boe.jpg" alt="The City of London" width="1920" height="1291"><figcaption>Photo: It's No Game, CC BY 2.0</figcaption></figure>
@@ -50,11 +51,17 @@ flowchart LR
   class Q1,Q2,Q3 q
 </pre></div>
   <p class="home__lede">Identity alone does not fix this. Knowing who an AI agent is tells you nothing about what it may do, and nothing about who answers when it goes wrong.</p>
+  <div class="honest">
+    <h3 class="h3">AI agents also fail honestly</h3>
+    <p>Fraud is only half the case. Independent benchmarks in 2026 put frontier-model error rates at roughly 3 to 19 percent depending on the task, with long multi-step agentic work at the high end, and errors compound across steps. An agent that misreads an amount, invents a reference or picks the wrong payee is not being attacked; it is simply wrong, and a payment that leaves on a wrong instruction is as gone as one that leaves on a forged one.</p>
+    <p><strong>The mandate check does not care whether the AI agent was deceived or mistaken. The payment simply does not leave.</strong></p>
+    <p class="chart__src">Ranges from independent benchmarks such as the <a href="https://github.com/vectara/hallucination-leaderboard">Vectara hallucination leaderboard</a> and multi-step agent evaluations; figures vary by model, task and date, so treat them as an order of magnitude, not a precise rate.</p>
+  </div>
 
   <h2 class="h2">Our proposal</h2>
   <div class="standard-split">
     <div class="standard-text">
-      <p class="home__lede">Put the check where the money and the liability are: at the bank. A registered provider, a product the bank admitted, a mandate the customer signed, and a verification on every payment. <strong class="claim">Every payment an AI agent makes then carries provable, revocable authority.</strong></p>
+      <p class="home__lede">Rather than watching AI agents more closely, the future demands transparency by design. Every payment carries a provider's filing, a customer's signature and a bank's verdict, <strong class="claim">so authority is provable and revocable on every transaction.</strong></p>
       <ol class="plain-steps plain-steps--std">
         <li><strong>The provider registers the AI product.</strong> Once.</li>
         <li><strong>The bank admits it to its list.</strong> Once.</li>

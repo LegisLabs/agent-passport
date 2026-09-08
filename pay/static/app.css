@@ -1605,3 +1605,18 @@ body[data-view="bank"] .footer, body[data-view="customer"] .footer { background:
 .rec__foot { display: flex; align-items: center; gap: 14px; padding-top: 12px; font-size: .85rem; color: var(--ink-2); }
 .rec__seal { flex: 0 0 auto; border: 2px solid var(--green-dark); color: var(--green-dark); border-radius: 50%; width: 64px; height: 64px; display: grid; place-items: center; font-weight: 700; font-size: .72rem; letter-spacing: .08em; text-transform: uppercase; transform: rotate(-8deg); }
 @media (max-width: 640px) { .rec__grid { grid-template-columns: minmax(0, 1fr); } .rec__head { flex-direction: column; } .rec__ref { text-align: left; } .rec__proof div { grid-template-columns: minmax(0, 1fr); gap: 0; } }
+
+/* consolidation round: context panel, company checks, quiet agent-error styling */
+.context { border: 3px solid var(--ink); padding: 1rem 1.25rem; margin: 0 0 1.5rem; background: var(--panel); }
+.context .h3 { margin-top: 0; }
+.context .actions { margin-bottom: 0; }
+.cu-ch { display: flex; gap: .4rem; align-items: center; margin-top: .3rem; }
+.cu-ch .input { max-width: 12rem; }
+.cu-ch__out { margin-top: .25rem; }
+.cu-ch__out .link { font-size: .95rem; }
+.bd-verdict--quiet { border-color: var(--amber); }
+.triage--agent_error .tag { background: var(--amber-soft); color: var(--amber-ink); }
+.honest { border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); padding: 1.2rem 0 .8rem; margin: 1.5rem 0 2rem; }
+.honest .h3 { margin: 0 0 .6rem; font-size: 1.25rem; }
+.honest p { margin: 0 0 .8rem; font-size: 1.1875rem; line-height: 1.4; }
+.hero__lede--logic { font-size: 1.1875rem; padding-top: .6rem; border-top: 1px solid rgba(255,255,255,.35); }
