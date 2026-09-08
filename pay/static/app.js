@@ -26,7 +26,8 @@ const AP = (() => {
   const modeLabel = (m) => m === 'gemini' ? 'Gemini (live)' : m === 'fixture' ? 'fixture (deterministic stand-in)' : 'fixture after Gemini failed';
   const holdOf = (a) => (((a && a.condition) || {}).hold_above || {}).amount;
   const LEVELS = { 'self-declared': ['Self-declared', 'grey'], 'independently-verified': ['Independently verified', 'blue'], 'independently-audited': ['Independently audited', 'green'] };
-  const levelTag = (id) => { const l = LEVELS[id]; return l ? `<span class="tag tag--${l[1]}" title="assurance level declared by the provider with its evidence">${l[0]}</span>` : '<span class="tag tag--grey">no level</span>'; };
+  // one assurance badge everywhere: neutral tint, the level's name; used on /provider, the bank register and admission view, the customer picker
+  const levelTag = (id) => { const l = LEVELS[id]; return l ? `<span class="tag tag--level" title="assurance level declared by the provider with its evidence, not certified by anyone">${l[0]}</span>` : '<span class="tag tag--level">no level declared</span>'; };
   // Exactly two refusal classes (the mapping itself lives in the rule pack next to the rules). Agent error is deliberately calm: grey, never red.
   const CLASSES = { fraud: ['Fraud indicator', 'red'], agent_error: ['Agent error', 'grey'] };
   const CLASS_LEGEND = { fraud: 'Fraud indicator: something the customer never authorised (a wrong account, an invalid signature, a passport not in force, a replayed instruction). For the bank\'s risk team.', agent_error: 'Agent error: the AI agent\'s own mistake inside its remit (amount, currency, action, frequency, an expired mandate). A quality signal for its owner, not a report to anyone.' };
