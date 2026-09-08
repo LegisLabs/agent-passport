@@ -123,3 +123,4 @@ body[data-cupage="event"] .fx #cu-event-body { flex: 1 1 auto; display: flex; fl
 body[data-cupage="new"] .fx .fx-grid.cu-split { justify-content: center; }
 body:not([data-cupage="overview"]) .fx-tools { display: none; }
 .fx #ac-trail { display: none; }
+.fx .acct__tab[data-tab="trail"] { display: none !important; }
