@@ -124,3 +124,47 @@ body[data-cupage="new"] .fx .fx-grid.cu-split { justify-content: center; }
 body:not([data-cupage="overview"]) .fx-tools { display: none; }
 .fx #ac-trail { display: none; }
 .fx .acct__tab[data-tab="trail"] { display: none !important; }
+
+/* the mandate, as simple as approving a payment: four limits, who it may pay, one button */
+body[data-cusigned="0"] .cu-agent-grid, body[data-cusigned="0"] #cu-card .mandate__head, body[data-cusigned="0"] #cu-kv, body[data-cusigned="0"] #cu-agent-kv, body[data-cusigned="0"] #cu-signer, body[data-cusigned="0"] .cu-agent-head, body[data-cusigned="0"] #cu-suppliers-signed { display: none; }
+body[data-cusigned="0"] #cu-card { border: 0; background: transparent; padding: 0; margin: 0; }
+body[data-cusigned="0"] #cu-card .mandate__body { padding: 0; }
+body[data-cusigned="0"] .fx { display: flex; flex-direction: column; }
+body[data-cusigned="0"] .fx #cu-mandate { flex: 1 1 auto; display: flex; flex-direction: column; max-width: 28rem; margin: 0 auto; width: 100%; }
+body[data-cusigned="0"] .fx #cu-card { flex: 1 1 auto; }
+.fx .cu-mform__head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; margin-bottom: 14px; }
+.fx .cu-mform__head .cu-new__title { margin: 0; }
+.fx .cu-mform__head .link { font-size: .8125rem; }
+.fx .cu-mform__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px 14px; }
+.fx .cu-mform__grid .label { margin-top: 0; }
+.fx .cu-mform__grid .input { width: 100%; box-sizing: border-box; }
+.fx .cu-money { position: relative; }
+.fx .cu-money span { position: absolute; left: 12px; top: 50%; transform: translateY(-50%); color: var(--fx-ink-2); font-weight: 600; }
+.fx .cu-money .input { padding-left: 26px; }
+.fx .cu-mform__max { margin: 8px 0 18px; color: var(--fx-ink-2); }
+.fx .cu-mform__label { margin: 0 0 6px; }
+.fx .cu-search { position: relative; margin-bottom: 10px; }
+.fx .cu-search .input { width: 100%; box-sizing: border-box; }
+.fx .cu-search__results { position: absolute; left: 0; right: 0; top: calc(100% + 4px); z-index: 5; list-style: none; margin: 0; padding: 6px; background: #fff; border: 1px solid var(--fx-line); border-radius: 12px; box-shadow: 0 12px 28px -14px rgba(0,0,0,.25); }
+.fx .cu-search__results button { display: grid; gap: 1px; width: 100%; text-align: left; padding: 8px 10px; border: 0; border-radius: 8px; background: none; font: inherit; color: var(--fx-ink); cursor: pointer; }
+.fx .cu-search__results button:hover, .fx .cu-search__results button:focus-visible { background: var(--fx-tint); outline: none; }
+.fx .cu-search__results small, .fx .cu-payee small { font-size: .78rem; color: var(--fx-ink-2); }
+.fx .cu-search__none { padding: 8px 10px; }
+.fx .cu-payees { list-style: none; margin: 0 0 14px; padding: 0; display: grid; gap: 8px; }
+.fx .cu-payee { display: flex; gap: 12px; align-items: flex-start; padding: 12px 14px; border-radius: 14px; border: 1.5px solid var(--fx-line-2); background: #fff; }
+.fx .cu-payee__body { flex: 1 1 auto; display: grid; gap: 4px; min-width: 0; }
+.fx .cu-payee__body b { font-size: .9375rem; }
+.fx .cu-payee__body .input { width: 100%; box-sizing: border-box; margin-top: 4px; }
+.fx .cu-payee__remove { font-size: .8125rem; flex: 0 0 auto; }
+.fx .cu-payees__empty { padding: 10px 2px; color: var(--fx-ink-2); }
+body[data-cusigned="0"] #cu-actions { display: grid; margin-top: auto; padding-top: 24px; }
+body[data-cusigned="0"] #btn-sign-mandate { appearance: none; border: 0; border-radius: 999px; background: var(--fx-teal-deep); color: #fff; font: inherit; font-weight: 800; font-size: 1.0625rem; padding: 16px 20px; cursor: pointer; }
+body[data-cusigned="0"] #btn-sign-mandate:disabled { background: var(--fx-line-2); color: var(--fx-ink-2); cursor: default; }
+body[data-cusigned="0"] #btn-cancel-amend { margin-top: 8px; }
+@media (max-width: 640px) { .fx .cu-mform__grid { grid-template-columns: minmax(0, 1fr); } }
+.fx .apv__clock--ok { background: var(--fx-green); }
+.fx .apv__clock--no { background: var(--fx-ink-2); }
+.fx .apv__note { margin: 0 0 12px; padding: 12px 16px; border-radius: 14px; background: var(--fx-tint); font-style: italic; color: var(--fx-ink-2); }
+.fx .apv__result { margin: 0; font-size: 1rem; font-weight: 600; }
+.fx .apv--done .apv__actions { margin-top: auto; padding-top: 28px; }
+.fx .apv__actions a.apv__link { text-align: center; text-decoration: none; }

@@ -772,6 +772,7 @@ const AP = (() => {
     const agentOf = (subject) => { const x = passOf(subject); return x ? (((x.agent_identity || {}).agent || {}).name || subject) : subject; };
     const approverOf = (subject) => { const x = passOf(subject) || {}; return (x.mandate || {}).signed_by || (x.mandate_proposed || {}).authorising_officer || (d0.authorising_officer || {}); };
     render(); renderAccount();
+    try { const msg = sessionStorage.getItem('ap-toast'); if (msg) { sessionStorage.removeItem('ap-toast'); const tst = $('cu-toast'); tst.className = 'cu-toast cu-toast--slate'; tst.innerHTML = msg; tst.hidden = false; toastTimer = setTimeout(() => { tst.hidden = true; }, 9000); } } catch (e) { /* no storage */ }
     // tabs: the split view on desktop, one section at a time below 900px
     const wide = () => window.innerWidth >= 900;
     function setTab(name) { if (ref || eventId) return; document.body.dataset.actab = name; document.querySelectorAll('.acct__tab').forEach(bt => bt.setAttribute('aria-selected', String(bt.dataset.tab === name))); $('ac-live').hidden = name === 'transactions'; $('ac-transactions').hidden = name !== 'transactions'; }
@@ -840,14 +841,28 @@ const AP = (() => {
       } else if (r.kind === 'mandate' || r.kind === 'lifecycle' || r.kind === 'incident') {
         steps.push({ who: r.kind === 'mandate' ? 'you' : 'bank', t: r.ts, title: n.label, body: n.text, proof: proof(r) });
       } else steps.push({ who: 'bank', t: r.ts, title: n.label, body: plainEvent(r), proof: proof(r) });
-      if (r.kind === 'verify' && e.decision === 'ESCALATE' && e.code !== FIRST && !dd) {
+      if (r.kind === 'verify' && e.code !== FIRST) {
         const amount = Number(i.amount || 0), pounds = Math.floor(amount), pence = Math.round((amount - pounds) * 100);
         const reason = e.failed_check ? plainWhy() : `It is above the ${gbp(hold)} you asked the bank to check with you.`;
-        box.innerHTML = `<div class="apv">
-          <div class="apv__head"><div><b class="apv__amt">£${pounds.toLocaleString('en-GB')}<small>.${String(pence).padStart(2, '0')}</small></b><div class="apv__name">${sup}</div><div class="apv__meta">Requested by ${ag} on ${d(r.ts)}, ${t(r.ts).slice(0, 5)}</div></div><span class="apv__avatar" aria-hidden="true">${esc(initials(i.supplier_name))}</span></div>
-          <div class="apv__why"><span class="apv__clock" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span><p>Held for your review. ${reason}</p></div>
-          <label class="label apv__label" for="cu-review-note">Add a note, recorded with your decision</label><textarea class="textarea" id="cu-review-note" rows="2" placeholder="${e.failed_check ? 'e.g. Ashby quoted the larger order in writing.' : 'e.g. Checked the invoice with the supplier.'}"></textarea><p class="error" id="cu-review-err" hidden>Write a note first; it is recorded with your decision.</p>
-          <div class="apv__actions"><button class="apv__btn" type="button" data-decide-cu="release" data-audit="${r.id}">Approve payment</button><button class="apv__link" type="button" data-decide-cu="refuse" data-audit="${r.id}">Reject payment</button></div>
+        const head = `<div class="apv__head"><div><b class="apv__amt">£${pounds.toLocaleString('en-GB')}<small>.${String(pence).padStart(2, '0')}</small></b><div class="apv__name">${sup}</div><div class="apv__meta">Requested by ${ag} on ${d(r.ts)}, ${t(r.ts).slice(0, 5)}</div></div><span class="apv__avatar" aria-hidden="true">${esc(initials(i.supplier_name))}</span></div>`;
+        const clock = `<span class="apv__clock" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg></span>`;
+        const tick = `<span class="apv__clock apv__clock--ok" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5"/></svg></span>`;
+        const cross = `<span class="apv__clock apv__clock--no" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M7 7l10 10M17 7L7 17"/></svg></span>`;
+        if (e.decision === 'ESCALATE' && !dd) {
+          box.innerHTML = `<div class="apv">${head}
+            <div class="apv__why">${clock}<p>Held for your review. ${reason}</p></div>
+            <label class="label apv__label" for="cu-review-note">Add a note, recorded with your decision</label><textarea class="textarea" id="cu-review-note" rows="2" placeholder="${e.failed_check ? 'e.g. Ashby quoted the larger order in writing.' : 'e.g. Checked the invoice with the supplier.'}"></textarea><p class="error" id="cu-review-err" hidden>Write a note first; it is recorded with your decision.</p>
+            <div class="apv__actions"><button class="apv__btn" type="button" data-decide-cu="release" data-audit="${r.id}">Approve payment</button><button class="apv__link" type="button" data-decide-cu="refuse" data-audit="${r.id}">Reject payment</button></div>
+          </div>`;
+          return;
+        }
+        const who = dd ? esc(((dd.entry.decided_by || dd.entry.approver) || {}).name || 'Your approver') : ''; const rel = dd ? dd.entry.outcome === 'RELEASED' : true;
+        const status = dd ? `${rel ? tick : cross}<p><b>${rel ? 'Approved' : 'Rejected'} by ${who}</b><br><span class="small">${d(dd.ts)}, ${t(dd.ts).slice(0, 5)}${e.failed_check ? ` · was held: ${reason.charAt(0).toLowerCase() + reason.slice(1)}` : ''}</span></p>` : `${tick}<p><b>Paid</b><br><span class="small">Inside the mandate; no review needed.</span></p>`;
+        box.innerHTML = `<div class="apv apv--done">${head}
+          <div class="apv__why">${status}</div>
+          ${dd && dd.entry.reason ? `<p class="apv__note">“${esc(dd.entry.reason)}”</p>` : ''}
+          <p class="apv__result">${rel ? `£${pounds.toLocaleString('en-GB')} paid to ${sup}.` : 'Nothing left your account.'}</p>
+          <div class="apv__actions"><a class="apv__link" href="/customer">Back to the overview</a></div>
         </div>`;
         return;
       }
@@ -944,7 +959,7 @@ const AP = (() => {
       return `<div class="cu-confirm" role="group" aria-label="Review and confirm the first payment"><h3 class="h4">Review and confirm the first payment under this mandate</h3>${kv([['AI agent', `${esc(agentOf(r.subject))} · <span class="mono">${esc(r.subject)}</span>`], ['Payee', `${esc(i.supplier_name || '')} · <span class="mono">${esc(i.payee_account_ref || '')}</span>${sup.register_check && sup.register_check.found ? ` · ${esc(sup.register_check.legal_name)}, checked against the public register` : ''}`], ['Amount', `<b>${gbp(i.amount)}</b> ${esc(i.currency || 'GBP')}${i.invoice_ref ? ` · invoice <span class="mono">${esc(i.invoice_ref)}</span>` : ''}`], ['Mandate', `version ${esc(String(m.version || 1))}, signed by ${esc(ap.name || '')} · up to ${gbp(((m.authorization_details || [{}])[0].per_payment_limit || {}).amount)} a payment`], ['Checks', 'passed R.1 to R.8 at the bank; held at R.9 for this confirmation only']])}<div class="actions"><button class="btn" type="button" data-first="confirm" data-audit="${r.id}">Confirm and pay</button><button class="btn btn--secondary" type="button" data-first="refuse" data-audit="${r.id}">Not this one</button><span class="actions__note">Recorded in the evidence chain as ${esc(ap.name || '')}, ${esc(ap.role || '')}. After this, payments inside the mandate need no confirmation.</span></div><p class="error" id="cu-first-error" hidden></p></div>`;
     }
     $('cu-event-body').addEventListener('click', async (ev) => {
-      const dc = ev.target.closest('[data-decide-cu]'); if (dc && !dc.disabled) { const note = ($('cu-review-note') || { value: '' }).value.trim(); if (!note) { $('cu-review-err').hidden = false; return; } dc.disabled = true; try { await api('POST', `/api/audit/${dc.dataset.audit}/decide`, { decision: dc.dataset.decideCu, reason: note, by: 'customer' }); } catch (e) { alert(e.message); dc.disabled = false; return; } const tst = $('cu-toast'); tst.className = 'cu-toast cu-toast--slate'; tst.innerHTML = dc.dataset.decideCu === 'release' ? '<b>Approved.</b> The payment is on its way. Your note is on the record.' : '<b>Declined.</b> Nothing left your account. Your note is on the record.'; tst.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { tst.hidden = true; }, 9000); await refreshDecisions(); await renderAccount(); return; }
+      const dc = ev.target.closest('[data-decide-cu]'); if (dc && !dc.disabled) { const note = ($('cu-review-note') || { value: '' }).value.trim(); if (!note) { $('cu-review-err').hidden = false; return; } dc.disabled = true; try { await api('POST', `/api/audit/${dc.dataset.audit}/decide`, { decision: dc.dataset.decideCu, reason: note, by: 'customer' }); } catch (e) { alert(e.message); dc.disabled = false; return; } try { sessionStorage.setItem('ap-toast', dc.dataset.decideCu === 'release' ? '<b>Approved.</b> The payment is on its way. Your note is on the record.' : '<b>Declined.</b> Nothing left your account. Your note is on the record.'); } catch (e) { /* no storage */ } location.href = '/customer'; return; }
       const rv = ev.target.closest('[data-review]'); if (rv) { pendingConfirm = pendingConfirm === +rv.dataset.review ? null : +rv.dataset.review; renderEvent(); return; } const fp = ev.target.closest('[data-first]'); if (fp && !fp.disabled) { fp.disabled = true; try { await api('POST', `/api/audit/${fp.dataset.audit}/confirm-first`, { decision: fp.dataset.first }); pendingConfirm = null; } catch (e) { alert(e.message); fp.disabled = false; return; } state = await api('GET', '/api/bank/state'); await renderAccount(); } });
     $('cu-notes').addEventListener('keydown', (ev) => { const li = ev.target.closest('li[data-event]'); if (li && ev.target === li && (ev.key === 'Enter' || ev.key === ' ')) { ev.preventDefault(); location.href = `/customer?event=${li.dataset.event}`; } });
     $('cu-notes').addEventListener('click', async (ev) => {
@@ -1041,7 +1056,7 @@ const AP = (() => {
       const cls = ((state.policy || {}).customer_classes || {})[(d0.customer || {}).customer_class] || {}; const tier = ((state.policy || {}).account_tiers || {})[(d0.customer || {}).account_type] || {};
       $('cu-kv').innerHTML = [['Account holder', `${esc((mp.customer || d0.customer).legal_name)} · Companies House <span class="mono">${esc((mp.customer || d0.customer).companies_house_number)}</span> · ${esc(cls.label || '')}`], ['Account', `${esc(tier.label || '')} <span class="mono">${esc((d0.customer || {}).account_ref || '')}</span> · agent channel limited by this account type`], ['Signatory', `${esc((mp.authorising_officer || d0.authorising_officer).name)}, ${esc((mp.authorising_officer || d0.authorising_officer).role)}`], ['Bank hold', `the bank holds anything above ${gbp(p.admission.condition.hold_above.amount)} for your confirmation`]].map(([k, val]) => `<div><dt>${k}</dt><dd>${val}</dd></div>`).join('');
       renderMandateForm(p, signed, ad, mp);
-      if ($('cu-limits') && tier.per_payment_gbp) $('cu-limits').innerHTML = `${esc(tier.label || '')}, ${esc(cls.label || '')}: agent ceiling up to ${gbp(tier.per_payment_gbp)} a payment, ${gbp(tier.monthly_per_account_gbp)} per supplier account in 30 days, ${tier.max_payments_per_day} payments a day, ${esc((state.policy || {}).currency || 'GBP')} only, capped further by the bank's admission ceiling for this product.`;
+      if ($('cu-limits') && tier.per_payment_gbp && !$('cu-limits').textContent) $('cu-limits').textContent = `Your account allows up to ${gbp(tier.per_payment_gbp)} a payment, ${gbp(tier.monthly_per_account_gbp)} per supplier in 30 days and ${tier.max_payments_per_day} payments a day, in ${(state.policy || {}).currency || 'GBP'}.`;
 
     }
     $('cu-add-toggle').onclick = () => { if (subpage !== 'new') location.href = '/customer?new=1'; };
@@ -1068,7 +1083,7 @@ const AP = (() => {
         if (tier0.per_payment_gbp) $('cu-kv').insertAdjacentHTML('beforeend', `<div><dt>Most you could grant</dt><dd id="cu-limits">${esc(tier0.label || '')}, ${esc(cls0.label || '')}: agent ceiling up to ${gbp(tier0.per_payment_gbp)} a payment, ${gbp(tier0.monthly_per_account_gbp)} per supplier account in 30 days, ${tier0.max_payments_per_day} payments a day, ${esc((state.policy || {}).currency || 'GBP')} only, capped further by the bank's admission ceiling for this product.</dd></div>`);
         $('cu-containment').className = 'containment containment--ok'; $('cu-containment').textContent = 'Within the agent-channel limits for this account. Checked at signing; the bank checks every payment against this mandate.';
       } else {
-        $('cu-kv').insertAdjacentHTML('beforeend', `<div><dt>Most you can grant</dt><dd id="cu-limits">working it out…</dd></div>`);
+
         renderForm(); runCheck();
       }
       $('cu-signer').textContent = `${(draft.authorising_officer || {}).name}, ${(draft.authorising_officer || {}).role}, signs with the ${(draft.customer || {}).legal_name} key.`;
@@ -1088,13 +1103,25 @@ const AP = (() => {
     }
     function renderForm() {
       $('cu-per').value = draft.per_payment_limit ?? ''; $('cu-monthly').value = draft.monthly_limit_per_account ?? ''; $('cu-until').value = draft.valid_until || ''; $('cu-daily').value = draft.max_payments_per_day || '';
-      const tb = $('cu-suppliers').querySelector('tbody'); tb.innerHTML = '';
+      const ul = $('cu-payees'); ul.innerHTML = '';
+      const ini = (n) => String(n || '').split(/[\s·]+/).filter(w => /^[A-Za-z]/.test(w)).slice(0, 2).map(w => w[0].toUpperCase()).join('') || '·';
       (draft.supplier_allowlist || []).forEach((s, i) => {
-        tb.append(el('tr', null, `<td><span class="mono small">${esc(s.supplier_id || '')}</span> <input class="input" data-i="${i}" data-k="name" value="${esc(s.name)}" aria-label="Supplier name" placeholder="Type the supplier's name" autocomplete="off"><div class="cu-ch"><input class="input mono" data-i="${i}" data-k="companies_house_number" value="${esc(s.companies_house_number || '')}" aria-label="Companies House number" placeholder="or company no."><button class="btn btn--secondary btn--small" type="button" data-check="${i}">Check</button></div><div class="small cu-ch__out" id="cu-ch-${i}"></div></td><td><input class="input mono" data-i="${i}" data-k="account_ref" value="${esc(s.account_ref || '')}" aria-label="Sort code and account number" placeholder="60-11-22 12345678"></td><td><button class="link" type="button" data-remove="${i}">Remove</button></td>`));
+        ul.append(el('li', 'cu-payee', `<span class="cu-product__avatar" aria-hidden="true">${esc(ini(s.name))}</span><div class="cu-payee__body"><b>${esc(s.name)}</b><small id="cu-ch-${i}">${s.companies_house_number ? `Companies House ${esc(s.companies_house_number)}` : 'not on the register'}</small><input class="input mono" data-i="${i}" data-k="account_ref" value="${esc(s.account_ref || '')}" aria-label="Sort code and account number for ${esc(s.name)}" placeholder="Sort code and account, 60-11-22 12345678"><input type="hidden" data-i="${i}" data-k="name" value="${esc(s.name)}"><input type="hidden" data-i="${i}" data-k="companies_house_number" value="${esc(s.companies_house_number || '')}"></div><button class="link cu-payee__remove" type="button" data-remove="${i}" aria-label="Remove ${esc(s.name)}">Remove</button>`));
         if (s.companies_house_number) checkCompany(i, false);
       });
-      if (!(draft.supplier_allowlist || []).length) tb.append(el('tr', null, '<td colspan="3" class="small">No supplier yet. Add one and type its name.</td>'));
+      if (!(draft.supplier_allowlist || []).length) ul.append(el('li', 'small cu-payees__empty', 'No payee yet. Search Companies House above and pick the company.'));
     }
+    // one search box: Companies House by name or number; picking a company adds it as a payee
+    async function searchPayees() {
+      const q = ($('cu-payee-search').value || '').trim(); const out = $('cu-payee-results');
+      if (q.length < 2) { out.hidden = true; out.innerHTML = ''; return; }
+      const seq = ++searchSeq; let r; try { r = await api('GET', `/api/companies/search?q=${encodeURIComponent(q)}`); } catch (e) { return; }
+      if (seq !== searchSeq) return;
+      out.hidden = false;
+      out.innerHTML = r.items.length ? r.items.slice(0, 6).map(it => `<li><button type="button" data-add="${esc(it.number)}" data-name="${esc(it.legal_name)}" data-status="${esc(it.status)}"><b>${esc(it.legal_name)}</b><small>${esc(it.number)} · ${esc(it.status)}${it.address ? ` · ${esc(it.address.split(',').slice(-2).join(',').trim())}` : ''}</small></button></li>`).join('') : `<li class="small cu-search__none">No match on ${esc(r.mode === 'live' ? 'Companies House' : 'the demo register')}.</li>`;
+    }
+    $('cu-payee-search').addEventListener('input', () => { clearTimeout(searchTimer); searchTimer = setTimeout(searchPayees, 300); });
+    $('cu-payee-results').addEventListener('click', (e) => { const b = e.target.closest('[data-add]'); if (!b) return; collect(); draft.supplier_allowlist.push({ supplier_id: `SUP-${String(draft.supplier_allowlist.length + 1).padStart(3, '0')}`, name: b.dataset.name, account_ref: '', companies_house_number: b.dataset.add }); $('cu-payee-search').value = ''; $('cu-payee-results').hidden = true; renderForm(); const acc = document.querySelector(`#cu-payees [data-i="${draft.supplier_allowlist.length - 1}"][data-k="account_ref"]`); if (acc) acc.focus(); scheduleCheck(); });
     // name first: matches from the public register as the customer types; picking one fills the number, legal name and status
     async function searchCompany(i) {
       const s = draft.supplier_allowlist[i]; const out = $(`cu-ch-${i}`); if (!s || !out) return;
@@ -1109,23 +1136,23 @@ const AP = (() => {
       const s = draft.supplier_allowlist[i]; const out = $(`cu-ch-${i}`); if (!s || !out) return;
       if (!s.companies_house_number) { if (loud) { const r = await api('GET', `/api/companies/search?q=${encodeURIComponent(s.name || '')}`); out.innerHTML = r.items.length ? 'Did you mean: ' + r.items.map(it => `<button class="link" type="button" data-pick="${i}" data-number="${esc(it.number)}">${esc(it.legal_name)} (${esc(it.number)}, ${esc(it.status)})</button>`).join(' · ') + ` <span class="small">· ${esc(r.items[0].source)}</span>` : 'No match on the public register.'; } return; }
       const r = await api('GET', `/api/companies/${encodeURIComponent(s.companies_house_number)}`);
-      out.innerHTML = r.found ? `<span class="${r.active ? 'right' : 'wrong'}">${esc(r.legal_name)} · ${esc(r.status)}</span> · ${esc(r.address || '')} · checked against the public register (${esc(r.source)})${r.active ? '' : ' · not an active company'}` : `<span class="wrong">no company with this number</span> on the public register (${esc(r.source)})`;
+      out.innerHTML = r.found ? `${esc(r.legal_name)} · ${esc(r.status)} · Companies House ${esc(s.companies_house_number)}${r.active ? '' : ' · <span class="wrong">not an active company</span>'}` : `<span class="wrong">no company with this number</span> on the public register`;
     }
     function collect() {
       draft.per_payment_limit = Number($('cu-per').value); draft.monthly_limit_per_account = Number($('cu-monthly').value); draft.valid_until = $('cu-until').value; draft.max_payments_per_day = Number($('cu-daily').value); draft.currency = 'GBP';
-      document.querySelectorAll('#cu-suppliers [data-i]').forEach(inp => { draft.supplier_allowlist[+inp.dataset.i][inp.dataset.k] = inp.value; });
+      document.querySelectorAll('#cu-payees [data-i]').forEach(inp => { if (draft.supplier_allowlist[+inp.dataset.i]) draft.supplier_allowlist[+inp.dataset.i][inp.dataset.k] = inp.value; });
       return draft;
     }
     async function runCheck() {
       if (!p) return;
-      if (!draft.per_payment_limit && !(draft.supplier_allowlist || []).length) { const box = $('cu-containment'); box.className = 'containment'; box.textContent = 'Write the mandate, or prefill the demo data. The agent-channel check runs as you type.'; $('btn-sign-mandate').disabled = true; return; }
+      const btn = $('btn-sign-mandate');
+      if (!draft.per_payment_limit && !(draft.supplier_allowlist || []).length) { btn.disabled = true; return; }
       try {
         const r = await api('POST', `/api/passports/${p.passport_id}/mandate/check`, collect());
-        const box = $('cu-containment'); box.className = 'containment ' + (r.within_ceilings ? 'containment--ok' : 'containment--bad');
-        box.innerHTML = r.within_ceilings ? 'Within the agent-channel limits for this account. Signing makes it live at once.' : `Outside the agent-channel limits for this account. Signing is refused until this is fixed.<ul>${r.problems.map(x => `<li>${esc(x.problem)}</li>`).join('')}</ul>`;
-        if ($('cu-limits') && r.limits) $('cu-limits').innerHTML = `${esc(r.limits.account_tier.label)}, ${esc((((state.policy || {}).customer_classes || {})[((state.mandate_draft || {}).customer || {}).customer_class] || {}).label || '')}: agent ceiling up to ${gbp(r.limits.per_payment)} a payment, ${gbp(r.limits.monthly_per_account)} per supplier account in 30 days, ${r.limits.max_payments_per_day} payments a day, ${esc(r.limits.currency)} only, to ${esc(r.limits.max_validity)}. <span class="small">The lower of the account-type tier and the bank's admission ceiling for this product (${esc((LEVELS[r.limits.assurance_level] || ['no level'])[0].toLowerCase())}).</span>`;
-        $('btn-sign-mandate').disabled = !r.within_ceilings;
-      } catch (e) { $('cu-containment').textContent = e.message; }
+        if ($('cu-limits') && r.limits) $('cu-limits').textContent = `Your account allows up to ${gbp(r.limits.per_payment)} a payment, ${gbp(r.limits.monthly_per_account)} per supplier in 30 days and ${r.limits.max_payments_per_day} payments a day, in ${r.limits.currency}, until ${d(r.limits.max_validity)}.`;
+        btn.disabled = !r.within_ceilings;
+        if ($('cu-containment')) { $('cu-containment').className = 'containment ' + (r.within_ceilings ? 'containment--ok' : 'containment--bad'); $('cu-containment').textContent = r.within_ceilings ? 'within' : 'outside'; }
+      } catch (e) { btn.disabled = true; }
     }
     const scheduleCheck = () => { clearTimeout(checkTimer); checkTimer = setTimeout(runCheck, 250); };
     $('cu-form').addEventListener('input', (e) => { if (e.target.matches('[data-i]')) collect(); if (e.target.matches('[data-k="name"]')) scheduleSearch(+e.target.dataset.i); scheduleCheck(); });
@@ -1136,7 +1163,7 @@ const AP = (() => {
     $('btn-amend-mandate').onclick = () => { amending = true; history.replaceState(null, '', `?ref=${p.passport_id}&amend=1`); render(); $('cu-form').scrollIntoView({ behavior: 'smooth', block: 'start' }); };
     $('btn-cancel-amend').onclick = () => { amending = false; history.replaceState(null, '', `?ref=${p.passport_id}`); render(); };
     $('btn-revoke-mandate').onclick = () => revokeMandate(p.passport_id);
-    $('cu-add').onclick = () => { collect(); draft.supplier_allowlist.push({ supplier_id: `SUP-${String(draft.supplier_allowlist.length + 1).padStart(3, '0')}`, name: '', account_ref: '', companies_house_number: '' }); renderForm(); scheduleCheck(); };
+    if ($('cu-add')) $('cu-add').onclick = () => { collect(); draft.supplier_allowlist.push({ supplier_id: `SUP-${String(draft.supplier_allowlist.length + 1).padStart(3, '0')}`, name: '', account_ref: '', companies_house_number: '' }); renderForm(); scheduleCheck(); };
     $('btn-sign-mandate').onclick = async () => {
       const b = $('btn-sign-mandate'); b.disabled = true; $('cu-error').hidden = true;
       try { const np = await api('POST', `/api/passports/${p.passport_id}/mandate/${amending ? 'amend' : 'sign'}`, collect()); amending = false; state = await api('GET', '/api/bank/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${np.passport_id}`); render(); renderAccount(); }

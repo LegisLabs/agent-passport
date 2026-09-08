@@ -108,27 +108,27 @@
       <div class="mandate__head"><span>Payment mandate · <span class="mono" id="cu-id"></span></span><span id="cu-state"></span></div>
       <div class="mandate__body">
         <dl class="kv" id="cu-kv"></dl>
-        <form class="mandate__form" id="cu-form" hidden>
-          <div class="step__head"><h3 class="h3" id="cu-form-h">Write the mandate</h3><div class="step__actions"><button class="btn btn--secondary btn--small" id="btn-cu-prefill" type="button">Prefill demo data</button></div></div>
+        <form class="mandate__form cu-mform" id="cu-form" hidden>
+          <div class="cu-mform__head"><h2 class="cu-new__title" id="cu-form-h">Set the mandate</h2><button class="link" id="btn-cu-prefill" type="button">Prefill demo data</button></div>
           <div class="context" id="cu-context" hidden>
             <h3 class="h3">The demo, in a few sentences</h3>
             <p><strong>Northgate Joinery Ltd</strong> is a synthetic joinery business with a business current account at Meridian Bank. Its finance director, <strong>Helen Marsh</strong>, is about to write the mandate for its AI agent: how much it may pay, how often, until when, and to which supplier accounts. Prefill enters Northgate's three suppliers, Fenwick Timber, Ashby Ironmongery and Coastline Glass, with £10,000 a payment and £20,000 per supplier account in 30 days. She then signs with the Northgate key.</p>
             <div class="actions"><button class="btn" id="btn-cu-prefill-go" type="button">Fill the form and continue</button><button class="btn btn--secondary" id="btn-cu-prefill-cancel" type="button">Cancel</button></div>
           </div>
-          <div class="fields fields--row">
-            <div><label class="label" for="cu-per">Per payment, up to (£)</label><input class="input" id="cu-per" type="number" min="1" step="100"></div>
-            <div><label class="label" for="cu-monthly">Per supplier account in 30 days, up to (£)</label><input class="input" id="cu-monthly" type="number" min="1" step="100"></div>
-            <div><label class="label" for="cu-daily">Payments per day, up to</label><input class="input" id="cu-daily" type="number" min="1" step="1"></div>
+          <div class="cu-mform__grid">
+            <div><label class="label" for="cu-per">Per payment, up to</label><div class="cu-money"><span>£</span><input class="input" id="cu-per" type="number" min="1" step="100" inputmode="numeric"></div></div>
+            <div><label class="label" for="cu-monthly">Per supplier in 30 days, up to</label><div class="cu-money"><span>£</span><input class="input" id="cu-monthly" type="number" min="1" step="100" inputmode="numeric"></div></div>
+            <div><label class="label" for="cu-daily">Payments a day, up to</label><input class="input" id="cu-daily" type="number" min="1" step="1" inputmode="numeric"></div>
             <div><label class="label" for="cu-until">Valid until</label><input class="input" id="cu-until" type="date"></div>
-            <div><label class="label" for="cu-currency">Currency</label><select class="input" id="cu-currency" disabled><option>GBP</option></select><span class="small">payments in any other currency are refused</span></div>
           </div>
-          <h3 class="h3">Suppliers the AI agent may pay</h3>
-          <p class="hint">By account, not by name. A supplier's name on an invoice is easy to copy; the account you enter here is the only one your bank will pay. Type the supplier's name and pick it from the public register, or enter its Companies House number: the legal name, number and status fill themselves. That says what the company filed, not that it is legitimate, and the register holds no bank accounts, so the sort code and account number are yours to enter.</p>
-          <table class="suppliers" id="cu-suppliers"><thead><tr><th>Supplier, from the public register</th><th>Sort code and account</th><th></th></tr></thead><tbody></tbody></table>
-          <div class="actions"><button class="btn btn--secondary btn--small" type="button" id="cu-add">Add a supplier</button></div>
+          <p class="small cu-mform__max" id="cu-limits"></p>
+          <p class="label cu-mform__label">Who it may pay</p>
+          <div class="cu-search"><input class="input" id="cu-payee-search" type="search" placeholder="Search Companies House by name or number" autocomplete="off"><ul class="cu-search__results" id="cu-payee-results" hidden></ul></div>
+          <ul class="cu-payees" id="cu-payees"></ul>
+          <select id="cu-currency" hidden aria-hidden="true"><option>GBP</option></select>
+          <div hidden><table id="cu-suppliers"><tbody></tbody></table><div class="containment" id="cu-containment"></div></div>
         </form>
         <table class="suppliers" id="cu-suppliers-signed" hidden><thead><tr><th>Supplier</th><th>Account</th></tr></thead><tbody></tbody></table>
-        <div class="containment" id="cu-containment"></div>
       </div>
       <div class="mandate__sig" id="cu-sig" hidden></div>
     </div>
