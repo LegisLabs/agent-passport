@@ -605,3 +605,19 @@ body[data-actab="agent"] .fx-nav { visibility: hidden; }
 .fx .cu-new__next ul { margin: 0; padding-left: 18px; font-size: .8125rem; line-height: 1.5; color: var(--fx-ink-2); }
 body[data-cupage="new"] .fx .fx-grid.cu-split { grid-template-columns: minmax(0, 40rem); align-items: start; }
 body[data-cupage="new"] .fx-col--left > .glass { flex: 0 0 auto; }
+/* adding an agent, as simple as approving a payment: pick a product, name it, one button */
+.fx .cu-new { max-width: 26rem; margin: 0 auto; display: flex; flex-direction: column; min-height: 60vh; }
+.fx .cu-new__title { font-size: 1.75rem; margin-bottom: 18px; }
+.fx .cu-new .label { margin-top: 0; }
+.fx .cu-products { margin: 0 0 18px; }
+.fx .cu-product { align-items: center; padding: 12px 14px; border-radius: 14px; }
+.fx .cu-product__avatar { flex: 0 0 auto; width: 44px; height: 44px; border-radius: 50%; background: var(--fx-tint); display: grid; place-items: center; font-weight: 800; font-size: .9rem; color: var(--fx-ink-2); letter-spacing: .02em; }
+.fx .cu-product[aria-checked="true"] .cu-product__avatar { background: var(--fx-green-soft); color: var(--fx-green); }
+.fx .cu-product__body { flex: 1 1 auto; }
+.fx .cu-product .cu-product__mark { margin-top: 0; }
+.fx .cu-new .apv__actions { margin-top: auto; padding-top: 28px; }
+.fx .cu-new #cu-agent-name { width: 100%; box-sizing: border-box; }
+body[data-cupage="new"] .fx { display: flex; flex-direction: column; }
+body[data-cupage="new"] .fx #ac-live { flex: 1 1 auto; }
+body[data-cupage="new"] .fx .fx-grid.cu-split { grid-template-columns: minmax(0, 1fr); }
+body[data-cupage="new"] .fx-col--left > .glass { background: transparent; border: 0; box-shadow: none; padding: 0; }

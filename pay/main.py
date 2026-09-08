@@ -449,7 +449,8 @@ def create_agent_on_product(a: dict, deployment: dict) -> dict:
 
 
 class AgentIn(BaseModel):
-    registration_id: int
+    registration_id: int | None = None
+    product_id: str | None = None   # a product on the register the bank has admitted, when no live registration exists for it yet
     agent_name: str | None = None
     key_storage: str | None = None
     key_rotation: str | None = None
@@ -457,10 +458,35 @@ class AgentIn(BaseModel):
 
 @app.post("/api/agents")
 def create_agent(body: AgentIn):
-    a = db.get_registration(body.registration_id) or _404()
-    d = {**agent_draft(), **{k: v for k, v in body.model_dump().items() if v is not None and k != "registration_id"}}
+    a = db.get_registration(body.registration_id) if body.registration_id else registration_for_product(body.product_id)
+    a = a or _404()
+    d = {**agent_draft(), **{k: v for k, v in body.model_dump().items() if v is not None and k not in ("registration_id", "product_id")}}
     p = create_agent_on_product(a, d)
     return public_passport(p)
+
+
+def registration_for_product(product_id: str | None) -> dict | None:
+    """The live registration for a product id; or, for a product already on the register that this bank has admitted, a
+    registration materialised from the register entry (filed on the register earlier, admitted by the bank on the recorded date)."""
+    if not product_id:
+        return None
+    for a in db.list_registrations():
+        if rules._v(a.get("fields") or {}, "product", "product_id") == product_id and a.get("admission_status") == "admitted":
+            return a
+    entry = next((m for m in fixtures.register_entries() if m.get("product_id") == product_id and (m.get("bank") or {}).get("decision") == "admitted"), None)
+    if not entry:
+        return None
+    f = extraction.fixture()
+    f["company"]["legal_name"]["value"] = entry["provider"]; f["company"]["companies_house_number"]["value"] = ""; f["company"]["website"]["value"] = ""
+    f["product"]["product_name"]["value"] = entry["product"]; f["product"]["product_id"]["value"] = entry["product_id"]; f["product"]["release"]["value"] = ""
+    f["assurance_evidence"]["level"]["value"] = entry.get("assurance_level")
+    n = db.count_registrations() + 14
+    a = db.create_registration(entry.get("registration") or f"REG-2026-{n:04d}")
+    a = db.update_registration(a["id"], fields=f, entry_mode="register", status="registered", submitted_at=f"{entry.get('registered', '2026-01-01')}T09:00:00Z", checks=[])
+    audit.record("registration", a["ref"], {"event": "AI product already on the register, brought onto the bank's list from the register entry", "provider": entry["provider"], "product_id": product_id})
+    hold = float((entry.get("bank") or {}).get("hold_above_gbp") or rules.pack()["policy"]["hold_above_gbp"])
+    admission_decision(a["id"], AdmissionIn(decision="admit", note=f"Admitted {entry['bank'].get('admitted', '')} by {entry['bank'].get('officer', config.BANK_OFFICER)}; hold above £{hold:,.0f}.", hold_above=hold))
+    return db.get_registration(a["id"])
 
 
 class LifecycleIn(BaseModel):
