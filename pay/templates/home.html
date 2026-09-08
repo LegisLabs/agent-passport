@@ -70,45 +70,24 @@ flowchart LR
   </div>
 
   <h2 class="h2">The result</h2>
-  <p class="home__lede">What lands on a supervisor's desk when it asks about the invoice above: one page, produced by the bank.</p>
-  <div class="evd-split">
-    <article class="print" aria-label="Payment check record for the refused instruction">
-<pre class="print__body">MERIDIAN BANK (DEMO)            AGENT PASSPORT
-PAYMENT CHECK RECORD                EV-2026-0017
-08 SEP 2026  13:28:49
+  <p class="home__lede">When the AI agent tries to pay the altered invoice, the bank refuses it at the payee check and money never moves. What remains is a record the bank produced itself: who asked to pay whom, how much, which check stopped it and why, signed by the bank and chained to every earlier entry. The provider answers for its filing, the customer for its mandate, the bank for the check. A supervisor can read that record without operating any of it.</p>
+  <article class="print" aria-label="Evidence of the refused transaction">
+<pre class="print__body">MERIDIAN BANK (DEMO)     EVIDENCE OF TRANSACTION
+08 SEP 2026  13:28:49                EV-2026-0017
 ------------------------------------------------
 FROM     Northgate Joinery Ltd
-         business account 20-45-77 31908822
-BY       PayGPT 6.0, AI agent (OpenPay Ltd)
-         passport AP-2026-0107
+BY       PayGPT 6.0, AI agent, passport AP-2026-0107
 TO       Fenwick Timber Ltd
 <mark>         account 60-11-22 99887766   NOT ON MANDATE</mark>
-AMOUNT   £2,500.00           invoice INV-9001
-------------------------------------------------
-MANDATE  signed by Helen Marsh, Finance Director
-         Fenwick Timber Ltd   60-11-22 10101010
-         limit £10,000 per payment
-CHECKS   R.1 ok  R.2 ok  R.3 ok  R.4 ok  R.5 ok
-<mark>         R.6 FAIL  payee account not on mandate</mark>
-         R.7 R.8 R.9  not run
+AMOUNT   £2,500.00            invoice INV-9001
 ------------------------------------------------
 <b>RESULT   REFUSED. MONEY DID NOT MOVE.</b>
-         The invoice changed the account.
-         The AI agent did not.
+         Check R.6: payee account not on the mandate.
+         The mandate allows 60-11-22 10101010 only.
 ------------------------------------------------
-RECEIPT  signed by the bank      kid c9Qw3eVh
-CHAIN    entry #17 9c1e4b7d2a60  <- #16 e2f0a97c
-REPLAY   identical
-REGISTER REG-2026-0014  receipt verified
-------------------------------------------------
+SIGNED   by the bank   chain entry #17   replay ok
 synthetic record  ·  <a href="/api/evidence/passports/AP-2026-0107">live bundle</a></pre>
-    </article>
-    <ul class="evd__points">
-      <li><b>The fraud fails.</b> The payee check stops invoice redirection and prompt injection whatever the invoice says. The mandate names accounts, not names.</li>
-      <li><b>The bank can prove what it did.</b> Every line is signed or hashed and replays from its recorded inputs. A disputed payment has a record, not a story.</li>
-      <li><b>Everyone knows who answers.</b> The provider for its filing, the customer for its mandate, the bank for the check. The supervisor reads the record without operating any of it.</li>
-    </ul>
-  </div>
+  </article>
 
   <h2 class="h2 vouch__h">Powered by <a href="https://vouch.finance" class="vouch__logo" aria-label="vouch.finance"><img src="/static/logos/vouch.svg" alt="" width="46" height="40"><span>vouch.finance</span></a></h2>
   <p class="home__lede">A passport is a promise. On vouch.finance the promise becomes money that can only be spent the way it was promised. When a customer signs its mandate, the bank mints an AI Voucher carrying the agent's limits, its payees and its passport. The bank runs the nine checks and the vouch policy engine authorises the settlement, so a refusal on one is a refusal on both. Suspend or revoke the passport and the voucher goes with it: the next instruction fails on every rail.</p>

@@ -1417,7 +1417,7 @@ body[data-view="console"] .masthead__tag { color: #fff; }
 @media (max-width: 800px) { .evd-split { grid-template-columns: minmax(0, 1fr); gap: 24px; } .a4 { padding: 22px 18px; } .a4__f div { grid-template-columns: 8rem minmax(0, 1fr); } .a4__stamp { position: static; transform: none; align-self: flex-start; } .a4__ref { padding-top: 0; text-align: left; } }
 
 /* the printed record: a teleprinter strip, off-white paper, the problem highlighted */
-.print { background: #fbf9f3; border: 1px solid #d9d4c7; padding: 26px 26px 22px; box-shadow: 0 2px 0 #d9d4c7, 0 8px 18px -12px rgba(0,0,0,.35); position: relative; max-width: 560px; }
+.print { background: #fbf9f3; border: 1px solid #d9d4c7; padding: 26px 26px 22px; box-shadow: 0 2px 0 #d9d4c7, 0 8px 18px -12px rgba(0,0,0,.35); position: relative; max-width: 600px; margin: 8px 0 20px; }
 .print::before, .print::after { content: ""; position: absolute; left: 0; right: 0; height: 8px; background: linear-gradient(135deg, transparent 6px, #fbf9f3 6px) 0 0 / 12px 100% repeat-x, linear-gradient(-135deg, transparent 6px, #fbf9f3 6px) 6px 0 / 12px 100% repeat-x; }
 .print::before { top: -8px; }
 .print::after { bottom: -8px; transform: scaleY(-1); }
