@@ -195,7 +195,8 @@ const AP = (() => {
       renderIncidents();
       renderHistory();
     }
-    let auditRows = [], seenIds = null, expandedId = null, expandedAtt = null, timer = null, simTimer = null, logFilter = 'all', logAll = false, pendingDecide = null;
+    let auditRows = [], seenIds = null, expandedId = null, expandedAtt = null, timer = null, simTimer = null, logFilter = 'all', logAll = document.body.dataset.bkpage === 'activity', pendingDecide = null;
+    const customerName = (pid) => { const x = issued().find(y => y.passport_id === pid); return x ? ((((x.mandate_proposed || {}).customer) || {}).legal_name || '') : ''; };
     const pause = (ms) => new Promise(res => setTimeout(res, ms));
     const num = (n) => Number(n || 0).toLocaleString('en-GB');
     const agentName = (pid) => { const x = issued().find(y => y.passport_id === pid); return x ? (((x.agent_identity || {}).agent || {}).name || pid) : pid; };
@@ -390,21 +391,21 @@ const AP = (() => {
       const shown = verifies.filter(r => logFilter === 'all' || r.entry.decision === logFilter);
       const limit = logAll ? 200 : 6;
       $('bd-log-meta').textContent = `${verifies.length} instructions`;
-      $('bd-log-title').textContent = logAll ? 'Transaction log' : 'Recent activity';
+      $('bd-log-title').textContent = logAll ? 'Activity' : 'Recent activity';
       $('bd-log-toggle').textContent = logAll ? 'Recent activity only' : `Full log (${verifies.length})`;
       $('bd-log-hint').hidden = logAll; $('bd-recent').classList.toggle('bd-col--full', logAll);
       shown.slice(0, limit).forEach(r => {
         const e = r.entry, i = e.instruction || {};
-        const tr = el('tr', 'bd-log__row', `<td class="mono small">${t(r.ts)}</td><td>${statusCell(r)}</td><td>${esc(i.supplier_name || '')} <span class="mono small">${esc(i.payee_account_ref || '')}</span><br><span class="mono small">${esc(r.subject || '')}</span></td><td class="num mono">${gbp(i.amount)}</td><td>${ruleCell(r)}</td><td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`);
+        const tr = el('tr', 'bd-log__row', `<td class="mono small">${t(r.ts)}</td><td>${statusCell(r)}</td><td><span class="bd-log__cust">${esc(customerName(r.subject))}</span><span class="small bd-log__agent">${esc(agentName(r.subject))}</span></td><td>${esc(i.supplier_name || '')} <span class="mono small">${esc(i.payee_account_ref || '')}</span><br><span class="mono small">${esc(r.subject || '')}</span></td><td class="num mono">${gbp(i.amount)}</td><td>${ruleCell(r)}</td><td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`);
         tr.tabIndex = 0; tr.setAttribute('role', 'button'); tr.setAttribute('aria-expanded', String(expandedId === r.id)); tr.dataset.arrive = r.id;
         if (seenIds && !seenIds.has('a' + r.id)) tr.classList.add('is-new');
         const open = () => { expandedId = expandedId === r.id ? null : r.id; renderLog(verifies, viol); };
         tr.onclick = open; tr.onkeydown = (ev) => { if (ev.key === 'Enter' || ev.key === ' ') { ev.preventDefault(); open(); } };
         tb.append(tr);
-        if (expandedId === r.id) tb.append(el('tr', 'bd-detail', `<td colspan="6">${detailHtml(r, vById[r.id])}</td>`));
+        if (expandedId === r.id) tb.append(el('tr', 'bd-detail', `<td colspan="7">${detailHtml(r, vById[r.id])}</td>`));
       });
-      if (!shown.length) tb.append(el('tr', null, `<td colspan="6" class="empty-row">${verifies.length ? 'Nothing in this filter.' : 'No instruction yet. Turn on simulated traffic or run the Action Terminal.'}</td>`));
-      else if (!logAll && shown.length > limit) tb.append(el('tr', 'bd-log__more', `<td colspan="6" class="small">${shown.length - limit} earlier instruction${shown.length - limit === 1 ? '' : 's'} in the <button class="link" type="button" data-log-all>full log</button></td>`));
+      if (!shown.length) tb.append(el('tr', null, `<td colspan="7" class="empty-row">${verifies.length ? 'Nothing in this filter.' : 'No instruction yet. Turn on simulated traffic or run the Action Terminal.'}</td>`));
+      else if (!logAll && shown.length > limit) tb.append(el('tr', 'bd-log__more', `<td colspan="7" class="small">${shown.length - limit} earlier instruction${shown.length - limit === 1 ? '' : 's'} in the <button class="link" type="button" data-log-all>full log</button></td>`));
     }
     $('bd-log-toggle').onclick = () => { logAll = !logAll; renderLog(auditRows.filter(r => r.kind === 'verify'), state.violations || []); };
     function heldHtml(r) {

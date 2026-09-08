@@ -11,7 +11,9 @@
     <a class="back fx-hdr-back" href="/bank">Back to the overview</a>
     <div class="fx-tools">
       <a class="fx-pill fx-pill--att" href="/bank?page=attention">Needs attention <b id="fx-att-count" hidden></b></a>
+      <a class="fx-pill" href="/bank?page=activity">Activity</a>
       <a class="fx-pill" href="/bank?page=agents">Active AI agents</a>
+      <a class="fx-pill" href="/bank?page=products">Admitted products</a>
       <a class="fx-pill" href="/bank?trail=1">Evidence trail</a>
       <a class="fx-icon" href="/provider" title="Register an AI product" aria-label="Register an AI product"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5v14M5 12h14"/></svg></a>
       <a class="fx-icon" href="/customer" title="Customer dashboard" aria-label="Customer dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></a>
@@ -73,20 +75,21 @@
   </div>
 
   <div id="bk-page-attention">
-    <div class="fx-grid bd-cols bk-two">
-      <section class="bd-panel bd-attention" id="bd-attention" role="region" aria-label="Needs attention">
-        <h2 class="ws-h">Needs attention <span class="ws-h__meta" id="bd-attention-meta"></span></h2>
-        <p class="small bd-legend" id="bd-legend"></p>
-        <div class="dash-wrap"><table class="dash bd-att" id="bd-attention-list"><thead><tr><th>Time</th><th>AI agent</th><th>Payee</th><th class="num">Amount</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
-        <p class="small bd-attention__empty" id="bd-attention-empty" hidden>Nothing needs attention. All AI agent payments inside mandate.</p>
-        <p class="small bd-done" id="bd-attention-done" hidden></p>
-        <p class="small" id="bd-attention-more"></p>
-      </section>
-      <div class="bd-col bd-col--log glass" id="bd-recent">
-        <h2 class="ws-h"><span id="bd-log-title">Recent activity</span> <span class="ws-h__meta"><button class="link" type="button" id="bd-log-toggle">Full log</button></span></h2>
-        <p class="small bd-legend" id="bd-log-hint" hidden></p>
-        <div class="dash-wrap"><table class="dash bd-log" id="bd-log"><thead><tr><th>Time</th><th>Status</th><th>Payee</th><th class="num">Amount</th><th>Rule</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
-      </div>
+    <section class="bd-panel bd-attention" id="bd-attention" role="region" aria-label="Needs attention">
+      <h2 class="ws-h">Needs attention <span class="ws-h__meta" id="bd-attention-meta"></span></h2>
+      <p class="small bd-legend" id="bd-legend"></p>
+      <div class="dash-wrap"><table class="dash bd-att" id="bd-attention-list"><thead><tr><th>Time</th><th>AI agent</th><th>Payee</th><th class="num">Amount</th><th>Status</th><th>Action</th></tr></thead><tbody></tbody></table></div>
+      <p class="small bd-attention__empty" id="bd-attention-empty" hidden>Nothing needs attention. All AI agent payments inside mandate.</p>
+      <p class="small bd-done" id="bd-attention-done" hidden></p>
+      <p class="small" id="bd-attention-more"></p>
+    </section>
+  </div>
+
+  <div id="bk-page-activity">
+    <div class="bd-col bd-col--log glass" id="bd-recent">
+      <h2 class="ws-h"><span id="bd-log-title">Activity</span> <span class="ws-h__meta"><span id="bk-activity-hint">every instruction today, with what the bank decided and why; open a row for the full record</span> <button class="link" type="button" id="bd-log-toggle" hidden>Full log</button></span></h2>
+      <p class="small bd-legend" id="bd-log-hint" hidden></p>
+      <div class="dash-wrap"><table class="dash bd-log" id="bd-log"><thead><tr><th>Time</th><th>Status</th><th>Customer · AI agent</th><th>Payee</th><th class="num">Amount</th><th>Why</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
     </div>
   </div>
 
@@ -95,6 +98,7 @@
       <div class="bd-col glass" id="bk-agents-pane">
         <h2 class="ws-h">Active AI agents <span class="ws-h__meta" id="fx-agents-meta"></span></h2>
         <div id="bk-agents"></div>
+        <div class="actions"><a class="btn" href="/bank?page=products">Admit a new AI product</a><span class="actions__note">A customer's AI agent runs on a product this bank has admitted. Admit a product from the register to let customers delegate to it.</span></div>
       </div>
       <div class="fx-col">
         <section class="pane" id="bk-supervisory">
@@ -102,17 +106,31 @@
           <p class="small">A supervisor can request the evidence for a passport or a refusal; each export is itself recorded in the chain.</p>
           <ul class="evidence-list" id="bk-evidence"></ul>
         </section>
-        <section class="ws-sec pane">
-          <h2 class="ws-h">Admitted products</h2>
-          <div class="dash-wrap"><table class="dash" id="bk-products"><thead><tr><th>Product</th><th>Provider</th><th class="num">Hold above</th><th class="num">Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
-        </section>
-        <section class="ws-sec pane">
-          <h2 class="ws-h">The register</h2>
-          <div class="dash-wrap"><table class="dash" id="bk-register"><thead><tr><th>Product</th><th>Provider</th><th>Assurance level</th><th>Filed</th><th>Your decision</th></tr></thead><tbody></tbody></table></div>
-        </section>
       </div>
     </div>
     <div id="bk-dash-anomaly"></div>
+  </div>
+
+  <div id="bk-page-products">
+    <div class="fx-grid bd-cols bk-two">
+      <div class="fx-col">
+        <section class="ws-sec pane">
+          <h2 class="ws-h">Admitted products <span class="ws-h__meta">on this bank's list</span></h2>
+          <div class="dash-wrap"><table class="dash" id="bk-products"><thead><tr><th>Product</th><th>Provider</th><th class="num">Hold above</th><th class="num">Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
+        </section>
+        <section class="ws-sec pane">
+          <h2 class="ws-h">The register <span class="ws-h__meta">every AI product filed, and your decision on each</span></h2>
+          <div class="dash-wrap"><table class="dash" id="bk-register"><thead><tr><th>Product</th><th>Provider</th><th>Assurance level</th><th>Filed</th><th>Your decision</th></tr></thead><tbody></tbody></table></div>
+        </section>
+      </div>
+      <div class="fx-col">
+        <section class="pane">
+          <h2 class="ws-h">Admit a product</h2>
+          <p class="small">A provider files its AI product on the industry register. The bank then decides, product by product, whether its customers may delegate payments to it, sets the ceilings every mandate must sit within and a hold condition. Open a filing from the register to run the review and decide.</p>
+          <div class="actions"><a class="btn btn--secondary" href="/provider">File a product on the register</a></div>
+        </section>
+      </div>
+    </div>
   </div>
 
   <div id="bd-trail-page">
