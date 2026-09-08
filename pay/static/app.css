@@ -1759,3 +1759,6 @@ p.rec__foot { display: block; margin: 0; padding-top: 12px; font-size: .9rem; co
 .rec-shot { margin: 0; max-width: 400px; }
 .rec-shot img { display: block; width: 100%; height: auto; border: 1px solid var(--line); }
 .rec-shot figcaption { margin-top: 8px; font-size: .9rem; color: var(--ink-2); }
+.evd-split { grid-template-columns: minmax(0, 1.6fr) minmax(0, 1fr); align-items: center; }
+.rec-shot { max-width: 300px; justify-self: center; }
+@media (max-width: 800px) { .rec-shot { justify-self: start; } }
