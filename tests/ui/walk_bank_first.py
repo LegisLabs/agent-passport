@@ -18,7 +18,7 @@ with sync_playwright() as pw:
     print("== 1 · Provider: the product is on the register, nobody reviewed it")
     page.goto(BASE + f"/provider?ref={seed['registration']}"); page.wait_for_selector("#pv-checks tbody tr")
     check("on the register" in low(page, "#pv-status") and page.locator("#pv-checks tbody tr").count() == 6 and "f.5" in low(page, "#pv-checks"), "filed; F.1 to F.6 recorded; F.5 Independent Assurance Evidence")
-    check("does not certify" in low(page, "main"), "register framing sentence")
+    check("a filing, not an approval" in low(page, "main"), "register framing sentence")
     print("== 2 · Bank: admission decision")
     page.goto(BASE + "/bank"); page.wait_for_selector("#bk-todo:not([hidden])")
     check("awaits your admission decision" in low(page, "#bk-todo") and page.locator("#bk-supervisory").count() == 1 and "recent activity" in low(page, "main") and page.locator("#bd-attention").count() == 1 and "nothing needs attention" in low(page, "#bd-attention"), "dashboard: pending admission, needs attention (empty), recent activity, supervisory access")
