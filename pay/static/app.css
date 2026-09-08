@@ -1753,3 +1753,4 @@ p.rec__foot { display: block; margin: 0; padding-top: 12px; font-size: .9rem; co
 .bd-trail .actions { margin: .4rem 0 .8rem; }
 .bd-att .bd-detail td, .bd-log .bd-detail td { white-space: normal; }
 .hero { padding-top: 0; }
+@media (min-width: 901px) { .hero__h1 { font-size: 54px; line-height: 1.08; } }
