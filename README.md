@@ -28,10 +28,10 @@ python3 -m venv .venv && .venv/bin/pip install -r deploy/requirements.txt
 cp .env.example .env            # GEMINI_API_KEY, optional HACKATHON_ORG_API_KEY; or EXTRACTION_MODE=fixture
 .venv/bin/uvicorn pay.main:app --reload --port 8014       # Agent Passport, bank-first
 .venv/bin/uvicorn app.main:app --reload --port 8013       # the tax demonstrator (frozen, git tag hmrc-v1)
-PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest -q   # 72 tests, fully offline
+PYTEST_DISABLE_PLUGIN_AUTOLOAD=1 .venv/bin/python -m pytest -q   # 86 tests, fully offline
 ```
 
-The app self-seeds signer keys into `data/pay/keys/` and SQLite alongside. `bash scripts/demo_reset.sh` (or the footer link) restores the demo baseline: one product filed and admitted, one mandate signed, one passport ACTIVE, nothing paid. Browser walk: `tests/ui/walk_bank_first.py` (Playwright).
+The app self-seeds signer keys into `data/pay/keys/` and SQLite alongside. `bash scripts/demo_reset.sh` (or the footer link, which seeds `stage=history`) restores the demo baseline: one product filed and admitted, one mandate signed, one passport ACTIVE; the history stage adds the customer's first-payment confirmation, one payment, its replay refused, one wrong-currency instruction refused and one payment held for the approver. Browser walk: `tests/ui/walk_bank_first.py` (Playwright).
 
 ## Surfaces
 
@@ -41,7 +41,7 @@ The app self-seeds signer keys into `data/pay/keys/` and SQLite alongside. `bash
 | `/bank` | The bank's payments risk team | Bank console: live AI agents, registrations awaiting admission, admitted products, the register, flagged and blocked instructions, incidents, evidence export for supervisory access |
 | `/terminal` | Everyone | Action Terminal: one invoice, two worlds. Before the standard the AI agent pays a mule account; after it, the bank's nine checks refuse it at R.6 |
 | `/terminal?console=1` | Judges | Expert console: eight scripted instructions, the delegation chain, the raw verifier output |
-| `/audit` | The bank, a supervisor | Evidence trail: hash chain, signed receipts, replay |
+| `/bank#bd-trail` | The bank, a supervisor | Evidence trail on the bank dashboard: hash chain, signed receipts, replay |
 | `/provider` | An AI company | Register an AI product: a filing with completeness checks, not a review queue |
 | `/about` | Policy readers | How it works, policy alignment, rules, standards, what is not claimed |
 
@@ -62,7 +62,7 @@ An envelope of three Ed25519 JWTs, each signed by the only party entitled to the
 
 Public keys: `GET /api/signers` (register, bank, customer). Every instruction is signed by the AI agent's key over canonical JSON; R.4 verifies the bytes. Flipping one byte fails it.
 
-## Rules (rule pack `payments-2026.09.5`, data not code)
+## Rules (rule pack `payments-2026.09.6`, data not code)
 
 On the register at filing: F.1 provider at Companies House · F.2 accountable principal with signed declaration · F.3 insurance in force at or above the minimum · F.4 product documented with a pinned model version · F.5 Independent Assurance Evidence attached and covering the use case · F.6 not already on the register. Completeness only; a flag is recorded, not judged.
 
@@ -76,8 +76,12 @@ On the register at filing: F.1 provider at Companies House · F.2 accountable pr
 | R.6 action and currency permitted, payee account on the allowlist | DENY `OUT_OF_SCOPE` / `CURRENCY_NOT_PERMITTED` / `PAYEE_NOT_ON_MANDATE` |
 | R.7 amount within the per-payment limit | DENY `PER_PAYMENT_LIMIT_EXCEEDED` |
 | R.8 amount + 30-day total for this account within the limit, payments per day within the mandate (bank ledger) | DENY `MONTHLY_LIMIT_EXCEEDED` / `DAILY_COUNT_EXCEEDED` |
-| R.9 amount above the bank's hold condition | ESCALATE `HUMAN_CONFIRMATION_REQUIRED` |
+| R.9 amount above the bank's hold condition; or the first payment under a mandate version | ESCALATE `HUMAN_CONFIRMATION_REQUIRED` / `FIRST_PAYMENT_CONFIRMATION_REQUIRED` |
 | otherwise | ALLOW `WITHIN_MANDATE` |
+
+**The people in the loop, graduated.** A person signs the mandate; a person confirms the first payment under each mandate version (held at R.9, `FIRST_PAYMENT_CONFIRMATION_REQUIRED`, decided by the customer in its bank app through `POST /api/audit/{id}/confirm-first`); a person decides anything above the bank's hold condition (held at R.9, decided by a named officer through `POST /api/audit/{id}/decide`, with a confirm step naming who records it); everything inside the mandate between those points flows on its own. Every one of those decisions is a receipted chain entry.
+
+**Fewer, more meaningful rows.** The bank console leads with what needs a person (held payments and fraud-class refusals) and with the numbers: the tiles add this session's rows to totals carried forward from before the session (`fixtures/pay/opening_stats.json`, synthetic, stated as such next to the counters); the log is a thin recent-activity strip with the full log one click away; arriving instructions show their checks ticking through before the status lands (a "paced arrivals" toggle makes it instant). The customer hears about what matters to it, in the class's tone (fraud indicator, agent error, held, mandate lifecycle); routine payments stay in Transactions and in the full trail.
 
 Every refusal carries a failure class: fraud indicator (redirection, copied passport, replay, forged claim), agent error (wrong amount, currency, action or frequency inside the agent's own remit) or passport status. Provider filings declare an assurance level (self-declared, independently verified, independently audited) that scales the bank's admission ceilings; every mandate is also capped by the account-type tier (agent-channel limit). Payees and providers are checked against Companies House (`COMPANIES_HOUSE_API_KEY`; without it, a labelled synthetic register answers).
 
@@ -108,6 +112,8 @@ POST /api/agent/act · /api/agent/invoice · /api/agent/replay                  
 GET  /api/companies/{number} · /api/companies/search?q=                            Companies House public register, or the labelled demo register
 POST /api/verify                                                                   the bank's gateway: decision, rule, code, reason, receipt, rails, settlement
 GET  /api/audit · POST /api/audit/{id}/replay · GET /api/receipt/verify?token=
+POST /api/audit/{id}/decide {decision: release|refuse}              a held payment (R.9 hold condition), decided by a named person
+POST /api/audit/{id}/confirm-first {decision: confirm|refuse}       the first payment under a mandate version, confirmed by the customer
 GET  /api/evidence/passports/{id} · /api/evidence/violations/{id}                   supervisory access
 POST /api/demo/seed?stage=registered|issued
 ```
@@ -124,7 +130,7 @@ bash deploy/publish.sh pay      # pay.cdir.legislabs.uk: the pre-pivot payments 
 ```
 pay/          the app: main.py · rules.py · crypto.py · review.py · vouch.py · audit.py · extraction.py · db.py · fixtures.py · templates/ · static/
 app/          the tax demonstrator (frozen, tag hmrc-v1; now prefix-aware for /tax/)
-rulepacks/    payments-2026.09.json (rule pack payments-2026.09.5) · hmrc-sa-2026.09.json
+rulepacks/    payments-2026.09.json (rule pack payments-2026.09.6) · hmrc-sa-2026.09.json
 fixtures/pay/ registration_fixture.json · register.json · registry.json · customer/ · invoices/ · oracle.json · agent_config.json · vouch_kits/
 scripts/      demo_reset.sh · vouch_kit_replay.py
 tests/        test_pay.py · test_rules.py (offline) · ui/walk_bank_first.py (Playwright)

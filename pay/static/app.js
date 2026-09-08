@@ -82,7 +82,7 @@ const AP = (() => {
       const regs = state.registrations, prior = state.register || [];
       rows('pv-products', [
         ...regs.map(x => ({ cells: [`<a href="/provider?ref=${x.ref}">${esc(x.ref)}</a>`, esc(v(x.fields, 'product', 'product_name') || 'Untitled'), esc(v(x.fields, 'company', 'legal_name') || ''), levelTag(v(x.fields, 'assurance_evidence', 'level')), d(x.submitted_at), regTag(x), admissionTag(x)] })),
-        ...prior.map(m => ({ cells: [esc(m.registration), esc(m.product), esc(m.provider), levelTag(m.assurance_level), d(m.registered), tag(m.status, m.status === 'active' ? 'on the register' : m.status), '<span class="small">no decision</span>'] })),
+        ...prior.map(m => ({ cells: [esc(m.registration), esc(m.product), esc(m.provider), levelTag(m.assurance_level), d(m.registered), tag(m.status, m.status === 'active' ? 'on the register' : m.status), m.bank ? tag('admitted', 'admitted') : '<span class="small">no decision</span>'] })),
       ], 7);
       const has = !!a, draft = has && a.status === 'draft';
       $('pv-form').hidden = !has;
@@ -126,7 +126,7 @@ const AP = (() => {
       return f;
     }
 
-    $('btn-new').onclick = async () => { a = await api('POST', '/api/registrations'); history.replaceState(null, '', `?ref=${a.ref}`); await refresh(); };
+    if ($('btn-new')) $('btn-new').onclick = async () => { a = await api('POST', '/api/registrations'); history.replaceState(null, '', `?ref=${a.ref}`); await refresh(); };
     $('btn-prefill').onclick = () => { $('pv-context').hidden = false; $('pv-context').scrollIntoView({ behavior: 'smooth', block: 'center' }); };
     $('btn-prefill-go').onclick = async () => { $('pv-context').hidden = true; a = await api('POST', `/api/registrations/${a.id}/prefill`); await refresh(); };
     $('btn-prefill-cancel').onclick = () => { $('pv-context').hidden = true; };
@@ -272,11 +272,15 @@ const AP = (() => {
       // recent activity (the full log one click away)
       renderLog(verifies, viol);
       // admissions, register, supervisory access
-      rows('bk-products', regs.filter(x => x.admission_status && x.admission_status !== 'declined' && x.admission_status !== 'info_requested').map(x => { const pr = (state.products || []).find(y => y.registration_id === x.id) || { passports: [] }; return { cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a> ${levelTag(v(x.fields, 'assurance_evidence', 'level'))}`, esc(v(x.fields, 'company', 'legal_name') || ''), holdOf(x) != null ? gbp(holdOf(x)) : '—', String(pr.passports.length), admissionTag(x)] }; }), 5, 'No product admitted yet.');
+      rows('bk-products', [
+        ...regs.filter(x => x.admission_status && x.admission_status !== 'declined' && x.admission_status !== 'info_requested').map(x => { const pr = (state.products || []).find(y => y.registration_id === x.id) || { passports: [] }; return { cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a> ${levelTag(v(x.fields, 'assurance_evidence', 'level'))}`, esc(v(x.fields, 'company', 'legal_name') || ''), holdOf(x) != null ? gbp(holdOf(x)) : '—', String(pr.passports.length), admissionTag(x)] }; }),
+        ...(state.register || []).filter(m => m.bank).map(m => ({ cells: [`${esc(m.product)} ${levelTag(m.assurance_level)}`, esc(m.provider), gbp(m.bank.hold_above_gbp), '0', tag('admitted', 'admitted')] })),
+      ], 5, 'No product admitted yet.');
       rows('bk-register', [
         ...regs.map(x => ({ cells: [`<a href="/bank?ref=${x.ref}">${esc(v(x.fields, 'product', 'product_name') || x.ref)}</a>`, esc(v(x.fields, 'company', 'legal_name') || ''), levelTag(v(x.fields, 'assurance_evidence', 'level')), d(x.submitted_at), admissionTag(x)] })),
-        ...(state.register || []).map(m => ({ cells: [esc(m.product), esc(m.provider), levelTag(m.assurance_level), d(m.registered), `<span class="small">${m.status === 'active' ? 'not on your list' : esc(m.status)}</span>`] })),
+        ...(state.register || []).map(m => ({ cells: [esc(m.product), esc(m.provider), levelTag(m.assurance_level), d(m.registered), m.bank ? tag('admitted', 'admitted') : `<span class="small">${m.status === 'active' ? 'not on your list' : esc(m.status)}</span>`] })),
       ], 5);
+      renderTrail(data);
       const ev = $('bk-evidence'); ev.innerHTML = '';
       live.forEach(x => ev.append(el('li', null, `<span>Passport <span class="mono">${esc(x.passport_id)}</span>, the complete bundle</span><a href="/api/evidence/passports/${esc(x.passport_id)}" target="_blank" rel="noopener">Export</a>`)));
       viol.slice(0, 5).forEach(x => ev.append(el('li', null, `<span>Refusal #${x.id}, ${esc(x.rule)} at ${t(x.ts)}</span><a href="/api/evidence/violations/${x.id}" target="_blank" rel="noopener">Export</a>`)));
@@ -314,6 +318,21 @@ const AP = (() => {
       });
       if (!live.length) tb.append(el('tr', null, '<td colspan="6" class="empty-row">No AI agent holds a passport on this bank yet.</td>'));
       if (o.processed) tb.append(el('tr', 'bd-stats__carry', `<td>Other AI agents on the bank's list, ${num(o.agents_on_list)} of them<br><span class="small">carried forward as totals, ${esc((o.period || {}).from || '')} to the start of this session · no rows</span></td><td class="num mono">${num(o.processed)}</td><td class="num mono">${gbp(o.value_gbp)}</td><td class="num mono">${num(o.held)}</td><td class="num mono">${num(o.refused_fraud)}</td><td class="num mono">${num(o.refused_agent_error)}</td>`));
+    }
+    // the evidence trail: every chain entry, verifications replayable from their recorded inputs
+    let trailRun = 0, trailSame = 0, trailBound = false; const trailState = {};
+    async function replayOne(id) { const rp = await api('POST', `/api/audit/${id}/replay`); trailRun++; if (rp.identical) trailSame++; trailState[id] = rp.identical ? 'same' : 'differs'; }
+    function renderTrail(data) {
+      const tb = $('au-table').querySelector('tbody'); tb.innerHTML = '';
+      $('au-summary').innerHTML = `<b>${data.rows.length}</b> entries · chain ${data.chain.ok ? '<b class="ok">intact</b>' : `<b class="bad">broken at #${data.chain.broken_at}</b>`} · head <span class="mono">${esc((data.chain.head || '').slice(0, 12))}</span>${trailRun ? ` · <b class="${trailSame === trailRun ? 'ok' : 'bad'}">${trailSame} of ${trailRun}</b> replayed identically` : ''}`;
+      const subjects = [...new Set(data.rows.filter(r => r.subject && r.subject.startsWith('AP-')).map(r => r.subject))];
+      $('au-evidence').innerHTML = subjects.map(s => `<a href="/api/evidence/passports/${esc(s)}" target="_blank" rel="noopener">Export the evidence bundle for ${esc(s)}</a>`).join(' · ');
+      data.rows.slice(0, 200).forEach(r => tb.append(el('tr', null, `<td class="mono small">${t(r.ts)}</td><td>${plainEvent(r)}</td><td class="mono small">${esc(r.subject || '')}</td><td class="small" id="au-r-${r.id}"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}${r.kind === 'verify' ? (trailState[r.id] ? ` · <span class="${trailState[r.id] === 'same' ? 'ok' : 'bad'}">${trailState[r.id] === 'same' ? 'replayed identically' : 'REPLAY DIFFERS'}</span>` : ` · <button class="link" data-replay="${r.id}" type="button">replay</button>`) : ''}</td>`)));
+      if (!trailBound) {
+        trailBound = true;
+        tb.addEventListener('click', async (e) => { const b = e.target.closest('[data-replay]'); if (b) { await replayOne(+b.dataset.replay); renderTrail({ rows: auditRows, chain: data.chain }); } });
+        $('btn-replay-all').onclick = async () => { for (const r of auditRows.filter(x => x.kind === 'verify')) if (!trailState[r.id]) await replayOne(r.id); $('replay-note').textContent = trailRun ? `${trailSame} of ${trailRun} replayed identically` : 'no verifications yet'; renderTrail({ rows: auditRows, chain: data.chain }); };
+      }
     }
     function renderLog(verifies, viol) {
       const tb = $('bd-log').querySelector('tbody'); tb.innerHTML = '';
@@ -634,6 +653,7 @@ const AP = (() => {
       $('cu-trail-hint').hidden = trailAll;
       renderNotes(fresh);
       knownIds = new Set(mine.map(r => r.id));
+      renderCards();
     }
     const gbp2 = (n) => '£' + Number(n || 0).toLocaleString('en-GB', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     $('cu-trail-toggle').onclick = () => { trailAll = !trailAll; renderAccount(); };
@@ -685,11 +705,11 @@ const AP = (() => {
       const box = $('cu-notify'); box.hidden = !visible.length;
       $('cu-notify-meta').textContent = visible.length ? `${visible.length} item${visible.length === 1 ? '' : 's'}` : '';
       const ol = $('cu-notes'); ol.innerHTML = '';
-      visible.slice(0, 4).forEach(n => {
+      visible.slice(0, 6).forEach(n => {
         const li = el('li', `cu-note cu-note--${n.tone}${fresh && fresh.has(n.audit) ? ' is-new' : ''}`, `<div class="cu-note__head"><span class="tag tag--${n.tone === 'red' ? 'red' : n.tone === 'amber' ? 'amber' : 'grey'}">${esc(n.label)}</span><span class="mono small">${t(n.ts)}</span></div><p class="cu-note__text">${n.text}</p><p class="small cu-note__sub">${n.sub || ''}</p><div class="cu-note__links">${n.first ? `<button class="btn btn--small" type="button" data-review="${n.audit}">${pendingConfirm === n.audit ? 'Hide the review' : 'Review and confirm'}</button>` : ''}${n.audit ? `<a href="#ev-${n.audit}" data-ev="${n.audit}">See the evidence</a>` : ''}${n.vio ? ` · <a href="/api/evidence/violations/${n.vio}" target="_blank" rel="noopener">evidence bundle</a>` : ''}${n.first ? '' : ` · <button class="link" type="button" data-dismiss="${esc(n.id)}">Dismiss</button>`}</div>${n.first && pendingConfirm === n.audit ? confirmHtml(n) : ''}`);
         li.dataset.subject = n.subject || ''; ol.append(li);
       });
-      $('cu-notify-more').textContent = visible.length > 4 ? `and ${visible.length - 4} more in the evidence trail` : '';
+      $('cu-notify-more').textContent = visible.length > 6 ? `and ${visible.length - 6} more in the evidence trail` : '';
       // a toast for what just arrived, the newest one
       const arrived = fresh && fresh.size ? visible.find(n => fresh.has(n.audit)) : null;
       if (arrived) { const tst = $('cu-toast'); tst.className = `cu-toast cu-toast--${arrived.tone}`; tst.innerHTML = `<b>${esc(arrived.label)}</b> ${arrived.text}`; tst.hidden = false; clearTimeout(toastTimer); toastTimer = setTimeout(() => { tst.hidden = true; }, 8000); }
@@ -921,7 +941,7 @@ const AP = (() => {
       const held = r.decision === 'ESCALATE' ? (r.code === FIRST ? `<span class="hold">held for the customer: the first payment under this mandate version is confirmed once, in its banking app <a href="/customer?ref=${esc(r.passport_id || (p || {}).passport_id || '')}">→ Customer dashboard</a></span>` : `<span class="hold">held for the customer's named approver; the bank's officer records the decision <a href="/bank">→ Bank dashboard</a></span>`) : '';
       const inc = r.incident ? `<span class="fail"><b>INCIDENT</b> raised to the payments risk team · ${r.incident.denies} refused instructions <a href="/bank">→ Bank console</a></span>` : '';
       gVerdict.className = 'g__verdict g__verdict--' + r.decision; gWrap.dataset.decision = r.decision;
-      gVerdict.innerHTML = `<span class="g-word">${r.decision}</span><span class="g-cite">${cite}</span><span class="g-reason">${esc(r.reason)}</span><span class="g-notes">${settle}${held}${rails}${vio}${inc}<span class="tm-dim">${sig}receipt signed by the bank · evidence #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> <a href="/audit">→ Evidence trail</a></span></span>`;
+      gVerdict.innerHTML = `<span class="g-word">${r.decision}</span><span class="g-cite">${cite}</span><span class="g-reason">${esc(r.reason)}</span><span class="g-notes">${settle}${held}${rails}${vio}${inc}<span class="tm-dim">${sig}receipt signed by the bank · evidence #${r.audit_id} <span class="mono">${esc(r.audit_hash.slice(0, 12))}</span> <a href="/bank#bd-trail">→ Evidence trail</a></span></span>`;
       judgment.classList.remove('is-live');
     }
     function logLine(b, r, k) {
@@ -1050,29 +1070,6 @@ const AP = (() => {
     rows.forEach(r => { const tr = el('tr', opts.newIds && opts.newIds.has(r.id) ? 'is-new' : null, `<td class="mono small">${t(r.ts)}</td><td>${plainEvent(r)}</td>${opts.subject ? `<td class="mono small">${esc(r.subject || '')}</td>` : ''}<td class="small"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}</td>`); tr.id = 'ev-' + r.id; tbody.append(tr); });
     if (!rows.length) tbody.append(el('tr', null, `<td colspan="${opts.subject ? 4 : 3}" class="empty-row">Nothing recorded yet.</td>`));
   }
-  async function audit() {
-    const data = await api('GET', '/api/audit');
-    const verifies = data.rows.filter(x => x.kind === 'verify');
-    const tb = $('au-table').querySelector('tbody'); tb.innerHTML = '';
-    let run = 0, same = 0;
-    const summary = () => { $('au-summary').innerHTML = `<b>${data.rows.length}</b> entries · chain ${data.chain.ok ? '<b class="ok">intact</b>' : `<b class="bad">broken at #${data.chain.broken_at}</b>`} · head <span class="mono">${esc((data.chain.head || '').slice(0, 12))}</span>${run ? ` · <b class="${same === run ? 'ok' : 'bad'}">${same} of ${run}</b> verifications replay identically` : ''}`; };
-    summary();
-    const subjects = [...new Set(data.rows.filter(r => r.subject && r.subject.startsWith('AP-')).map(r => r.subject))];
-    if (subjects.length) $('au-evidence').innerHTML = subjects.map(s => `<a href="/api/evidence/passports/${esc(s)}" target="_blank" rel="noopener">Export the evidence bundle for ${esc(s)}</a>`).join(' · ');
-    for (const r of data.rows) {
-      tb.append(el('tr', null, `<td class="mono small">${t(r.ts)}</td><td>${plainEvent(r)}</td><td class="mono small">${esc(r.subject || '')}</td><td class="small" id="au-r-${r.id}"><span class="hash">#${r.id} ${esc(r.hash.slice(0, 10))}</span>${r.receipt ? ' · receipt' : ''}${r.kind === 'verify' ? ` · <button class="link" data-replay="${r.id}" type="button">replay</button>` : ''}</td>`));
-    }
-    async function replay(id) {
-      const rp = await api('POST', `/api/audit/${id}/replay`);
-      run++; if (rp.identical) same++;
-      const cell = $(`au-r-${id}`); const b = cell.querySelector('[data-replay]'); if (b) b.outerHTML = `<span class="${rp.identical ? 'ok' : 'bad'}">${rp.identical ? 'replayed identically' : 'REPLAY DIFFERS'}</span>`;
-      summary();
-    }
-    tb.addEventListener('click', e => { const b = e.target.closest('[data-replay]'); if (b) replay(+b.dataset.replay); });
-    const replayAll = async () => { for (const r of verifies) if ($(`au-r-${r.id}`).querySelector('[data-replay]')) await replay(r.id); $('replay-note').textContent = run ? `${same} of ${run} replayed identically` : 'no verifications yet'; };
-    $('btn-replay-all').onclick = replayAll;
-    replayAll();
-  }
 
   function home() {
     const ink = '#0b0c0c', ink2 = '#505a5f', blue = '#0f6b73', line = '#e5e7e8', font = '"Helvetica Neue", Arial, Helvetica, sans-serif';
@@ -1111,5 +1108,5 @@ const AP = (() => {
     if (rb) rb.onclick = async () => { if (confirm('Reset the demo to its baseline? Everything is deleted, then one AI product is filed on the register, admitted by the bank, and the customer mandate signed, so one passport is ACTIVE with a short history: the first payment confirmed by the customer, one payment made, its replay refused, one wrong-currency instruction refused, one payment held for the approver.')) { rb.disabled = true; rb.textContent = 'seeding…'; await api('POST', '/api/demo/seed?stage=history'); location.href = '/terminal'; } };
   });
 
-  return { home, provider, bank, customer, console: console_, audit };
+  return { home, provider, bank, customer, console: console_ };
 })();

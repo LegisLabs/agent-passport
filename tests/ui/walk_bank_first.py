@@ -110,7 +110,8 @@ with sync_playwright() as pw:
     page.goto(BASE + "/terminal?console=1"); page.wait_for_selector("#beats button"); click_beat(page, 7); li = last_line(page)
     check(li.locator(".t-verdict").text_content() == "DENY" and "r.2" in li.text_content().lower() and "two rails refuse" in li.text_content().lower(), "subsequent payment DENY R.2, two rails refuse")
     print("== 7 · Evidence trail and supervisory export")
-    page.goto(BASE + "/audit"); page.wait_for_function("document.getElementById('replay-note').innerText.length > 0", timeout=60000)
+    page.goto(BASE + "/bank#bd-trail"); page.wait_for_selector("#au-table tbody tr"); page.click("#btn-replay-all"); page.wait_for_function("document.getElementById('replay-note').innerText.length > 0", timeout=60000)
+    check(page.request.get(BASE + "/audit", max_redirects=0).status in (301, 302), "/audit redirects to the bank dashboard's evidence trail")
     check("intact" in low(page, "#au-summary") and "replayed identically" in low(page, "#replay-note") and not low(page, "#replay-note").startswith("0 of"), f"evidence trail: {page.locator('#replay-note').inner_text()}")
     ev = page.request.get(BASE + f"/api/evidence/passports/{pid}").json()
     check(ev["chain"]["ok"] and ev["register_entry"]["receipt_verified"] and ev["envelope_verification"]["admission"] and len(ev["violations"]) >= 3, "evidence bundle verifies: chain, register receipt, admission")
@@ -136,7 +137,7 @@ with sync_playwright() as pw:
     check("refused · by approver" in low(page, "#bd-log") and page.request.get(BASE + "/api/audit").json()["rows"][0]["entry"]["reason"] == "held payment refused by approver", "refuse and record: recorded equivalently")
     check("refused · fraud indicator" in low(page, "#bd-log") and "refused · agent error" in low(page, "#bd-log") and "processed" in low(page, "#bd-log"), "status column: Processed, Held decided, Refused with class")
     page.click("#bd-log-toggle"); page.wait_for_function("document.querySelector('#bd-log-title').innerText.toLowerCase().includes('transaction log')")
-    check(page.locator("#bd-log tbody tr.bd-log__row").count() >= 7 and "recent activity only" in low(page, "#bd-log-toggle"), "full log: every instruction, expandable, and back to recent")
+    check(page.locator("#bd-log tbody tr.bd-log__row").count() == int(page.locator("#bd-log-meta").text_content().split()[0]) and "recent activity only" in low(page, "#bd-log-toggle"), "full log: every instruction, expandable, and back to recent")
     page.locator("#bd-log tbody tr.bd-log__row").filter(has_text="replay").first.click(); page.wait_for_selector("#bd-log .bd-detail")
     check("nonce" in low(page, "#bd-log .bd-detail") and "already spent" in low(page, "#bd-log .bd-detail"), "evidence record names the spent nonce")
     page.click("#bd-log-toggle"); page.wait_for_function("document.querySelector('#bd-log-title').innerText.toLowerCase().includes('recent activity')")
@@ -183,7 +184,7 @@ with sync_playwright() as pw:
     check("carries a nonce" in ab and "determinism:" in ab and "replay protection:" in ab and ab.count("planned fields") == 1, "about: nonce in the envelope, determinism and replay protection side by side, planned fields once")
     print("== 8 · Language sweep and 390px")
     m = b.new_context(viewport={"width": 390, "height": 844}).new_page()
-    for path in ("", "customer", f"customer?ref={pid}", "bank", f"bank?ref={seed['registration']}", f"bank?passport={pid}", "terminal", "terminal?console=1", "audit", "provider", "about"):
+    for path in ("", "customer", f"customer?ref={pid}", "bank", f"bank?ref={seed['registration']}", f"bank?passport={pid}", "terminal", "terminal?console=1", "provider", "about"):
         m.goto(BASE + "/" + path); m.wait_for_timeout(900); w = m.evaluate("document.documentElement.scrollWidth"); check(w <= 390, f"/{path} no overflow ({w}px)")
         body = m.evaluate("document.body.innerText").lower(); bad = [k for k in BAD if k in body]; check(not bad, f"/{path} no old-model wording {bad}")
     b.close()

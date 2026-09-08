@@ -1748,3 +1748,6 @@ tr.is-spot > td { background: var(--amber-soft); transition: background 1.5s; }
 .rec__proof div { grid-template-columns: 5.5rem minmax(0, 1fr); padding: 8px 0; font-size: 1rem; }
 .rec__proof dd b { font-size: 1.0625rem; }
 p.rec__foot { display: block; margin: 0; padding-top: 12px; font-size: .9rem; color: var(--ink-2); }
+.bd-trail__wrap { max-height: 60vh; overflow: auto; }
+.bd-trail .au-summary { margin: 0 0 .4rem; }
+.bd-trail .actions { margin: .4rem 0 .8rem; }
