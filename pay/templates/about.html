@@ -1,8 +1,18 @@
 {% extends "base.html" %}
 {% block title %}How it works{% endblock %}
+{% block head %}<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800&display=swap"><link rel="stylesheet" href="/static/dashboard.css"><link rel="stylesheet" href="/static/fx-pages.css">{% endblock %}
 {% block content %}
-<div class="prose">
-  <h1 class="h1">How it works</h1>
+<div class="fx">
+  <header class="fx-top">
+    <h1 class="fx-hello">How it works.<small>Agent Passport · three layers and a check, the policy context, the standard</small></h1>
+    <div class="fx-tools">
+      <a class="fx-icon" href="/customer" title="Customer dashboard" aria-label="Customer dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-7 8-7s8 3 8 7"/></svg></a>
+      <a class="fx-icon" href="/bank" title="Bank dashboard" aria-label="Bank dashboard"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 10l9-6 9 6"/><path d="M5 10v8M9 10v8M15 10v8M19 10v8"/><path d="M3 20h18"/></svg></a>
+      <a class="fx-icon" href="/about" title="How it works" aria-label="How it works"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.7.4-1 .9-1 1.7"/><path d="M12 17h.01"/></svg></a>
+    </div>
+  </header>
+<div class="prose glass fx-prose">
+  <h2 class="ws-h">How it works</h2>
   <p class="lede">Identity is not authority. Knowing who an AI agent is tells you nothing about what it may do, and the whole history of payment fraud lives in that gap. Agent Passport closes it on the bank's side: a registered provider, a product the bank admitted, a mandate the customer signed, and a check on every payment before a penny moves. Every link in that chain can only narrow what the AI agent may do, never widen it.</p>
   <p class="standard"><a href="/static/APS_1001.pdf">APS 1001, the proposed standard (PDF)</a> specifies the passport, the register filing, the bank's admission, issuance at signing and the nine-step verification. This site is its reference implementation.</p>
 
@@ -73,5 +83,6 @@
   <h2 class="h2">What we do not claim</h2>
   <p>That any bank or register operates this today; that a passport replaces the provider's authorisation, the customer's contract or the bank's own mandate; that Independent Assurance Evidence proves an AI agent is safe or correct; that a valid passport compels a bank to execute; that this is production cryptographic infrastructure. This prototype does not attempt biometric synthetic-identity detection, agent swarm detection at infrastructure scale, cross-border mutual recognition, liability calculation, or systemic risk modelling. The mandate enforces money destination and authority, not invoice semantic accuracy. The register, the bank, the firms, the accounts and the invoices are synthetic. The AI agent and the customer's signing ceremony are simulated inside this server.</p>
   <p class="small">Legis Labs · C:\&gt;DIR Global 'Agentic Regulator' Hackathon 2026, Know Your Agent problem space · developed alongside Cambridge academic and industry partners · synthetic data only · standard: APS 1001 · this deployment runs vouch in <strong>{{ vouch_mode }}</strong> mode on the <strong>{{ payment_rail }}</strong> rail.</p>
+</div>
 </div>
 {% endblock %}

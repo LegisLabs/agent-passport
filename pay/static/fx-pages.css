@@ -1,0 +1,28 @@
+/* The register and How it works in the same app-card shell as the two dashboards. Scoped to those two views;
+   dashboard.css supplies the tokens and the .fx components. */
+body[data-view="provider"], body[data-view="about"] { background: var(--fx-field, #e9efe9); font-family: var(--fx-font, inherit); color: var(--fx-ink, inherit); }
+body[data-view="provider"] .shell, body[data-view="about"] .shell { display: block; padding: 22px 0 36px; min-height: 0; }
+body[data-view="provider"] .sidenav, body[data-view="about"] .sidenav { display: none; }
+body[data-view="provider"] .wrap, body[data-view="about"] .wrap { max-width: 1480px; }
+body[data-view="provider"] .main, body[data-view="about"] .main { padding-top: 0; }
+body[data-view="provider"] .masthead, body[data-view="about"] .masthead { border-bottom-width: 0; }
+body[data-view="provider"] .footer, body[data-view="about"] .footer { background: transparent; border-top: 1px solid rgba(15,26,23,.08); font-family: var(--fx-font, inherit); }
+body[data-view="provider"] ::selection, body[data-view="about"] ::selection { background: var(--fx-lime); color: var(--fx-lime-ink); }
+body[data-view="provider"] :focus-visible, body[data-view="about"] :focus-visible { outline: 3px solid var(--fx-lime); outline-offset: 2px; border-radius: 8px; }
+.fx-page { display: grid; gap: 20px; }
+.fx-prose { padding-bottom: 24px; }
+.fx-prose > .ws-h { margin-bottom: 6px; }
+.fx-prose .h1 { display: none; }
+.fx-prose .h2 { font-size: 1.25rem; margin-top: 1.6rem; }
+.fx-prose .lede { font-size: 1.0625rem; }
+.fx-prose .callout { font-size: 1.125rem; border-left-color: var(--fx-lime, #cfe58a); }
+.fx .step__head { margin: .2rem 0 .6rem; }
+.fx .context { border: 1px solid var(--fx-line, #dfe6e0); border-radius: 16px; background: var(--fx-tint, #f3f7f2); }
+.fx .panel--confirm { border-radius: 16px; }
+.fx .facts h3 { font-size: 1rem; margin: 1.2rem 0 .3rem; }
+.fx .checks, .fx .dash { font-size: .9375rem; }
+@media (max-width: 720px) { body[data-view="provider"] .shell, body[data-view="about"] .shell { padding: 14px 0 24px; } }
+@media (max-width: 1500px) { body[data-view="provider"] .wrap, body[data-view="about"] .wrap, body[data-view="provider"] .masthead__row, body[data-view="about"] .masthead__row { margin: 0 30px; } }
+@media (max-width: 640px) { body[data-view="provider"] .wrap, body[data-view="about"] .wrap, body[data-view="provider"] .masthead__row, body[data-view="about"] .masthead__row { margin: 0 15px; } }
+.fx .prose { max-width: none; }
+.fx-prose p, .fx-prose li, .fx-prose .lede, .fx-prose .callout { max-width: 78ch; }
