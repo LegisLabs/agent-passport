@@ -75,17 +75,6 @@ flowchart LR
         <a class="btn btn--secondary btn--small" href="/static/APS_1001.pdf">Read the standard, APS 1001</a>
       </div>
     </div>
-    <div class="diagram diagram--model"><pre class="mermaid">
-flowchart LR
-  P["<b>Provider</b><br/>files the AI product"] --> R["<b>Register</b><br/>identity, accountability,<br/>assurance evidence"]
-  R --> B["<b>Bank</b><br/>admits the product<br/>to its list"]
-  B --> C["<b>Customer</b><br/>signs the mandate<br/>in the bank's app"]
-  C --> V["<b>Bank checks</b><br/>every payment,<br/>deny by default"]
-  V --> E["<b>Evidence trail</b><br/>signed, hash-chained,<br/>replayable"]
-  E -.->|"on request"| S["<b>Supervisor</b><br/>pulls the evidence<br/>for an incident"]
-  class B,V bank
-  class S q
-</pre></div>
   </section>
 
   <section class="home__section">

@@ -72,7 +72,10 @@ a:hover { color: var(--blue-dark); }
 .masthead__logo { display: inline-flex; align-items: center; gap: 14px; color: #fff; text-decoration: none; }
 .masthead__mark { display: block; width: auto; height: 40px; }
 .masthead__product { font-weight: 600; font-size: 1.05rem; letter-spacing: .01em; padding-left: 14px; border-left: 1px solid rgba(255,255,255,.28); line-height: 1.1; }
-.masthead__nav { display: flex; align-items: center; gap: 1rem; position: relative; }
+.masthead__nav { display: flex; align-items: center; gap: 1.2rem; position: relative; }
+.masthead__link { color: #fff; text-decoration: none; font-weight: 500; padding: .45rem .2rem; border-bottom: 2px solid transparent; }
+.masthead__link:hover { color: #fff; border-bottom-color: rgba(255,255,255,.5); }
+.masthead__link[aria-current="page"] { border-bottom-color: #fff; }
 .masthead__menu { display: inline-flex; align-items: center; gap: .5rem; background: none; border: 1px solid rgba(255,255,255,.4); border-radius: var(--r-s); color: #fff; padding: .45rem .9rem; cursor: pointer; font-weight: 500; }
 .masthead__menu::after { content: ""; width: .45em; height: .45em; border: solid currentColor; border-width: 0 1.5px 1.5px 0; transform: translateY(-2px) rotate(45deg); }
 .masthead__menu.is-open::after { transform: translateY(2px) rotate(-135deg); }
@@ -83,7 +86,7 @@ a:hover { color: var(--blue-dark); }
 .menu-panel__list a { display: block; padding: 9px 12px; border-radius: var(--r-s); color: var(--ink); text-decoration: none; font-weight: 500; }
 .menu-panel__list a:hover, .menu-panel__list a:focus-visible { background: var(--blue-soft); }
 .menu-panel__list a[aria-current="page"] { color: var(--blue-dark); font-weight: 600; }
-@media (max-width: 480px) { .masthead__product { display: none; } .masthead__mark { height: 36px; } }
+@media (max-width: 480px) { .masthead__mark { height: 36px; } .masthead__link { display: none; } }
 
 /* role strip: who the viewer is on this surface */
 .role { background: var(--panel); border-bottom: 1px solid var(--line); }
@@ -379,7 +382,6 @@ a:hover { color: var(--blue-dark); }
 .diagram .node.q rect { fill: #fff !important; stroke: var(--ink-3) !important; stroke-dasharray: 5 4; }
 .diagram .edgeLabel { font-size: 13px; color: var(--ink-2); background: var(--panel); }
 .diagram .nodeLabel { line-height: 1.3; font-size: 15px; }
-.diagram--model svg { min-width: 1040px; }
 .standard-split { display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 48px; align-items: start; margin: 8px 0 22px; }
 .standard-text .home__lede { margin-bottom: 8px; }
 .standard-one { display: flex; flex-direction: column; align-items: center; gap: 14px; }

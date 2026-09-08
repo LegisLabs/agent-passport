@@ -22,9 +22,9 @@
   <div class="wrap masthead__row">
     <a class="masthead__logo" href="/" aria-label="Legis Labs, Agent Passport home">
       <img class="masthead__mark" src="/static/brand/legis-labs-white.svg" alt="Legis Labs" width="94" height="45">
-      <span class="masthead__product">Agent Passport</span>
     </a>
     <nav class="masthead__nav" aria-label="Primary">
+      <a class="masthead__link" href="/terminal" {% if view in ('terminal', 'console') %}aria-current="page"{% endif %}>Action Terminal</a>
       <button class="masthead__menu" id="menu-toggle" type="button" aria-expanded="false" aria-controls="menu-panel">Menu</button>
       <div class="menu-panel" id="menu-panel" hidden>
         <ul class="menu-panel__list">
