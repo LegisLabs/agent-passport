@@ -1518,3 +1518,9 @@ tr.is-new > td, li.is-new { animation: arrive 900ms cubic-bezier(.2,.9,.2,1) bot
 /* bank: the log keeps its own scroll so the sections beneath stay in reach */
 .bd-col--log .dash-wrap { max-height: 78vh; overflow: auto; }
 .bd-col--log .bd-log thead th { position: sticky; top: 0; background: var(--ground); z-index: 1; }
+
+/* the result: description beside the printed record */
+.evd-split { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 40px; align-items: start; }
+.evd-split .print { max-width: none; margin: 8px 0 0; }
+.evd-split__text .home__lede { margin-bottom: 0; }
+@media (max-width: 800px) { .evd-split { grid-template-columns: minmax(0, 1fr); } }
