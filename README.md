@@ -62,7 +62,7 @@ An envelope of three Ed25519 JWTs, each signed by the only party entitled to the
 
 Public keys: `GET /api/signers` (register, bank, customer). Every instruction is signed by the AI agent's key over canonical JSON; R.4 verifies the bytes. Flipping one byte fails it.
 
-## Rules (rule pack `payments-2026.09.3`, data not code)
+## Rules (rule pack `payments-2026.09.4`, data not code)
 
 On the register at filing: F.1 provider at Companies House · F.2 accountable principal with signed declaration · F.3 insurance in force at or above the minimum · F.4 product documented with a pinned model version · F.5 Independent Assurance Evidence attached and covering the use case · F.6 not already on the register. Completeness only; a flag is recorded, not judged.
 
@@ -71,15 +71,17 @@ On the register at filing: F.1 provider at Companies House · F.2 accountable pr
 | R.1 admission signature (bank key) | DENY `ADMISSION_SIGNATURE_INVALID` / `PASSPORT_NOT_ISSUED` |
 | R.2 passport active and unexpired (bank's list) | DENY `PASSPORT_NOT_ACTIVE` |
 | R.3 agent identity signature (customer key), bound to this admission | DENY `AGENT_IDENTITY_SIGNATURE_INVALID` |
-| R.4 instruction signed by the AI agent key in `agent_identity.cnf` | DENY `AGENT_SIGNATURE_INVALID` |
+| R.4 instruction signed by the AI agent key in `agent_identity.cnf`, nonce not seen before | DENY `AGENT_SIGNATURE_INVALID` / `REPLAY_DETECTED` |
 | R.5 mandate present, customer-signed, unexpired | DENY `MANDATE_NOT_SIGNED` / `MANDATE_SIGNATURE_INVALID` / `MANDATE_EXPIRED` |
-| R.6 action permitted and payee account on the allowlist | DENY `OUT_OF_SCOPE` / `PAYEE_NOT_ON_MANDATE` |
+| R.6 action and currency permitted, payee account on the allowlist | DENY `OUT_OF_SCOPE` / `CURRENCY_NOT_PERMITTED` / `PAYEE_NOT_ON_MANDATE` |
 | R.7 amount within the per-payment limit | DENY `PER_PAYMENT_LIMIT_EXCEEDED` |
-| R.8 amount + 30-day total for this account within the limit (bank ledger) | DENY `MONTHLY_LIMIT_EXCEEDED` |
+| R.8 amount + 30-day total for this account within the limit, payments per day within the mandate (bank ledger) | DENY `MONTHLY_LIMIT_EXCEEDED` / `DAILY_COUNT_EXCEEDED` |
 | R.9 amount above the bank's hold condition | ESCALATE `HUMAN_CONFIRMATION_REQUIRED` |
 | otherwise | ALLOW `WITHIN_MANDATE` |
 
-`fixtures/pay/oracle.json` holds 18 deterministic cases; `tests/test_pay.py` runs them all offline, plus tamper tests, cascade, containment, the grounds declaration and the evidence bundle.
+Every refusal carries a failure class: fraud indicator (redirection, copied passport, replay, forged claim), agent error (wrong amount, currency, action or frequency inside the agent's own remit) or passport status. Provider filings declare an assurance level (self-declared, independently verified, independently audited) that scales the bank's admission ceilings; every mandate is also capped by the account-type tier (agent-channel limit). Payees and providers are checked against Companies House (`COMPANIES_HOUSE_API_KEY`; without it, a labelled synthetic register answers).
+
+`fixtures/pay/oracle.json` holds 20 deterministic cases; `tests/test_pay.py` runs them all offline, plus tamper tests, cascade, containment, the grounds declaration and the evidence bundle.
 
 ## Evidence for a supervisor
 
@@ -100,7 +102,8 @@ POST /api/agents                                  {registration_id, agent_name}:
 POST /api/passports/{id}/mandate/check · /mandate/sign                             ceiling containment; signing issues the passport and mints the voucher
 POST /api/passports/{id}/status · /investigation                                   suspend, investigate, revoke, reinstate
 GET  /api/passports/{id} · /api/status/{id} · /api/signers
-POST /api/agent/act · /api/agent/invoice                                           the simulated AI agent signs and presents an instruction
+POST /api/agent/act · /api/agent/invoice · /api/agent/replay                        the simulated AI agent signs and presents an instruction, or replays the last one
+GET  /api/companies/{number} · /api/companies/search?q=                            Companies House public register, or the labelled demo register
 POST /api/verify                                                                   the bank's gateway: decision, rule, code, reason, receipt, rails, settlement
 GET  /api/audit · POST /api/audit/{id}/replay · GET /api/receipt/verify?token=
 GET  /api/evidence/passports/{id} · /api/evidence/violations/{id}                   supervisory access
@@ -119,7 +122,7 @@ bash deploy/publish.sh pay      # pay.cdir.legislabs.uk: the pre-pivot payments 
 ```
 pay/          the app: main.py · rules.py · crypto.py · review.py · vouch.py · audit.py · extraction.py · db.py · fixtures.py · templates/ · static/
 app/          the tax demonstrator (frozen, tag hmrc-v1; now prefix-aware for /tax/)
-rulepacks/    payments-2026.09.json (rule pack payments-2026.09.3) · hmrc-sa-2026.09.json
+rulepacks/    payments-2026.09.json (rule pack payments-2026.09.4) · hmrc-sa-2026.09.json
 fixtures/pay/ registration_fixture.json · register.json · registry.json · customer/ · invoices/ · oracle.json · agent_config.json · vouch_kits/
 scripts/      demo_reset.sh · vouch_kit_replay.py
 tests/        test_pay.py · test_rules.py (offline) · ui/walk_bank_first.py (Playwright)
