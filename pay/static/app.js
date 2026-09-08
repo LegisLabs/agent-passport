@@ -620,7 +620,7 @@ const AP = (() => {
   }
 
   function home() {
-    const ink = '#14213a', ink2 = '#4b5a6e', blue = '#2b6ca3', line = '#e3e9f0', font = 'Inter, "Helvetica Neue", Arial, sans-serif';
+    const ink = '#14213a', ink2 = '#4b5a6e', blue = '#2b6ca3', line = '#e3e9f0', font = '"IBM Plex Sans", "Helvetica Neue", Arial, sans-serif';
     if (window.Chart) {
       Chart.defaults.font.family = font; Chart.defaults.font.size = 13; Chart.defaults.color = ink2;
       const values = { id: 'values', afterDatasetsDraw(c) { const { ctx } = c; ctx.save(); ctx.font = `600 14px ${font}`; ctx.fillStyle = ink; ctx.textAlign = 'center'; c.getDatasetMeta(0).data.forEach((bar, i) => { const dd = c.data.datasets[0]; ctx.fillText(dd.labelsText ? dd.labelsText[i] : dd.data[i], bar.x, bar.y - 8); }); ctx.restore(); } };
