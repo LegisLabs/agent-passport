@@ -41,10 +41,17 @@
         <h2 class="ws-h">AI agents <span class="ws-h__meta" id="fx-agents-meta"></span></h2>
         <div id="cu-create" hidden>
           <p class="cu-add cu-add--top"><a class="btn btn--outline" id="cu-add-toggle" href="/customer?new=1">Add an AI agent</a></p>
-          <div id="cu-add-form" hidden>
-            <label class="label" for="cu-model">Product</label><select class="input" id="cu-model"></select>
-            <p class="small cu-model-level" id="cu-model-level"></p>
-            <label class="label" for="cu-agent-name">Name</label><input class="input" id="cu-agent-name" placeholder="e.g. PayGPT 6.0 · Northgate deployment">
+          <div id="cu-add-form" class="cu-new" hidden>
+            <h2 class="cu-new__title">Add an AI agent</h2>
+            <p class="cu-new__lede">Pick a product your bank has admitted, name your deployment, then write the mandate that says what it may pay. The agent gets its own key; the passport is issued when you sign.</p>
+            <ol class="cu-steps" aria-label="Steps"><li class="is-on"><b>1</b>Choose a product</li><li><b>2</b>Name it</li><li><b>3</b>Write the mandate</li></ol>
+            <fieldset class="cu-new__group"><legend class="label">Product</legend>
+              <div class="cu-products" id="cu-products" role="radiogroup" aria-label="Products your bank has admitted"></div>
+              <select class="input" id="cu-model" hidden aria-hidden="true" tabindex="-1"></select>
+              <p class="small cu-model-level" id="cu-model-level" hidden></p>
+            </fieldset>
+            <div class="cu-new__group"><label class="label" for="cu-agent-name">Name</label><input class="input" id="cu-agent-name" placeholder="e.g. PayGPT 6.0 · Northgate deployment"><p class="small cu-new__hint">How it will appear on your account and in the evidence.</p></div>
+            <div class="cu-new__next"><h3 class="h4">What happens next</h3><ul><li>A key pair is generated for this deployment and possession is proven to the bank.</li><li>You write the mandate: which supplier accounts, how much, how often, until when.</li><li>Its first payment waits for your confirmation; after that, payments inside the mandate flow on their own.</li></ul></div>
             <div class="actions"><button class="btn" id="btn-create-agent">Continue to the mandate</button><span class="actions__note" id="cu-create-note"></span></div>
             <p class="error" id="cu-create-error" hidden></p>
           </div>

@@ -52,3 +52,4 @@ body[data-cusigned="1"] .cu-agent-grid, body[data-cusigned="1"] #cu-card, body[d
 .pp__payees { display: grid; gap: 3px; }
 .pp__payee .mono { color: var(--fx-ink-3); font-size: .75rem; }
 @media (max-width: 899px) { .pp__cols { grid-template-columns: minmax(0, 1fr); } .pp__part { border-left: 0; border-top: 1px solid var(--fx-line); } .pp__part:first-child { border-top: 0; } }
+body[data-cupage="new"] #ac-agents > .ws-h { display: none; }
