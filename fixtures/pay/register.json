@@ -2,13 +2,58 @@
   "_comment": "Entries already on the Agent Passport Register (synthetic). Shown on the Provider surface and in the bank's register view; F.6 refuses a product_id that is already on the register.",
   "products": [
     {
-      "product": "OpenPay 5.5",
-      "product_id": "openpay-5-5",
-      "provider": "OpenPay Ltd",
-      "registered": "2025-11-14",
-      "status": "lapsed",
-      "registration": "REG-2025-0004",
+      "product": "Clerk AP 1.4",
+      "product_id": "clerk-ap-1-4",
+      "provider": "Clerk Software Ltd",
+      "registered": "2026-06-11",
+      "status": "active",
+      "registration": "REG-2026-0013",
       "assurance_level": "self-declared"
+    },
+    {
+      "product": "LedgerLine Payables 3",
+      "product_id": "ledgerline-payables-3",
+      "provider": "LedgerLine Software Ltd",
+      "registered": "2026-05-19",
+      "status": "active",
+      "registration": "REG-2026-0012",
+      "assurance_level": "independently-audited",
+      "bank": {
+        "decision": "admitted",
+        "hold_above_gbp": 5000,
+        "officer": "A. Ferreira",
+        "admitted": "2026-07-15"
+      }
+    },
+    {
+      "product": "Brightwater Payables",
+      "product_id": "brightwater-payables",
+      "provider": "Brightwater Systems Ltd",
+      "registered": "2026-05-02",
+      "status": "active",
+      "registration": "REG-2026-0011",
+      "assurance_level": "independently-audited",
+      "bank": {
+        "decision": "admitted",
+        "hold_above_gbp": 7500,
+        "officer": "A. Ferreira",
+        "admitted": "2026-07-01"
+      }
+    },
+    {
+      "product": "Invoicely Agent 2",
+      "product_id": "invoicely-agent-2",
+      "provider": "Invoicely Ltd",
+      "registered": "2026-04-08",
+      "status": "active",
+      "registration": "REG-2026-0010",
+      "assurance_level": "independently-verified",
+      "bank": {
+        "decision": "admitted",
+        "hold_above_gbp": 5000,
+        "officer": "A. Ferreira",
+        "admitted": "2026-06-20"
+      }
     },
     {
       "product": "OpenPay 5.6",
@@ -26,19 +71,31 @@
       }
     },
     {
-      "product": "LedgerLine Payables 3",
-      "product_id": "ledgerline-payables-3",
-      "provider": "LedgerLine Software Ltd",
-      "registered": "2026-05-19",
+      "product": "SettleBot 3",
+      "product_id": "settlebot-3",
+      "provider": "Northlight Fintech Ltd",
+      "registered": "2026-01-27",
       "status": "active",
-      "registration": "REG-2026-0012",
-      "assurance_level": "independently-audited",
-      "bank": {
-        "decision": "admitted",
-        "hold_above_gbp": 5000,
-        "officer": "A. Ferreira",
-        "admitted": "2026-07-15"
-      }
+      "registration": "REG-2026-0006",
+      "assurance_level": "independently-verified"
+    },
+    {
+      "product": "OpenPay 5.5",
+      "product_id": "openpay-5-5",
+      "provider": "OpenPay Ltd",
+      "registered": "2025-11-14",
+      "status": "lapsed",
+      "registration": "REG-2025-0004",
+      "assurance_level": "self-declared"
+    },
+    {
+      "product": "OpenPay 5.0",
+      "product_id": "openpay-5-0",
+      "provider": "OpenPay Ltd",
+      "registered": "2025-06-03",
+      "status": "withdrawn",
+      "registration": "REG-2025-0001",
+      "assurance_level": "self-declared"
     }
   ]
 }
