@@ -538,3 +538,18 @@ body[data-actab="agent"] .fx-nav { visibility: hidden; }
 .fx .cu-note--slate .cu-note__text { font-weight: 500; }
 .fx .cu-note__head { margin-bottom: 4px; }
 .fx .cu-note__links { margin-top: 8px; }
+.fx .tx__who { display: inline-block; padding: 0 6px; border-radius: 6px; background: var(--fx-tint); color: var(--fx-ink-2); font-size: .68rem; font-weight: 700; letter-spacing: .03em; text-transform: uppercase; line-height: 1.6; }
+.fx .tx__who--ai { background: var(--fx-green-soft); color: var(--fx-green); }
+/* the event page: what went wrong, in three lines; the record folded beneath */
+.fx .cu-event__hero { margin: 0 0 20px; }
+.fx .cu-event__title { margin: 8px 0 4px; font-size: 1.375rem; font-weight: 800; letter-spacing: -.02em; line-height: 1.25; max-width: 40rem; }
+.fx .cu-event__steps { list-style: none; margin: 0 0 20px; padding: 0; display: grid; gap: 12px; max-width: 40rem; }
+.fx .cu-event__steps li { display: grid; gap: 3px; padding: 12px 14px; border-radius: 12px; background: var(--fx-tint); }
+.fx .cu-event__steps li span { font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--fx-ink-2); }
+.fx .cu-event__steps li p { margin: 0; font-size: .9375rem; line-height: 1.45; }
+.fx .cu-event__act { margin: 0 0 16px; }
+.fx .cu-event__details { max-width: 40rem; margin-top: 8px; }
+.fx .cu-event__details > summary { cursor: pointer; font-size: .8125rem; font-weight: 600; color: var(--fx-ink-2); }
+.fx .cu-event__details .h4 { margin: 14px 0 6px; font-size: .8125rem; }
+.fx .cu-event__details .bd-trace li { display: grid; grid-template-columns: 3rem minmax(0, 1fr); gap: 0 .6rem; padding: .3rem 0; border-bottom: 1px solid var(--fx-line); font-size: .8125rem; }
+.fx .cu-event__details .bd-trace li span { grid-column: 2; color: var(--fx-ink-2); font-size: .78rem; }

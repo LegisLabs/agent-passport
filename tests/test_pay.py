@@ -575,23 +575,16 @@ def test_demo_seed_twice_gives_identical_baselines(client):
     assert client.post("/api/demo/seed?stage=nope").status_code == 400
 
 
-def test_demo_seed_history_puts_both_refusal_classes_on_the_log(client):
-    """stage=history: one payment executed, its byte-for-byte replay refused at R.4 (fraud indicator), one USD instruction
-    refused at R.6 (agent error). The nonce is recorded with the refusal so the evidence names what was replayed."""
+def test_demo_seed_history_has_one_refusal_and_one_held(client):
+    """stage=history: first payment confirmed by the customer, two payments executed, the altered invoice refused at R.6
+    (fraud indicator, the demo's only refusal), one instruction held above the hold condition."""
     r = client.post("/api/demo/seed?stage=history").json()
-    assert [h["decision"] for h in r["history"]] == ["ESCALATE", "RELEASED", "ALLOW", "DENY", "DENY", "ESCALATE"]
-    assert r["history"][0]["code"] == "FIRST_PAYMENT_CONFIRMATION_REQUIRED" and r["history"][3]["code"] == "REPLAY_DETECTED" and r["history"][4]["code"] == "CURRENCY_NOT_PERMITTED"
+    assert [h["decision"] for h in r["history"]] == ["ESCALATE", "RELEASED", "ALLOW", "ALLOW", "DENY", "ESCALATE"]
+    assert r["history"][0]["code"] == "FIRST_PAYMENT_CONFIRMATION_REQUIRED" and r["history"][4]["code"] == "PAYEE_NOT_ON_MANDATE"
     st = client.get("/api/state").json()
-    classes = sorted(v["failure_class"] for v in st["violations"])
-    assert classes == ["agent_error", "fraud"], classes
-    replay = next(v for v in st["violations"] if v["code"] == "REPLAY_DETECTED")
-    paid = next(x for x in client.get("/api/audit").json()["rows"] if x["kind"] == "verify" and x["entry"]["decision"] == "ALLOW")
-    assert replay["instruction"]["nonce"] == paid["entry"]["instruction"]["nonce"], "the refused replay carries the spent nonce"
-    ev = client.get(f"/api/evidence/violations/{replay['id']}").json()
-    focus = next(e for e in ev["audit_entries"] if e["id"] == replay["audit_id"])
-    assert focus["entry"]["nonce_seen_before"] is True and focus["entry"]["instruction"]["nonce"] == replay["instruction"]["nonce"]
-    # the terminal's Fenwick ledger is untouched by the seeded history
-    assert st["passports"][0]["ledger"].keys() == {"20-45-77 10101010"} or "Fenwick" not in json.dumps(st["passports"][0]["ledger"])
+    assert [v["failure_class"] for v in st["violations"]] == ["fraud"] and st["violations"][0]["evidence"]["invoice"] == "INV-9001-poisoned"
+    assert len(st["payments"]) == 3
+    assert st["passports"][0]["ledger"].keys() >= {"20-13-57 77665544", "30-98-76 22334455"} and "Fenwick" not in json.dumps(st["passports"][0]["ledger"])
 
 
 # ── Product admission: cascade ─────────────────────────────────────────────────
@@ -817,4 +810,4 @@ def test_opening_statistics_are_totals_with_a_stated_seam(client):
     # the session's rows are the real ones: the seed's history is exactly what the chain holds, no filler
     r = client.post("/api/demo/seed?stage=history").json()
     verifies = [x for x in client.get("/api/audit").json()["rows"] if x["kind"] == "verify"]
-    assert len(verifies) == 5 and len(client.get("/api/state").json()["payments"]) == 2
+    assert len(verifies) == 5 and len(client.get("/api/state").json()["payments"]) == 3

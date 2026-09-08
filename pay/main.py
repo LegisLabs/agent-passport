@@ -1151,9 +1151,9 @@ def reset():
 def demo_seed(stage: str = "issued"):
     """Restore the exact pre-demo baseline between takes. stage=registered: the product is filed on the register and the bank's
     review has run, ready for the officer. stage=issued (default): admitted, customer mandate signed, passport ACTIVE,
-    no payments, no violations. stage=history: issued, then the first payment held and confirmed by the customer, one payment
-    executed, its replay refused, one wrong-currency instruction refused, one instruction held above the hold condition, so
-    both refusal classes, the customer's first-payment confirmation and a held payment are on the log.
+    no payments, no violations. stage=history: issued, then the first payment held and confirmed by the customer, two payments
+    executed, one altered invoice refused (payee not on the mandate, the demo's one refusal), one instruction held above the
+    hold condition.
     Deterministic: fixture values, the customer's draft mandate, the default hold condition."""
     if stage not in ("registered", "issued", "history"):
         _400("stage must be registered, issued or history")
@@ -1176,17 +1176,19 @@ def demo_seed(stage: str = "issued"):
         # A short history so the log shows every kind of event before anyone touches the Action Terminal: one payment executed,
         # the same signed instruction presented again (a replay, refused at R.4, a fraud indicator), and one instruction in the wrong
         # currency (refused at R.6, an agent error). Coastline Glass, £600, so the terminal's Fenwick totals are untouched.
-        coastline = next(s for s in p["mandate"]["authorization_details"][0]["supplier_allowlist"] if "Coastline" in s["name"])
+        allow = p["mandate"]["authorization_details"][0]["supplier_allowlist"]
+        coastline = next(s for s in allow if "Coastline" in s["name"]); ashby = next(s for s in allow if "Ashby" in s["name"])
         first = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=600, invoice_ref="CG-0860"))
         confirmed = confirm_first(first["audit_id"], ConfirmFirstIn(decision="confirm"))   # the customer reviews and confirms the first payment under the mandate
-        paid = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=450, invoice_ref="CG-0862"))
-        replayed = agent_replay(ReplayIn(passport_id=pid))
-        usd = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=600, currency="USD", invoice_ref="CG-0861"))
+        paid = agent_act(ActIn(passport_id=pid, supplier_name=ashby["name"], payee_account_ref=ashby["account_ref"], amount=1240, invoice_ref="AI-3302"))
+        paid2 = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=450, invoice_ref="CG-0862"))
+        refused = agent_invoice(InvoiceIn(passport_id=pid, invoice_id="INV-9001-poisoned"))["result"]   # the one refusal: the altered invoice, payee not on the mandate
         held = agent_act(ActIn(passport_id=pid, supplier_name=coastline["name"], payee_account_ref=coastline["account_ref"], amount=5600, invoice_ref="CG-0871"))
         out["history"] = [{"event": "first_held", "decision": first["decision"], "rule": first["rule"], "code": first["code"], "audit_id": first["audit_id"]},
                           {"event": "first_confirmed", "decision": confirmed["outcome"], "audit_id": confirmed["audit_id"]},
-                          {"event": "paid", "decision": paid["decision"]}, {"event": "replayed", "decision": replayed["decision"], "rule": replayed["rule"], "code": replayed["code"]},
-                          {"event": "usd", "decision": usd["decision"], "rule": usd["rule"], "code": usd["code"]}, {"event": "held", "decision": held["decision"], "rule": held["rule"], "audit_id": held["audit_id"]}]
+                          {"event": "paid", "decision": paid["decision"]}, {"event": "paid", "decision": paid2["decision"]},
+                          {"event": "refused", "decision": refused["decision"], "rule": refused["rule"], "code": refused["code"]},
+                          {"event": "held", "decision": held["decision"], "rule": held["rule"], "audit_id": held["audit_id"]}]
     out["audit_entries"] = len(db.list_audit())
     return out
 
