@@ -19,33 +19,29 @@
 
 <div class="cu-split" id="ac-live">
   <div class="cu-split__agents" id="ac-agents">
-    <section class="ws-sec">
-      <h2 class="ws-h">AI agents</h2>
-      <div id="cu-agents"></div>
-      <div class="empty" id="cu-empty"><p>Your bank has not admitted any AI product yet. Admission happens in the <a href="/bank">bank dashboard</a>.</p></div>
-      <div id="cu-create" hidden>
-        <h3 class="h3">Add an AI agent</h3>
-        <p class="hint">Products your bank has admitted. A key pair is generated for your deployment and its possession is proven to the bank.</p>
+    <h2 class="ws-h">AI agents</h2>
+    <div id="cu-agents"></div>
+    <div class="empty" id="cu-empty"><p>Your bank has not admitted any AI product yet. Admission happens in the <a href="/bank">bank dashboard</a>.</p></div>
+    <div id="cu-create" hidden>
+      <p class="cu-add"><button class="link" type="button" id="cu-add-toggle">Add an AI agent</button></p>
+      <div id="cu-add-form" hidden>
         <label class="label" for="cu-model">Product</label><select class="input" id="cu-model"></select>
         <label class="label" for="cu-agent-name">Name</label><input class="input" id="cu-agent-name" placeholder="e.g. PayGPT 6.0 · Northgate deployment">
         <div class="actions"><button class="btn" id="btn-create-agent">Continue to the mandate</button><span class="actions__note" id="cu-create-note"></span></div>
         <p class="error" id="cu-create-error" hidden></p>
       </div>
-    </section>
+    </div>
   </div>
   <div class="cu-split__trail" id="ac-trail">
-    <section class="ws-sec">
-      <h2 class="ws-h">Evidence trail <span class="ws-h__meta"><span class="live-dot live-dot--small" aria-hidden="true"></span> live · this account's AI agents · <a href="/audit">full trail</a></span></h2>
-      <div class="cu-trail-wrap"><table class="checks audit" id="ac-audit"><thead><tr><th>Time</th><th>What happened</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
-    </section>
+    <h2 class="ws-h">Evidence trail <span class="ws-h__meta"><a href="/audit">full trail</a></span></h2>
+    <div class="cu-trail-wrap"><table class="checks audit" id="ac-audit"><thead><tr><th>Time</th><th>What happened</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
   </div>
 </div>
 
 <div id="ac-transactions" hidden>
   <section class="ws-sec">
-    <h2 class="ws-h">Transactions <span class="ws-h__meta">September 2026</span></h2>
+    <h2 class="ws-h">Transactions</h2>
     <div class="dash-wrap dash-wrap--plain"><table class="dash txns" id="ac-txns"><thead><tr><th>Date</th><th>Description</th><th class="num">Money out</th><th class="num">Money in</th><th class="num">Balance</th></tr></thead><tbody></tbody></table></div>
-    <p class="hint hint--after">Payments marked <b>AI agent</b> were made by your AI agent within the mandate you signed. Blocked attempts never left the account. Watch one happen in the <a href="/terminal">Action Terminal</a>.</p>
   </section>
 </div>
 

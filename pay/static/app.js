@@ -183,19 +183,13 @@ const AP = (() => {
         const per = Number((ad.per_payment_limit || {}).amount || 0), monthly = Number((ad.monthly_limit_per_account || {}).amount || 0);
         const nv = viol.filter(y => y.passport_id === x.passport_id), open = nv.filter(y => y.status === 'OPEN').length; const last = lastBy[x.passport_id];
         const meters = (ad.supplier_allowlist || []).map(sp => { const used = ((x.ledger || {})[sp.account_ref] || {}).total || 0; const pct = monthly ? Math.min(100, Math.round(used / monthly * 100)) : 0; return `<div><span class="meters__k">${esc(sp.name)} <span class="mono small">${esc(sp.account_ref)}</span></span><span class="meters__v">${gbp(used)} of ${gbp(monthly)}</span><span class="meter"><span class="meter__fill${pct >= 100 ? ' over' : pct >= 75 ? ' warn' : ''}" style="transform: scaleX(${pct / 100})"></span></span></div>`; }).join('');
-        const card = el('article', 'agent' + (x.status !== 'active' ? ' agent--off' : ''), `
-          <header class="agent__head"><span><a href="/bank?passport=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a> <span class="mono small">${esc(x.passport_id)}</span></span>${tag(x.status)}</header>
-          <dl class="agent__kv">
-            <div><dt>Owner</dt><dd>${esc((mp.customer || {}).legal_name || '')} · mandate signed by ${esc((m.signed_by || mp.authorising_officer || {}).name || '')}, ${esc((m.signed_by || mp.authorising_officer || {}).role || '')} on ${d(x.mandate_signed_at)} · valid to ${esc(mp.valid_until || '')}</dd></div>
-            <div><dt>Product</dt><dd>${esc(ag.product_name || '')} by ${esc(ag.provider || '')} · admitted ${d((x.admission.product_ref || {}).admitted_at)} · hold above ${gbp(((x.admission.condition || {}).hold_above || {}).amount)}</dd></div>
-            <div><dt>Authentication</dt><dd>key <span class="mono small">${esc((x.agent || {}).kid || '')}</span> · possession proven · three signatures verified on every instruction</dd></div>
-            <div><dt>Permitted</dt><dd>${esc((ad.actions || []).join(', '))} · up to ${gbp(per)} a payment · ${gbp(monthly)} an account in 30 days · ${(ad.supplier_allowlist || []).length} payee accounts</dd></div>
-          </dl>
-          <div class="meters">${meters}</div>
-          <footer class="agent__foot"><span>${nv.length ? `<b class="${open ? 'bad' : ''}">${nv.length} refusal${nv.length === 1 ? '' : 's'}</b>${open ? `, ${open} open` : ''}` : 'no refusals'} · last ${last ? `${t(last.ts)} ${last.entry.decision === 'ALLOW' ? 'paid' : last.entry.decision === 'ESCALATE' ? 'held' : 'refused ' + esc(last.entry.rule)}` : 'none'}</span><a class="btn btn--secondary btn--small" href="/bank?passport=${esc(x.passport_id)}">Manage</a></footer>`);
+        const card = el('div', 'agent-row', `<div class="agent-row__head"><a href="/bank?passport=${esc(x.passport_id)}">${esc(ag.name || x.passport_id)}</a>${tag(x.status)}</div>
+          <div class="small">${esc((mp.customer || {}).legal_name || '')} · signed by ${esc((m.signed_by || mp.authorising_officer || {}).name || '')} · ${esc(ag.product_name || '')} by ${esc(ag.provider || '')} · <span class="mono">${esc(x.passport_id)}</span></div>
+          <div class="small">up to ${gbp(per)} a payment · ${gbp(monthly)} an account in 30 days · ${(ad.supplier_allowlist || []).length} payee accounts · valid to ${esc(mp.valid_until || '')}</div>
+          <div class="small">paid ${gbp(Object.values(x.ledger || {}).reduce((s2, y) => s2 + y.total, 0))} in 30 days · ${nv.length ? `<b class="${open ? 'bad' : ''}">${nv.length} refusal${nv.length === 1 ? '' : 's'}</b>` : 'no refusals'} · last ${last ? `${t(last.ts)} ${last.entry.decision === 'ALLOW' ? 'paid' : last.entry.decision === 'ESCALATE' ? 'held' : 'refused ' + esc(last.entry.rule)}` : 'none'} · <a href="/bank?passport=${esc(x.passport_id)}">manage</a></div>`);
         box.append(card);
       });
-      if (!live.length) box.append(el('p', 'empty', 'No AI agent holds a passport on this bank yet. A customer adds one in its own dashboard once a product is admitted.'));
+      if (!live.length) box.append(el('p', 'small', 'No AI agent holds a passport on this bank yet.'));
       // transaction log
       renderLog(verifies, viol);
       // admissions, register, supervisory access
@@ -504,6 +498,7 @@ const AP = (() => {
       renderMandateForm(p, signed, ad, mp);
       if (ref) $('cu-mandate').scrollIntoView({ block: 'start' });
     }
+    $('cu-add-toggle').onclick = () => { $('cu-add-form').hidden = !$('cu-add-form').hidden; };
     $('btn-create-agent').onclick = async () => {
       const b = $('btn-create-agent'); b.disabled = true; $('cu-create-error').hidden = true; $('cu-create-note').textContent = 'generating key, signing the bank\'s challenge…';
       try { const np = await api('POST', '/api/agents', { registration_id: Number($('cu-model').value), agent_name: $('cu-agent-name').value.trim() || null }); state = await api('GET', '/api/state'); p = state.passports.find(x => x.passport_id === np.passport_id); history.replaceState(null, '', `?ref=${p.passport_id}`); render(); $('cu-mandate').scrollIntoView({ behavior: 'smooth', block: 'start' }); }

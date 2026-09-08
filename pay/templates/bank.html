@@ -5,26 +5,20 @@
 
 <div id="bk-dash" hidden>
   <div class="bd-head">
-    <div><h1 class="h1 h1--ws">Bank dashboard</h1><p class="ws-sub">Every payment an AI agent asks to make from a customer's account, checked, signed and logged. Nothing here is approved by a regulator; everything here can be handed to one.</p></div>
+    <h1 class="h1 h1--ws">Bank dashboard</h1>
     <div class="bd-live"><span class="live-dot" aria-hidden="true"></span><span id="bd-live-label">Live</span><label class="bd-sim"><input type="checkbox" id="bd-sim" checked> simulated traffic</label></div>
   </div>
-  <ul class="stats" id="bk-stats"></ul>
   <div class="todo" id="bk-todo" hidden></div>
-
-  <section class="ws-sec" id="bd-triage" hidden>
-    <h2 class="ws-h">Needs attention <span class="ws-h__meta" id="bd-triage-meta"></span></h2>
+  <section id="bd-triage" hidden>
     <ol class="triage" id="bd-triage-list"></ol>
   </section>
-
   <div class="bd-cols">
     <div class="bd-col">
-      <h2 class="ws-h">Active AI agents <span class="ws-h__meta" id="bd-agents-meta"></span></h2>
-      <p class="hint">Who holds a passport on this bank, who owns it, what it was allowed to do and how much of that it has used. The bank's own access dashboard for AI agents, in the terms question 15 of the HM Treasury consultation asks about: authentication, consent, liability.</p>
+      <h2 class="ws-h">Active AI agents</h2>
       <div id="bk-agents"></div>
     </div>
     <div class="bd-col bd-col--log">
-      <h2 class="ws-h">Transaction log <span class="ws-h__meta"><span id="bd-log-meta"></span> · <a href="/api/audit" target="_blank" rel="noopener">export</a></span></h2>
-      <div class="bd-filters" role="group" aria-label="Filter the log"><button type="button" class="bd-filter" data-filter="all" aria-pressed="true">All</button><button type="button" class="bd-filter" data-filter="ALLOW">Paid</button><button type="button" class="bd-filter" data-filter="ESCALATE">Held</button><button type="button" class="bd-filter" data-filter="DENY">Refused</button><span class="hint bd-filters__hint">Every instruction an AI agent presented, signed and chained. Select a row for the full record: the instruction, the nine checks, the receipt and the chain entry.</span></div>
+      <h2 class="ws-h">Transaction log</h2>
       <div class="dash-wrap"><table class="dash bd-log" id="bd-log"><thead><tr><th>Time</th><th>Result</th><th>Payee</th><th class="num">Amount</th><th>Rule</th><th>Proof</th></tr></thead><tbody></tbody></table></div>
     </div>
   </div>
@@ -37,15 +31,15 @@
       <div class="dash-wrap"><table class="dash" id="bk-products"><thead><tr><th>Product</th><th>Provider</th><th class="num">Hold above</th><th class="num">Agents</th><th>Status</th></tr></thead><tbody></tbody></table></div>
     </section>
     <section class="ws-sec">
-      <h2 class="ws-h">The register <span class="ws-h__meta">read by every bank</span></h2>
+      <h2 class="ws-h">The register</h2>
       <div class="dash-wrap"><table class="dash" id="bk-register"><thead><tr><th>Product</th><th>Provider</th><th>Filed</th><th>Your decision</th></tr></thead><tbody></tbody></table></div>
     </section>
-    <section class="ws-sec ws-sec--quiet" id="bk-supervisory">
-      <h2 class="ws-h">Supervisory access <span class="ws-h__meta">read-only, by exception</span></h2>
+    <section class="ws-sec" id="bk-supervisory">
+      <h2 class="ws-h">Supervisory access</h2>
       <p class="small">A regulator does not operate this dashboard and approves nothing in it. Through normal supervisory and incident processes it can request the evidence for a passport or a refusal; each export is itself recorded in the chain.</p>
       <ul class="evidence-list" id="bk-evidence"></ul>
     </section>
-    <div hidden><span id="bk-trail-meta"></span><span id="ex-meta"></span><table id="bk-audit"><tbody></tbody></table></div>
+    <div hidden><ul id="bk-stats"></ul><span id="bd-log-meta"></span><span id="bd-agents-meta"></span><span id="bd-triage-meta"></span><span id="bk-trail-meta"></span><span id="ex-meta"></span><table id="bk-audit"><tbody></tbody></table></div>
   </details>
 </div>
 
